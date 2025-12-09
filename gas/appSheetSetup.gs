@@ -626,10 +626,12 @@ function getNextStep(examType, currentStepId) {
 }
 
 // ============================================
-// カスタムメニュー
+// カスタムメニュー（AppSheet版 - 必要時に手動で有効化）
 // ============================================
 
-function onOpen() {
+// 元のmain.gsのonOpen()を使用するため、この関数はリネーム
+// 使いたい場合は関数名を onOpen() に戻す
+function onOpen_AppSheet_DISABLED() {
   const ui = SpreadsheetApp.getUi();
 
   // メイン業務メニュー

@@ -1,0 +1,151 @@
+{
+  "version": "2.0.0",
+  "description": "template.xlsm用マッピング設定",
+  "template_file": "template.xlsm",
+
+  "patient_info": {
+    "comment": "1ページ - 基本情報",
+    "sheet": "1ページ",
+    "fields": {
+      "facility_name": {"label": "事業所", "cell": "I5"},
+      "request_id": {"label": "受診No", "cell": "AC5"},
+      "name_kana": {"label": "ｶﾅ氏名", "cell": "I7"},
+      "name": {"label": "氏名", "cell": "I8"},
+      "birthdate": {"label": "生年月日", "cell": "I10"},
+      "age": {"label": "年齢", "cell": "Q10"},
+      "gender": {"label": "性別", "cell": "Z10", "transform": "gender"},
+      "blood_type": {"label": "血液型", "cell": "AI10"},
+      "exam_date": {"label": "受診日今回", "cell": "L11"},
+      "total_judgment": {"label": "総合判定", "cell": "I14"}
+    }
+  },
+
+  "test_items": {
+    "comment": "検査項目マッピング（BML検査コード → セル位置）",
+    "sheets": {
+      "３ページ": {
+        "comment": "身体測定・血圧・肺機能・聴力・眼科",
+        "items": {}
+      },
+      "４ページ": {
+        "comment": "血液検査・生化学検査",
+        "items": {
+          "0000301": {"name": "WBC（白血球数）", "value_cell": "K6"},
+          "0000302": {"name": "RBC（赤血球数）", "value_cell": "K7"},
+          "0000303": {"name": "Hb（血色素量）", "value_cell": "K8"},
+          "0000304": {"name": "Ht（ヘマトクリット）", "value_cell": "K9"},
+          "0000308": {"name": "PLT（血小板）", "value_cell": "K10"},
+          "0000305": {"name": "MCV", "value_cell": "K11"},
+          "0000306": {"name": "MCH", "value_cell": "K12"},
+          "0000307": {"name": "MCHC", "value_cell": "K13"},
+          "0000472": {"name": "T-Bil", "value_cell": "K20"},
+          "0000401": {"name": "TP（総蛋白）", "value_cell": "K21"},
+          "0000402": {"name": "ALB（アルブミン）", "value_cell": "K22"},
+          "0000405": {"name": "BUN（尿素窒素）", "value_cell": "K23"},
+          "0000413": {"name": "Cr（クレアチニン）", "value_cell": "K24"},
+          "0002696": {"name": "eGFR", "value_cell": "K25"},
+          "0000503": {"name": "BS（血糖）", "value_cell": "K26"},
+          "0000450": {"name": "TC（総コレステロール）", "value_cell": "K27"},
+          "0000460": {"name": "HDL-C", "value_cell": "K28"},
+          "0000410": {"name": "LDL-C", "value_cell": "K29"},
+          "0000454": {"name": "TG（中性脂肪）", "value_cell": "K30"},
+          "0000407": {"name": "UA（尿酸）", "value_cell": "K40"},
+          "0000481": {"name": "GOT(AST)", "value_cell": "K52"},
+          "0000482": {"name": "GPT(ALT)", "value_cell": "K53"},
+          "0000484": {"name": "γ-GTP", "value_cell": "K54"},
+          "0003317": {"name": "HbA1c", "value_cell": "K70"},
+          "0000658": {"name": "CRP定量", "value_cell": "K84"}
+        }
+      },
+      "５ページ": {
+        "comment": "腫瘍マーカー・感染症・甲状腺",
+        "items": {}
+      }
+    }
+  },
+
+  "judgment_criteria": {
+    "comment": "判定基準（人間ドック学会2025年度基準）",
+    "items": {
+      "AST_GOT": {
+        "type": "range",
+        "A": {"min": 0, "max": 30},
+        "B": {"min": 31, "max": 35},
+        "C": {"min": 36, "max": 50},
+        "D": {"min": 51, "max": null}
+      },
+      "ALT_GPT": {
+        "type": "range",
+        "A": {"min": 0, "max": 30},
+        "B": {"min": 31, "max": 40},
+        "C": {"min": 41, "max": 50},
+        "D": {"min": 51, "max": null}
+      },
+      "GAMMA_GTP": {
+        "type": "range",
+        "A": {"min": 0, "max": 50},
+        "B": {"min": 51, "max": 80},
+        "C": {"min": 81, "max": 100},
+        "D": {"min": 101, "max": null}
+      },
+      "HDL_CHOLESTEROL": {
+        "type": "range",
+        "A": {"min": 40, "max": 100},
+        "B": null,
+        "C": {"min": 30, "max": 39},
+        "D": {"min": null, "max": 29}
+      },
+      "LDL_CHOLESTEROL": {
+        "type": "range",
+        "A": {"min": 60, "max": 119},
+        "B": {"min": 120, "max": 139},
+        "C": {"min": 140, "max": 179},
+        "D": {"min": 180, "max": null}
+      },
+      "TRIGLYCERIDES": {
+        "type": "range",
+        "A": {"min": 30, "max": 149},
+        "B": {"min": 150, "max": 299},
+        "C": {"min": 300, "max": 499},
+        "D": {"min": 500, "max": null}
+      },
+      "FASTING_GLUCOSE": {
+        "type": "range",
+        "A": {"min": null, "max": 99},
+        "B": {"min": 100, "max": 109},
+        "C": {"min": 110, "max": 125},
+        "D": {"min": 126, "max": null}
+      },
+      "HBA1C": {
+        "type": "range",
+        "A": {"min": null, "max": 5.5},
+        "B": {"min": 5.6, "max": 5.9},
+        "C": {"min": 6.0, "max": 6.4},
+        "D": {"min": 6.5, "max": null}
+      },
+      "CRP": {
+        "type": "range",
+        "A": {"min": 0, "max": 0.3},
+        "B": {"min": 0.31, "max": 0.99},
+        "C": {"min": 1.0, "max": 1.99},
+        "D": {"min": 2.0, "max": null}
+      },
+      "EGFR": {
+        "type": "range",
+        "A": {"min": 60, "max": null},
+        "B": {"min": 45, "max": 59.9},
+        "C": {"min": 30, "max": 44.9},
+        "D": {"min": null, "max": 29.9}
+      }
+    }
+  },
+
+  "transforms": {
+    "gender": {
+      "1": "男",
+      "2": "女",
+      "M": "男",
+      "F": "女"
+    }
+  }
+}

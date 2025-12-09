@@ -1,0 +1,23 @@
+# OS
+.DS_Store
+
+# Claude
+.claude/
+
+# Data files (privacy)
+01_csv/
+02_出力フォルダ/
+03_処理済みCSV/
+04_エラーCSV/
+05_ログ/
+
+# Binary/Large files
+*.pdf
+*.xlsx
+*.gsheet
+
+# Scripts (local)
+scripts/
+
+# Templates
+結果入力テンプレ/

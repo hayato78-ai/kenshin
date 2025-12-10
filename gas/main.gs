@@ -778,6 +778,11 @@ function onOpen() {
       .addSeparator()
       .addItem('APIキー設定', 'setAnthropicApiKey'))
     .addSeparator()
+    // Python連携Excel出力メニュー
+    .addSubMenu(ui.createMenu('📊 Excel出力 (Python)')
+      .addItem('選択行をExcel出力', 'exportSelectedRowViaPython')
+      .addItem('全員をExcel出力', 'exportAllRowsViaPython'))
+    .addSeparator()
     .addSubMenu(ui.createMenu('設定')
       .addItem('トリガーを設定', 'setupTriggers')
       .addItem('トリガーを削除', 'removeTriggers')

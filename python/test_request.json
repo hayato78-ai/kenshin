@@ -1,0 +1,11 @@
+{
+  "request_id": "TEST_001",
+  "exam_type": "HUMAN_DOCK",
+  "timestamp": "2025-12-10T10:00:00",
+  "csv_path": "/Users/hytenhd_mac/Downloads/BML_人間ドック_csv/O6319101.csv",
+  "output_filename": "test_output.xlsx",
+  "options": {
+    "include_judgment": true,
+    "format": "xlsx"
+  }
+}

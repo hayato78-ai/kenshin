@@ -21,3 +21,14 @@ scripts/
 
 # Templates
 結果入力テンプレ/
+
+# Python
+python/venv/
+python/__pycache__/
+python/*.pyc
+python/logs/
+python/output/
+python/pending/
+python/processed/
+python/error/
+*.log

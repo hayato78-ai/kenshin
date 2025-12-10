@@ -416,27 +416,12 @@ class HumanDockTranscriber:
         return {'success': False, 'error': 'csv_path が指定されていません'}
 
     def _transfer_patient_info(self, ws, patient_info: Dict, gender: str) -> int:
-        """患者基本情報を転記"""
+        """患者基本情報を転記（４ページには患者情報なし、1ページに転記）"""
         count = 0
-        try:
-            # 受診日
-            exam_date = patient_info.get('exam_date', '')
-            if exam_date and len(exam_date) == 8:
-                formatted_date = f"{exam_date[:4]}/{exam_date[4:6]}/{exam_date[6:]}"
-                ws['AG5'] = formatted_date
-                count += 1
-
-            # 依頼ID
-            ws['G8'] = patient_info.get('request_id', '')
-            count += 1
-
-            # 性別
-            ws['S9'] = "男" if gender == "M" else "女"
-            count += 1
-
-        except Exception as e:
-            logger.warning(f"⚠️ 患者情報転記エラー: {e}")
-
+        # 注: template.xlsmの患者情報は1ページにあるため、
+        # 4ページのwsではなく別シートへの転記が必要
+        # 現時点では検査結果のみ転記
+        logger.info(f"  患者情報: request_id={patient_info.get('request_id')}, exam_date={patient_info.get('exam_date')}")
         return count
 
     def _transfer_test_results(self, ws, test_results: list, gender: str) -> int:
@@ -453,20 +438,23 @@ class HumanDockTranscriber:
             item_spec = test_item_map[code]
 
             try:
-                value_cell = item_spec.get('value_cell')
+                # 新形式: 'cell' キー（template.xlsm用）
+                # 旧形式: 'value_cell', 'judgment_cell' キー
+                cell = item_spec.get('cell') or item_spec.get('value_cell')
                 judgment_cell = item_spec.get('judgment_cell')
 
                 # 結果値を転記
-                if value_cell:
+                if cell:
                     raw_value = result['value']
                     try:
                         numeric_value = float(raw_value)
-                        ws[value_cell] = numeric_value
+                        ws[cell] = numeric_value
                     except (ValueError, TypeError):
-                        ws[value_cell] = raw_value
+                        ws[cell] = raw_value
                     count += 1
+                    logger.debug(f"  {code} → {cell}: {raw_value}")
 
-                # 判定を転記
+                # 判定を転記（judgment_cellがある場合のみ）
                 if judgment_cell and self.judgment_engine:
                     judgment = self.judgment_engine.judge_by_code(
                         code, result['value'], result['flag'], gender
@@ -475,6 +463,27 @@ class HumanDockTranscriber:
 
             except Exception as e:
                 logger.warning(f"⚠️ 検査項目 {code}: {e}")
+
+        # 重複項目の転記（duplicate_items）
+        duplicate_map = self.mapping.get('duplicate_items', {}).get('mappings', {})
+        if duplicate_map:
+            for result in test_results:
+                code = result['code']
+                alt_key = f"{code}_alt"
+                if alt_key in duplicate_map:
+                    alt_spec = duplicate_map[alt_key]
+                    alt_cell = alt_spec.get('cell')
+                    if alt_cell:
+                        try:
+                            raw_value = result['value']
+                            try:
+                                numeric_value = float(raw_value)
+                                ws[alt_cell] = numeric_value
+                            except (ValueError, TypeError):
+                                ws[alt_cell] = raw_value
+                            count += 1
+                        except Exception as e:
+                            logger.warning(f"⚠️ 重複項目 {alt_key}: {e}")
 
         return count
 

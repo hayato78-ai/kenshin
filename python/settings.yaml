@@ -67,12 +67,12 @@ exam_types:
   # 人間ドック
   HUMAN_DOCK:
     name: 人間ドック
-    template: 20250908_フォーマット健康診断結果表(サンプル値あり).xlsm
-    mapping: mapping.json
-    sheet_name: 項目評価
-    # 人間ドック用の明示的パス（項目評価シートを含むテンプレート）
-    template_path: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/20_人間ドック/結果入力/結果入力テンプレ/テンプレフォルダ/20250908_フォーマット健康診断結果表(サンプル値あり).xlsm
-    mapping_path: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/20_人間ドック/結果入力/設計書_設定ファイル/mapping.json
+    template: template.xlsm
+    mapping: mapping_template.json
+    sheet_name: ４ページ
+    # 人間ドック用パス（template.xlsm）
+    template_path: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/20_人間ドック/結果入力/結果入力テンプレ/テンプレフォルダ/template.xlsm
+    mapping_path: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/20_人間ドック/結果入力/設計書_設定ファイル/mapping_template.json
 
   # 定期検診
   REGULAR_CHECKUP:

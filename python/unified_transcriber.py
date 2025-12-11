@@ -438,28 +438,37 @@ class HumanDockTranscriber:
             item_spec = test_item_map[code]
 
             try:
-                # 新形式: 'cell' キー（template.xlsm用）
-                # 旧形式: 'value_cell', 'judgment_cell' キー
-                cell = item_spec.get('cell') or item_spec.get('value_cell')
+                # マッピング形式対応:
+                # - 形式1: 'cell' キー（旧template.xlsm K列用）
+                # - 形式2: 'value_cell', 'judgment_cell', 'flag_cell' キー（新テンプレート用）
+                value_cell = item_spec.get('value_cell') or item_spec.get('cell')
                 judgment_cell = item_spec.get('judgment_cell')
+                flag_cell = item_spec.get('flag_cell')
 
-                # 結果値を転記
-                if cell:
+                # 結果値を転記（M列）
+                if value_cell:
                     raw_value = result['value']
                     try:
                         numeric_value = float(raw_value)
-                        ws[cell] = numeric_value
+                        ws[value_cell] = numeric_value
                     except (ValueError, TypeError):
-                        ws[cell] = raw_value
+                        ws[value_cell] = raw_value
                     count += 1
-                    logger.debug(f"  {code} → {cell}: {raw_value}")
+                    logger.debug(f"  {code} → {value_cell}: {raw_value}")
 
-                # 判定を転記（judgment_cellがある場合のみ）
+                # H/Lフラグを転記（O列）
+                if flag_cell and result.get('flag'):
+                    ws[flag_cell] = result['flag']
+                    count += 1
+
+                # 判定を転記（K列、judgment_cellがある場合のみ）
                 if judgment_cell and self.judgment_engine:
                     judgment = self.judgment_engine.judge_by_code(
-                        code, result['value'], result['flag'], gender
+                        code, result['value'], result.get('flag', ''), gender
                     )
-                    ws[judgment_cell] = judgment
+                    if judgment:
+                        ws[judgment_cell] = judgment
+                        count += 1
 
             except Exception as e:
                 logger.warning(f"⚠️ 検査項目 {code}: {e}")

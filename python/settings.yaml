@@ -64,15 +64,15 @@ exam_types:
     template_path: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/40_労災二次検診/30_共通資料/81_結果入力/kenshin_idheart.xlsx
     mapping_path: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/40_労災二次検診/30_共通資料/81_結果入力/config/idheart_cell_mapping.yaml
 
-  # 人間ドック
+  # 人間ドック（新テンプレート）
   HUMAN_DOCK:
     name: 人間ドック
-    template: template.xlsm
-    mapping: mapping_template.json
+    template: template_new_項目のみ_転記テスト.xlsm
+    mapping: mapping_template_new.json
     sheet_name: ４ページ
-    # 人間ドック用パス（template.xlsm）
-    template_path: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/20_人間ドック/結果入力/結果入力テンプレ/テンプレフォルダ/template.xlsm
-    mapping_path: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/20_人間ドック/結果入力/設計書_設定ファイル/mapping_template.json
+    # 人間ドック用パス（新テンプレート: M列=数値, K列=判定, O列=H/L）
+    template_path: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/20_人間ドック/結果入力/結果入力テンプレ/テンプレフォルダ/template_new_項目のみ_転記テスト.xlsm
+    mapping_path: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/20_人間ドック/結果入力/設計書_設定ファイル/mapping_template_new.json
 
   # 定期検診
   REGULAR_CHECKUP:

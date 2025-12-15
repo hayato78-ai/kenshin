@@ -814,6 +814,13 @@ function onOpen() {
       .addItem('テンプレート確認', 'showReportTemplateList')
       .addItem('マッピング設定確認', 'showReportMappingList'))
     .addSeparator()
+    // 請求管理メニュー（Phase 4追加）
+    .addSubMenu(ui.createMenu('💰 請求管理')
+      .addItem('請求額一覧', 'showBillingListDialog')
+      .addSeparator()
+      .addItem('請求ステータス列を初期化', 'initializeBillingStatusColumn')
+      .addItem('請求一覧Excel出力', 'testExportBillingToExcel'))
+    .addSeparator()
     .addSubMenu(ui.createMenu('設定')
       .addItem('トリガーを設定', 'setupTriggers')
       .addItem('トリガーを削除', 'removeTriggers')

@@ -1,0 +1,140 @@
+{
+  "version": "3.0.0",
+  "description": "template_new_項目のみ_転記テスト.xlsm用 BMLコード→セルマッピング",
+  "template": "template_new_項目のみ_転記テスト.xlsm",
+  "sheet": "４ページ",
+  "note": "K列=判定(A/B/C/D)、M列=数値(M-N結合セル)、O列=H/L表示",
+
+  "column_structure": {
+    "judgment_col": "K",
+    "value_col": "M",
+    "flag_col": "O",
+    "comment": "M-N列は結合セル、値はM列に入力"
+  },
+
+  "patient_info": {
+    "comment": "患者基本情報（1ページ）",
+    "sheet": "1ページ",
+    "fields": {
+      "name": {"cell": "C8", "comment": "氏名"},
+      "exam_date": {"cell": "I11", "comment": "受診日（今回）"},
+      "gender": {"cell": null, "comment": "性別（セル位置要確認）"}
+    }
+  },
+
+  "test_items": {
+    "comment": "検査項目マッピング（４ページ）- 正確な行番号",
+    "sheet": "４ページ",
+    "items": {
+      "_comment": "=== 血液一般 ===",
+      "0000301": {"name": "WBC", "display": "白血球数", "row": 6, "value_cell": "M6", "judgment_cell": "K6", "flag_cell": "O6"},
+      "0000302": {"name": "RBC", "display": "赤血球数", "row": 7, "value_cell": "M7", "judgment_cell": "K7", "flag_cell": "O7"},
+      "0000303": {"name": "Hb", "display": "血色素量(ヘモグロビン)", "row": 8, "value_cell": "M8", "judgment_cell": "K8", "flag_cell": "O8"},
+      "0000304": {"name": "Ht", "display": "ヘマトクリット", "row": 9, "value_cell": "M9", "judgment_cell": "K9", "flag_cell": "O9"},
+      "0000308": {"name": "PLT", "display": "血小板(PLT)", "row": 10, "value_cell": "M10", "judgment_cell": "K10", "flag_cell": "O10"},
+      "0000305": {"name": "MCV", "display": "MCV", "row": 11, "value_cell": "M11", "judgment_cell": "K11", "flag_cell": "O11"},
+      "0000306": {"name": "MCH", "display": "MCH", "row": 12, "value_cell": "M12", "judgment_cell": "K12", "flag_cell": "O12"},
+      "0000307": {"name": "MCHC", "display": "MCHC", "row": 13, "value_cell": "M13", "judgment_cell": "K13", "flag_cell": "O13"},
+
+      "_comment2": "=== 白血球像 ===",
+      "0001885": {"name": "NEUT", "display": "好中球", "row": 15, "value_cell": "M15", "judgment_cell": "K15", "flag_cell": "O15"},
+      "0001881": {"name": "BASO", "display": "好塩基球", "row": 16, "value_cell": "M16", "judgment_cell": "K16", "flag_cell": "O16"},
+      "0001882": {"name": "EOS", "display": "好酸球", "row": 17, "value_cell": "M17", "judgment_cell": "K17", "flag_cell": "O17"},
+      "0001889": {"name": "LYMPHO", "display": "リンパ球", "row": 18, "value_cell": "M18", "judgment_cell": "K18", "flag_cell": "O18"},
+      "0001886": {"name": "MONO", "display": "単球", "row": 19, "value_cell": "M19", "judgment_cell": "K19", "flag_cell": "O19"},
+
+      "_comment3": "=== 生化学 ===",
+      "0000401": {"name": "TP", "display": "総蛋白(TP)", "row": 22, "value_cell": "M22", "judgment_cell": "K22", "flag_cell": "O22"},
+      "0000417": {"name": "ALB", "display": "アルブミン", "row": 23, "value_cell": "M23", "judgment_cell": "K23", "flag_cell": "O23"},
+      "0000481": {"name": "AST", "display": "AST(GOT)", "row": 24, "value_cell": "M24", "judgment_cell": "K24", "flag_cell": "O24"},
+      "0000482": {"name": "ALT", "display": "ALT(GPT)", "row": 25, "value_cell": "M25", "judgment_cell": "K25", "flag_cell": "O25"},
+      "0000484": {"name": "GGT", "display": "γ-GTP", "row": 26, "value_cell": "M26", "judgment_cell": "K26", "flag_cell": "O26"},
+      "0013067": {"name": "ALP", "display": "ALP(IFCC)", "row": 27, "value_cell": "M27", "judgment_cell": "K27", "flag_cell": "O27"},
+      "0000497": {"name": "LDH", "display": "LDH(乳酸脱水素酵素)", "row": 28, "value_cell": "M28", "judgment_cell": "K28", "flag_cell": "O28"},
+      "0000472": {"name": "T-Bil", "display": "総ビリルビン(T-Bil)", "row": 31, "value_cell": "M31", "judgment_cell": "K31", "flag_cell": "O31"},
+
+      "_comment4": "=== 脂質 ===",
+      "0000453": {"name": "TC", "display": "総コレステロール", "row": 32, "value_cell": "M32", "judgment_cell": "K32", "flag_cell": "O32"},
+      "0000454": {"name": "TG", "display": "中性脂肪(TG)", "row": 33, "value_cell": "M33", "judgment_cell": "K33", "flag_cell": "O33"},
+      "0000460": {"name": "HDL", "display": "HDLコレステロール", "row": 34, "value_cell": "M34", "judgment_cell": "K34", "flag_cell": "O34"},
+      "0000410": {"name": "LDL", "display": "LDLコレステロール", "row": 35, "value_cell": "M35", "judgment_cell": "K35", "flag_cell": "O35"},
+
+      "_comment5": "=== 糖代謝 ===",
+      "0000503": {"name": "FBS", "display": "空腹時血糖", "row": 38, "value_cell": "M38", "judgment_cell": "K38", "flag_cell": "O38"},
+      "0003317": {"name": "HbA1c", "display": "HbA1c", "row": 39, "value_cell": "M39", "judgment_cell": "K39", "flag_cell": "O39"},
+
+      "_comment6": "=== 腎機能 ===",
+      "0000413": {"name": "Cre", "display": "クレアチニン", "row": 41, "value_cell": "M41", "judgment_cell": "K41", "flag_cell": "O41"},
+      "0000491": {"name": "BUN", "display": "尿素窒素(BUN)", "row": 42, "value_cell": "M42", "judgment_cell": "K42", "flag_cell": "O42"},
+      "0002696": {"name": "eGFR", "display": "eGFR", "row": 43, "value_cell": "M43", "judgment_cell": "K43", "flag_cell": "O43"},
+
+      "_comment7": "=== その他 ===",
+      "0000407": {"name": "UA", "display": "尿酸(UA)", "row": 45, "value_cell": "M45", "judgment_cell": "K45", "flag_cell": "O45"},
+      "0003845": {"name": "CK", "display": "クレアチニンキナーゼ(CK)", "row": 46, "value_cell": "M46", "judgment_cell": "K46", "flag_cell": "O46"},
+      "0003550": {"name": "Na", "display": "ナトリウム(Na)", "row": 47, "value_cell": "M47", "judgment_cell": "K47", "flag_cell": "O47"},
+      "0000421": {"name": "K", "display": "カリウム(K)", "row": 48, "value_cell": "M48", "judgment_cell": "K48", "flag_cell": "O48"},
+      "0000425": {"name": "Cl", "display": "クロール(Cl)", "row": 49, "value_cell": "M49", "judgment_cell": "K49", "flag_cell": "O49"},
+      "0000658": {"name": "CRP", "display": "CRP定量", "row": 54, "value_cell": "M54", "judgment_cell": "K54", "flag_cell": "O54"}
+    }
+  },
+
+  "bml_code_reference": {
+    "comment": "BMLコード参照表（CSVの検査コード）",
+    "codes": {
+      "0000301": "白血球数 WBC",
+      "0000302": "赤血球数 RBC",
+      "0000303": "ヘモグロビン Hb",
+      "0000304": "ヘマトクリット Ht",
+      "0000305": "MCV",
+      "0000306": "MCH",
+      "0000307": "MCHC",
+      "0000308": "血小板 PLT",
+      "0000401": "総蛋白 TP",
+      "0000407": "尿酸 UA",
+      "0000410": "LDL-C",
+      "0000413": "クレアチニン Cre",
+      "0000417": "アルブミン ALB",
+      "0000421": "カリウム K",
+      "0000425": "クロール Cl",
+      "0000453": "総コレステロール TC",
+      "0000454": "中性脂肪 TG",
+      "0000460": "HDL-C",
+      "0000472": "総ビリルビン T-Bil",
+      "0000481": "AST(GOT)",
+      "0000482": "ALT(GPT)",
+      "0000484": "γ-GTP",
+      "0000491": "尿素窒素 BUN",
+      "0000497": "LDH",
+      "0000503": "空腹時血糖 FBS",
+      "0000658": "CRP",
+      "0001881": "好塩基球 BASO",
+      "0001882": "好酸球 EOS",
+      "0001885": "好中球 NEUT",
+      "0001886": "単球 MONO",
+      "0001889": "リンパ球 LYMPHO",
+      "0002696": "eGFR",
+      "0003317": "HbA1c",
+      "0003550": "ナトリウム Na",
+      "0003845": "CK",
+      "0013067": "ALP"
+    }
+  },
+
+  "missing_from_csv": {
+    "comment": "CSVに存在しない項目（テンプレートにあるが転記不可）",
+    "items": [
+      {"row": 11, "name": "MCV", "note": "計算で算出可能(BMLコード: 0000305があれば転記可)"},
+      {"row": 12, "name": "MCH", "note": "計算で算出可能(BMLコード: 0000306があれば転記可)"},
+      {"row": 13, "name": "MCHC", "note": "計算で算出可能(BMLコード: 0000307があれば転記可)"},
+      {"row": 20, "name": "プロトロンビン時間(PT)"},
+      {"row": 21, "name": "活性化部分トロンボプラスチン時間(APTT)"},
+      {"row": 29, "name": "コリンエステラーゼ(Ch-E)"},
+      {"row": 30, "name": "血清アミラーゼ"},
+      {"row": 36, "name": "non HDLコレステロール", "note": "計算で算出可能(TC - HDL)"},
+      {"row": 50, "name": "カルシウム(Ca)"},
+      {"row": 51, "name": "血清鉄(Fe)"},
+      {"row": 52, "name": "総鉄結合能(TIBC)"},
+      {"row": 55, "name": "リウマトイド因子定量"}
+    ]
+  }
+}

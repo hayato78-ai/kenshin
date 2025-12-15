@@ -1,4 +1,4 @@
-# macOS
+# OS
 .DS_Store
 .AppleDouble
 .LSOverride
@@ -15,3 +15,32 @@
 .idea/
 .vscode/
 *.swp
+
+# Data files (privacy)
+01_csv/
+02_出力フォルダ/
+03_処理済みCSV/
+04_エラーCSV/
+05_ログ/
+
+# Binary/Large files
+*.pdf
+*.xlsx
+*.gsheet
+
+# Scripts (local)
+scripts/
+
+# Templates
+結果入力テンプレ/
+
+# Python
+python/venv/
+python/__pycache__/
+python/*.pyc
+python/logs/
+python/output/
+python/pending/
+python/processed/
+python/error/
+*.log

@@ -1,0 +1,135 @@
+{
+  "version": "1.0.0",
+  "description": "CSV to Excel mapping configuration",
+
+  "patient_info": {
+    "comment": "Patient basic info mapping",
+    "fields": {
+      "facility_code": {"csv_col": 0, "excel_cell": null},
+      "request_id": {"csv_col": 1, "excel_cell": "G8", "sheet": "項目評価"},
+      "name_kana": {"csv_col": 2, "excel_cell": null},
+      "exam_date": {"csv_col": 3, "excel_cell": "AG5", "sheet": "項目評価"},
+      "exam_time": {"csv_col": 4, "excel_cell": null},
+      "test_set": {"csv_col": 5, "excel_cell": null},
+      "insurance_no": {"csv_col": 6, "excel_cell": null},
+      "department": {"csv_col": 9, "excel_cell": null},
+      "doctor": {"csv_col": 11, "excel_cell": null},
+      "gender": {"csv_col": 12, "excel_cell": "S9", "sheet": "項目評価", "transform": "gender"},
+      "birthdate": {"csv_col": 13, "excel_cell": "G12", "sheet": "項目評価"}
+    }
+  },
+
+  "test_items": {
+    "comment": "Test item mapping (CSV code to Excel cell)",
+    "sheet": "項目評価",
+    "items": {
+      "0000401": {"name": "TP", "value_cell": "AD34", "judgment_cell": "AH34"},
+      "0000407": {"name": "UA", "value_cell": "AD41", "judgment_cell": "AH41"},
+      "0000454": {"name": "TG", "value_cell": "M37", "judgment_cell": "Q37"},
+      "0000481": {"name": "AST", "value_cell": "AD36", "judgment_cell": "AH36"},
+      "0000482": {"name": "ALT", "value_cell": "AD37", "judgment_cell": "AH37"},
+      "0000484": {"name": "GGT", "value_cell": "AD38", "judgment_cell": "AH38"},
+      "0000460": {"name": "HDL", "value_cell": "M35", "judgment_cell": "Q35"},
+      "0000410": {"name": "LDL", "value_cell": "M36", "judgment_cell": "Q36"},
+      "0000301": {"name": "WBC", "value_cell": "M38", "judgment_cell": "Q38"},
+      "0000302": {"name": "RBC", "value_cell": "M39", "judgment_cell": "Q39"},
+      "0000303": {"name": "Hb", "value_cell": "M40", "judgment_cell": "Q40"},
+      "0000304": {"name": "Ht", "value_cell": "M41", "judgment_cell": "Q41"},
+      "0000305": {"name": "MCV", "value_cell": "M42", "judgment_cell": "Q42"},
+      "0000306": {"name": "MCH", "value_cell": "M43", "judgment_cell": "Q43"},
+      "0000307": {"name": "MCHC", "value_cell": "M44", "judgment_cell": "Q44"},
+      "0000308": {"name": "PLT", "value_cell": "M45", "judgment_cell": "Q45"},
+      "0000503": {"name": "FBS", "value_cell": "AD42", "judgment_cell": "AH42"},
+      "0003317": {"name": "HbA1c", "value_cell": "AD43", "judgment_cell": "AH43"},
+      "0000413": {"name": "Cre", "value_cell": "AD44", "judgment_cell": "AH44"},
+      "0000658": {"name": "CRP", "value_cell": "AD40", "judgment_cell": "AH40"},
+      "0000472": {"name": "T-Bil", "value_cell": "AD35", "judgment_cell": "AH35"},
+      "0002696": {"name": "eGFR", "value_cell": "AD45", "judgment_cell": "AH45"}
+    }
+  },
+
+  "judgment_criteria": {
+    "comment": "Judgment criteria based on JADD 2025",
+    "items": {
+      "AST_GOT": {
+        "type": "range",
+        "A": {"min": 0, "max": 30},
+        "B": {"min": 31, "max": 35},
+        "C": {"min": 36, "max": 50},
+        "D": {"min": 51, "max": null}
+      },
+      "ALT_GPT": {
+        "type": "range",
+        "A": {"min": 0, "max": 30},
+        "B": {"min": 31, "max": 40},
+        "C": {"min": 41, "max": 50},
+        "D": {"min": 51, "max": null}
+      },
+      "GAMMA_GTP": {
+        "type": "range",
+        "A": {"min": 0, "max": 50},
+        "B": {"min": 51, "max": 80},
+        "C": {"min": 81, "max": 100},
+        "D": {"min": 101, "max": null}
+      },
+      "HDL_CHOLESTEROL": {
+        "type": "range",
+        "A": {"min": 40, "max": 100},
+        "B": null,
+        "C": {"min": 30, "max": 39},
+        "D": {"min": null, "max": 29}
+      },
+      "LDL_CHOLESTEROL": {
+        "type": "range",
+        "A": {"min": 60, "max": 119},
+        "B": {"min": 120, "max": 139},
+        "C": {"min": 140, "max": 179},
+        "D": {"min": 180, "max": null}
+      },
+      "TRIGLYCERIDES": {
+        "type": "range",
+        "A": {"min": 30, "max": 149},
+        "B": {"min": 150, "max": 299},
+        "C": {"min": 300, "max": 499},
+        "D": {"min": 500, "max": null}
+      },
+      "FASTING_GLUCOSE": {
+        "type": "range",
+        "A": {"min": null, "max": 99},
+        "B": {"min": 100, "max": 109},
+        "C": {"min": 110, "max": 125},
+        "D": {"min": 126, "max": null}
+      },
+      "HBA1C": {
+        "type": "range",
+        "A": {"min": null, "max": 5.5},
+        "B": {"min": 5.6, "max": 5.9},
+        "C": {"min": 6.0, "max": 6.4},
+        "D": {"min": 6.5, "max": null}
+      },
+      "CRP": {
+        "type": "range",
+        "A": {"min": 0, "max": 0.3},
+        "B": {"min": 0.31, "max": 0.99},
+        "C": {"min": 1.0, "max": 1.99},
+        "D": {"min": 2.0, "max": null}
+      },
+      "EGFR": {
+        "type": "range",
+        "A": {"min": 60, "max": null},
+        "B": {"min": 45, "max": 59.9},
+        "C": {"min": 30, "max": 44.9},
+        "D": {"min": null, "max": 29.9}
+      }
+    }
+  },
+
+  "transforms": {
+    "gender": {
+      "1": "男",
+      "2": "女",
+      "M": "男",
+      "F": "女"
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "request_id": "REQ_20251209_1115TEST",
+  "exam_type": "ROSAI_SECONDARY",
+  "created_at": "2025-12-09T22:00:00+09:00",
+  "case": {
+    "case_id": "CASE_20251115",
+    "company_name": "株式会社リクソル",
+    "course_name": "労災二次検診"
+  },
+  "patient": {
+    "name": "テスト太郎",
+    "chart_no": "1115-0001",
+    "gender": "男性",
+    "birthdate": "1975-03-10",
+    "age": 49,
+    "visit_date": "2025-11-15"
+  },
+  "blood_tests": {
+    "lipid": {
+      "ldl_c": {"value": 142, "judgment": "C", "flag": "H"},
+      "hdl_c": {"value": 48, "judgment": "B", "flag": ""},
+      "tg": {"value": 180, "judgment": "B", "flag": "H"}
+    },
+    "glucose": {
+      "fbs": {"value": 112, "judgment": "B", "flag": "H"},
+      "hba1c_ngsp": {"value": 6.2, "judgment": "B", "flag": ""}
+    }
+  },
+  "ultrasound": {
+    "cardiac": {
+      "findings": "EF 65% 異常所見なし",
+      "judgment": "A"
+    },
+    "carotid": {
+      "findings": "右IMT 1.1mm プラーク疑い",
+      "judgment": "C"
+    }
+  },
+  "guidance": {
+    "text": "LDLコレステロールおよび中性脂肪が高値です。動脈硬化予防のため、食生活の改善と定期的な運動をお勧めします。頸動脈エコーでプラーク疑いがあるため、経過観察が必要です。",
+    "doctor_name": "検査医師"
+  },
+  "output": {
+    "template": "rosai_secondary",
+    "folder_id": "dummy",
+    "folder_path": "/Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/40_労災二次検診/10_案件/20251115_株式会社リクソル様/40_報告書",
+    "case_name": "20251115_株式会社リクソル様"
+  }
+}

@@ -18,10 +18,31 @@ function initializePortal() {
   // ドラッグ＆ドロップ設定
   setupCsvDropZone();
 
+  // Enterキーで次のフィールドに移動
+  setupAutoNextFields();
+
   // 初期データ読み込み
   loadPatientProgress();
 
   console.log('Portal initialized');
+}
+
+// Enterキーで次のフィールドに移動
+function setupAutoNextFields() {
+  document.querySelectorAll('.auto-next').forEach(input => {
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const nextId = this.getAttribute('data-next');
+        if (nextId) {
+          const nextElement = document.getElementById(nextId);
+          if (nextElement) {
+            nextElement.focus();
+          }
+        }
+      }
+    });
+  });
 }
 
 // ============================================================
@@ -159,22 +180,54 @@ function hideNewPatientForm() {
 }
 
 function registerNewPatient() {
-  const patientData = {
-    '患者ID': document.getElementById('newPatientId').value.trim(),
-    '氏名': document.getElementById('newPatientName').value.trim(),
-    'カナ': document.getElementById('newPatientKana').value.trim(),
-    '生年月日': document.getElementById('newPatientBirthDate').value,
-    '性別': document.getElementById('newPatientGender').value,
-    'コース': document.getElementById('newPatientCourse').value,
-    '検査日': document.getElementById('newPatientExamDate').value,
-    '企業名': document.getElementById('newPatientCompany').value.trim(),
-    '登録日': new Date().toISOString()
-  };
+  const lastName = document.getElementById('newPatientLastName').value.trim();
+  const firstName = document.getElementById('newPatientFirstName').value.trim();
+  const lastNameKana = document.getElementById('newPatientLastNameKana').value.trim();
+  const firstNameKana = document.getElementById('newPatientFirstNameKana').value.trim();
+  const patientId = document.getElementById('newPatientId').value.trim();
 
-  if (!patientData['患者ID'] || !patientData['氏名'] || !patientData['カナ']) {
-    showNotification('患者ID、氏名、カナは必須です', 'error');
+  // バリデーション
+  if (!patientId) {
+    showNotification('患者IDは必須です', 'error');
+    document.getElementById('newPatientId').focus();
     return;
   }
+  if (!lastName || !firstName) {
+    showNotification('姓・名は必須です', 'error');
+    document.getElementById('newPatientLastName').focus();
+    return;
+  }
+  if (!lastNameKana || !firstNameKana) {
+    showNotification('セイ・メイは必須です', 'error');
+    document.getElementById('newPatientLastNameKana').focus();
+    return;
+  }
+
+  // 氏名とカナを結合
+  const fullName = lastName + ' ' + firstName;
+  const fullNameKana = lastNameKana + ' ' + firstNameKana;
+
+  // 年齢計算
+  const birthDate = document.getElementById('newPatientBirthDate').value;
+  let age = '';
+  if (birthDate) {
+    age = calculateAge(birthDate);
+  }
+
+  const patientData = {
+    patientId: patientId,
+    status: '入力中',
+    examDate: document.getElementById('newPatientExamDate').value,
+    name: fullName,
+    nameKana: fullNameKana,
+    gender: document.getElementById('newPatientGender').value,
+    birthDate: birthDate,
+    age: age,
+    course: document.getElementById('newPatientCourse').value,
+    company: document.getElementById('newPatientCompany').value.trim(),
+    department: '',
+    overallJudgment: ''
+  };
 
   showLoading('登録中...');
 
@@ -182,7 +235,7 @@ function registerNewPatient() {
     .withSuccessHandler(function(result) {
       hideLoading();
       if (result.success) {
-        showNotification('受診者を登録しました', 'success');
+        showNotification('受診者を登録しました: ' + patientId, 'success');
         hideNewPatientForm();
         clearNewPatientForm();
       } else {
@@ -198,8 +251,10 @@ function registerNewPatient() {
 
 function clearNewPatientForm() {
   document.getElementById('newPatientId').value = '';
-  document.getElementById('newPatientName').value = '';
-  document.getElementById('newPatientKana').value = '';
+  document.getElementById('newPatientLastName').value = '';
+  document.getElementById('newPatientFirstName').value = '';
+  document.getElementById('newPatientLastNameKana').value = '';
+  document.getElementById('newPatientFirstNameKana').value = '';
   document.getElementById('newPatientBirthDate').value = '';
   document.getElementById('newPatientGender').value = '';
   document.getElementById('newPatientCompany').value = '';

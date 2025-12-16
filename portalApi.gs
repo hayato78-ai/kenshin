@@ -6,6 +6,56 @@
  */
 
 // ============================================================
+// スプレッドシート接続
+// ============================================================
+
+/**
+ * スプレッドシートを取得（Webアプリ対応）
+ * @returns {Spreadsheet} スプレッドシート
+ */
+function getPortalSpreadsheet() {
+  // 方法1: スクリプトがバインドされているスプレッドシートを取得
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (ss) return ss;
+  } catch (e) {
+    // Webアプリではエラーになる場合がある
+  }
+
+  // 方法2: PropertiesServiceからIDを取得
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const ssId = props.getProperty('SPREADSHEET_ID');
+    if (ssId) {
+      return SpreadsheetApp.openById(ssId);
+    }
+  } catch (e) {
+    // プロパティが設定されていない場合
+  }
+
+  // 方法3: 直接IDを指定（初回設定用）
+  // この行を実際のスプレッドシートIDに置き換えてください
+  // return SpreadsheetApp.openById('YOUR_SPREADSHEET_ID_HERE');
+
+  throw new Error('スプレッドシートに接続できません。setupSpreadsheetId()を実行してください。');
+}
+
+/**
+ * スプレッドシートIDを設定（初回のみ実行）
+ * GASエディタから手動で実行してください
+ */
+function setupSpreadsheetId() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss) {
+    const props = PropertiesService.getScriptProperties();
+    props.setProperty('SPREADSHEET_ID', ss.getId());
+    console.log('スプレッドシートID設定完了: ' + ss.getId());
+    return { success: true, id: ss.getId() };
+  }
+  return { success: false, error: 'スプレッドシートが見つかりません' };
+}
+
+// ============================================================
 // 受診者管理 API
 // ============================================================
 
@@ -16,45 +66,58 @@
  */
 function portalSearchPatients(criteria) {
   try {
-    // 既存のsearchPatients関数を呼び出し
-    if (typeof searchPatients === 'function') {
-      return searchPatients(criteria);
-    }
-
-    // フォールバック: 直接検索
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getPortalSpreadsheet();
     const sheet = ss.getSheetByName('受診者マスタ');
     if (!sheet) {
       return { success: false, error: '受診者マスタシートが見つかりません', data: [] };
     }
 
     const data = sheet.getDataRange().getValues();
-    const headers = data[0];
     const results = [];
 
+    // 列インデックス: patientId(0), status(1), examDate(2), name(3), nameKana(4), gender(5), birthDate(6), age(7), course(8), company(9)
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
-      const patient = {};
-      headers.forEach((header, idx) => {
-        patient[header] = row[idx];
-      });
+
+      // 空行スキップ
+      if (!row[0]) continue;
 
       // 検索条件でフィルタ
       let match = true;
-      if (criteria.patientId && patient['患者ID'] !== criteria.patientId) {
+
+      if (criteria.patientId && String(row[0]) !== String(criteria.patientId)) {
+        // 部分一致も許可
+        if (!String(row[0]).includes(criteria.patientId)) {
+          match = false;
+        }
+      }
+      if (criteria.name && !String(row[3] || '').includes(criteria.name)) {
         match = false;
       }
-      if (criteria.name && !String(patient['氏名'] || '').includes(criteria.name)) {
-        match = false;
-      }
-      if (criteria.kana && !String(patient['カナ'] || '').includes(criteria.kana)) {
+      if (criteria.kana && !String(row[4] || '').includes(criteria.kana)) {
         match = false;
       }
 
       if (match) {
-        patient._rowIndex = i + 1;
-        results.push(patient);
+        results.push({
+          '患者ID': row[0],
+          'ステータス': row[1],
+          '検査日': row[2],
+          '氏名': row[3],
+          'カナ': row[4],
+          '性別': row[5],
+          '生年月日': row[6],
+          '年齢': row[7],
+          'コース': row[8],
+          '企業名': row[9],
+          '部署': row[10],
+          '総合判定': row[11],
+          _rowIndex: i + 1
+        });
       }
+
+      // 最大件数制限
+      if (results.length >= 100) break;
     }
 
     return { success: true, data: results, count: results.length };
@@ -71,23 +134,39 @@ function portalSearchPatients(criteria) {
  */
 function portalRegisterPatient(patientData) {
   try {
-    // 既存のregisterNewPatient関数を呼び出し
-    if (typeof registerNewPatient === 'function') {
-      return registerNewPatient(patientData);
-    }
-
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getPortalSpreadsheet();
     const sheet = ss.getSheetByName('受診者マスタ');
     if (!sheet) {
       return { success: false, error: '受診者マスタシートが見つかりません' };
     }
 
-    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    const newRow = headers.map(header => patientData[header] || '');
+    // 重複チェック
+    const existingData = sheet.getDataRange().getValues();
+    for (let i = 1; i < existingData.length; i++) {
+      if (String(existingData[i][0]) === String(patientData.patientId)) {
+        return { success: false, error: '患者ID「' + patientData.patientId + '」は既に登録されています' };
+      }
+    }
+
+    // 列順序: patientId, status, examDate, name, nameKana, gender, birthDate, age, course, company, department, overallJudgment
+    const newRow = [
+      patientData.patientId || '',
+      patientData.status || '入力中',
+      patientData.examDate || '',
+      patientData.name || '',
+      patientData.nameKana || '',
+      patientData.gender || '',
+      patientData.birthDate || '',
+      patientData.age || '',
+      patientData.course || '',
+      patientData.company || '',
+      patientData.department || '',
+      patientData.overallJudgment || ''
+    ];
 
     sheet.appendRow(newRow);
 
-    return { success: true, message: '受診者を登録しました', patientId: patientData['患者ID'] };
+    return { success: true, message: '受診者を登録しました', patientId: patientData.patientId };
   } catch (error) {
     console.error('portalRegisterPatient error:', error);
     return { success: false, error: error.message };

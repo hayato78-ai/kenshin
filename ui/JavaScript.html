@@ -1,0 +1,476 @@
+<script>
+/**
+ * 健診結果DB 統合システム - 共通JavaScript
+ *
+ * @description 画面遷移、API呼び出し、共通処理
+ * @version 1.0.0
+ * @date 2025-12-14
+ */
+
+// ============================================
+// アプリケーション状態管理
+// ============================================
+
+const App = {
+  // 現在の画面
+  currentScreen: 'menu',
+
+  // 状態
+  state: {
+    currentPatient: null,
+    currentVisit: null,
+    searchResults: [],
+    searchCriteria: {}
+  },
+
+  // 確認モーダルのコールバック
+  confirmCallback: null,
+
+  // ============================================
+  // 初期化
+  // ============================================
+
+  /**
+   * アプリケーション初期化
+   */
+  init: function() {
+    console.log('App initializing...');
+
+    // 共通コンポーネントを挿入
+    this.insertCommonComponents();
+
+    // 初期画面表示
+    this.navigate('menu');
+
+    // ユーザー名を取得
+    this.loadCurrentUser();
+
+    console.log('App initialized');
+  },
+
+  /**
+   * 共通コンポーネントを挿入
+   */
+  insertCommonComponents: function() {
+    const container = document.getElementById('app-container');
+    if (!container) return;
+
+    // ヘッダー
+    const headerTemplate = document.getElementById('header-template');
+    if (headerTemplate) {
+      const headerClone = headerTemplate.content.cloneNode(true);
+      container.insertBefore(headerClone, container.firstChild);
+    }
+
+    // ナビゲーション
+    const navTemplate = document.getElementById('nav-template');
+    if (navTemplate) {
+      const header = container.querySelector('.header');
+      if (header) {
+        const navClone = navTemplate.content.cloneNode(true);
+        header.insertAdjacentElement('afterend', navClone.querySelector('.nav'));
+      }
+    }
+
+    // フッター
+    const footerTemplate = document.getElementById('footer-template');
+    if (footerTemplate) {
+      const footerClone = footerTemplate.content.cloneNode(true);
+      container.appendChild(footerClone);
+    }
+
+    // ローディングオーバーレイ
+    const loadingTemplate = document.getElementById('loading-template');
+    if (loadingTemplate) {
+      const loadingClone = loadingTemplate.content.cloneNode(true);
+      document.body.appendChild(loadingClone);
+      document.getElementById('loading-overlay').classList.add('hidden');
+    }
+
+    // メッセージモーダル
+    const messageTemplate = document.getElementById('message-modal-template');
+    if (messageTemplate) {
+      const messageClone = messageTemplate.content.cloneNode(true);
+      document.body.appendChild(messageClone);
+      document.getElementById('message-modal').classList.add('hidden');
+    }
+
+    // 確認モーダル
+    const confirmTemplate = document.getElementById('confirm-modal-template');
+    if (confirmTemplate) {
+      const confirmClone = confirmTemplate.content.cloneNode(true);
+      document.body.appendChild(confirmClone);
+      document.getElementById('confirm-modal').classList.add('hidden');
+    }
+  },
+
+  /**
+   * 現在のユーザー情報を読み込み
+   */
+  loadCurrentUser: function() {
+    google.script.run
+      .withSuccessHandler(function(email) {
+        const userName = email ? email.split('@')[0] : 'ゲスト';
+        document.getElementById('current-user-name').textContent = userName + ' 様';
+      })
+      .withFailureHandler(function(error) {
+        console.error('Failed to load user:', error);
+      })
+      .getCurrentUserEmail();
+  },
+
+  // ============================================
+  // 画面遷移
+  // ============================================
+
+  /**
+   * 画面遷移
+   * @param {string} screenId - 画面ID
+   * @param {Object} params - パラメータ
+   */
+  navigate: function(screenId, params) {
+    console.log('Navigating to:', screenId, params);
+
+    // すべての画面を非表示
+    document.querySelectorAll('.screen').forEach(function(screen) {
+      screen.classList.add('hidden');
+    });
+
+    // ナビゲーションのアクティブ状態を更新
+    document.querySelectorAll('.nav-item').forEach(function(item) {
+      item.classList.remove('active');
+      if (item.dataset.screen === screenId) {
+        item.classList.add('active');
+      }
+    });
+
+    // 対象画面を表示
+    const targetScreen = document.getElementById('screen-' + screenId);
+    if (targetScreen) {
+      targetScreen.classList.remove('hidden');
+      this.currentScreen = screenId;
+
+      // 画面固有の初期化処理
+      this.onScreenLoad(screenId, params);
+    } else {
+      console.warn('Screen not found:', screenId);
+      this.showMessage('エラー', '画面が見つかりません: ' + screenId, 'error');
+    }
+  },
+
+  /**
+   * 画面読み込み時の処理
+   * @param {string} screenId - 画面ID
+   * @param {Object} params - パラメータ
+   */
+  onScreenLoad: function(screenId, params) {
+    switch (screenId) {
+      case 'menu':
+        if (typeof Menu !== 'undefined' && Menu.init) {
+          Menu.init();
+        }
+        break;
+      case 'search':
+        if (typeof Search !== 'undefined' && Search.init) {
+          Search.init();
+        }
+        break;
+      case 'list':
+        if (typeof PatientList !== 'undefined' && PatientList.init) {
+          PatientList.init(params);
+        }
+        break;
+      case 'detail':
+        if (typeof PatientDetail !== 'undefined' && PatientDetail.init) {
+          PatientDetail.init(params);
+        }
+        break;
+      case 'result':
+        if (typeof TestResult !== 'undefined' && TestResult.init) {
+          TestResult.init(params);
+        }
+        break;
+      case 'register':
+        if (typeof Register !== 'undefined' && Register.init) {
+          Register.init(params);
+        }
+        break;
+      case 'input':
+        if (typeof TestInput !== 'undefined' && TestInput.init) {
+          TestInput.init(params);
+        }
+        break;
+      case 'import':
+        if (typeof Import !== 'undefined' && Import.init) {
+          Import.init(params);
+        }
+        break;
+    }
+  },
+
+  /**
+   * 前の画面に戻る
+   */
+  goBack: function() {
+    // 簡易的な履歴管理（必要に応じて拡張）
+    if (this.currentScreen === 'list') {
+      this.navigate('search');
+    } else if (this.currentScreen === 'detail') {
+      this.navigate('list');
+    } else if (this.currentScreen === 'result' || this.currentScreen === 'input') {
+      this.navigate('detail', { patientId: this.state.currentPatient?.patientId });
+    } else {
+      this.navigate('menu');
+    }
+  },
+
+  // ============================================
+  // ローディング表示
+  // ============================================
+
+  /**
+   * ローディング表示
+   */
+  showLoading: function() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) {
+      overlay.classList.remove('hidden');
+    }
+  },
+
+  /**
+   * ローディング非表示
+   */
+  hideLoading: function() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) {
+      overlay.classList.add('hidden');
+    }
+  },
+
+  // ============================================
+  // メッセージ表示
+  // ============================================
+
+  /**
+   * メッセージモーダル表示
+   * @param {string} title - タイトル
+   * @param {string} message - メッセージ
+   * @param {string} type - タイプ (info/success/warning/error)
+   */
+  showMessage: function(title, message, type) {
+    const modal = document.getElementById('message-modal');
+    const titleEl = document.getElementById('message-modal-title');
+    const contentEl = document.getElementById('message-modal-content');
+
+    if (modal && titleEl && contentEl) {
+      titleEl.textContent = title || 'メッセージ';
+      contentEl.textContent = message;
+      modal.classList.remove('hidden');
+    }
+  },
+
+  /**
+   * メッセージモーダルを閉じる
+   */
+  closeMessage: function() {
+    const modal = document.getElementById('message-modal');
+    if (modal) {
+      modal.classList.add('hidden');
+    }
+  },
+
+  /**
+   * 確認モーダル表示
+   * @param {string} title - タイトル
+   * @param {string} message - メッセージ
+   * @param {Function} callback - コールバック (true/false)
+   */
+  showConfirm: function(title, message, callback) {
+    const modal = document.getElementById('confirm-modal');
+    const titleEl = document.getElementById('confirm-modal-title');
+    const contentEl = document.getElementById('confirm-modal-content');
+
+    if (modal && titleEl && contentEl) {
+      titleEl.textContent = title || '確認';
+      contentEl.textContent = message;
+      this.confirmCallback = callback;
+      modal.classList.remove('hidden');
+    }
+  },
+
+  /**
+   * 確認モーダルを閉じる
+   * @param {boolean} result - 結果
+   */
+  closeConfirm: function(result) {
+    const modal = document.getElementById('confirm-modal');
+    if (modal) {
+      modal.classList.add('hidden');
+    }
+    if (typeof this.confirmCallback === 'function') {
+      this.confirmCallback(result);
+      this.confirmCallback = null;
+    }
+  },
+
+  // ============================================
+  // アラート表示（インライン）
+  // ============================================
+
+  /**
+   * アラートを表示
+   * @param {string} containerId - コンテナID
+   * @param {string} message - メッセージ
+   * @param {string} type - タイプ (success/warning/error/info)
+   */
+  showAlert: function(containerId, message, type) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const alertEl = document.createElement('div');
+    alertEl.className = 'alert alert-' + type;
+    alertEl.textContent = message;
+
+    // 既存のアラートを削除
+    const existingAlert = container.querySelector('.alert');
+    if (existingAlert) {
+      existingAlert.remove();
+    }
+
+    container.insertBefore(alertEl, container.firstChild);
+
+    // 5秒後に自動で消える
+    setTimeout(function() {
+      alertEl.remove();
+    }, 5000);
+  },
+
+  // ============================================
+  // ユーティリティ
+  // ============================================
+
+  /**
+   * 日付をフォーマット
+   * @param {Date|string} date - 日付
+   * @param {string} format - フォーマット
+   * @returns {string}
+   */
+  formatDate: function(date, format) {
+    if (!date) return '';
+
+    const d = (date instanceof Date) ? date : new Date(date);
+    if (isNaN(d.getTime())) return '';
+
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+
+    if (format === 'yyyy/mm/dd') {
+      return year + '/' + month + '/' + day;
+    } else if (format === 'yyyymmdd') {
+      return year + month + day;
+    }
+
+    return year + '/' + month + '/' + day;
+  },
+
+  /**
+   * 年齢を計算
+   * @param {string} birthDate - 生年月日
+   * @returns {number}
+   */
+  calculateAge: function(birthDate) {
+    if (!birthDate) return 0;
+
+    const birth = new Date(birthDate);
+    const today = new Date();
+
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+
+    return age;
+  },
+
+  /**
+   * 判定バッジのHTML
+   * @param {string} judgment - 判定
+   * @returns {string}
+   */
+  getJudgmentBadge: function(judgment) {
+    if (!judgment) return '<span class="judgment">-</span>';
+
+    const cls = 'judgment judgment-' + judgment.toLowerCase();
+    return '<span class="' + cls + '">' + judgment + '</span>';
+  },
+
+  /**
+   * 性別を表示用に変換
+   * @param {string} gender - M/F
+   * @returns {string}
+   */
+  formatGender: function(gender) {
+    if (gender === 'M') return '男性';
+    if (gender === 'F') return '女性';
+    return gender || '';
+  },
+
+  /**
+   * ログアウト
+   */
+  logout: function() {
+    this.showConfirm('ログアウト', 'ログアウトしますか？', function(result) {
+      if (result) {
+        // GAS認証を使用している場合は単純にリダイレクト
+        google.script.host.close();
+      }
+    });
+  },
+
+  // ============================================
+  // API呼び出しヘルパー
+  // ============================================
+
+  /**
+   * サーバー関数を呼び出し
+   * @param {string} functionName - 関数名
+   * @param {Array} args - 引数
+   * @returns {Promise}
+   */
+  callServer: function(functionName, args) {
+    const self = this;
+    self.showLoading();
+
+    return new Promise(function(resolve, reject) {
+      const runner = google.script.run
+        .withSuccessHandler(function(result) {
+          self.hideLoading();
+          resolve(result);
+        })
+        .withFailureHandler(function(error) {
+          self.hideLoading();
+          console.error('Server error:', error);
+          reject(error);
+        });
+
+      // 引数がある場合は展開して渡す
+      if (args && args.length > 0) {
+        runner[functionName].apply(runner, args);
+      } else {
+        runner[functionName]();
+      }
+    });
+  }
+};
+
+// ============================================
+// DOM読み込み完了時に初期化
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+  App.init();
+});
+</script>

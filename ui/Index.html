@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>健診結果管理システム | CDmedical</title>
+  <base target="_top">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!--
+    健診結果DB 統合システム - メインエントリーポイント
+
+    @description UI設計書: 健診結果DB_UI設計書_v1.md
+    @version 1.0.0
+    @date 2025-12-14
+  -->
+
+  <!-- アプリケーションコンテナ -->
+  <div id="app-container" class="app-container">
+    <!-- ヘッダー・ナビゲーション・フッターは共通コンポーネントから挿入 -->
+
+    <!-- 画面コンテンツ -->
+    <?!= HtmlService.createHtmlOutputFromFile('ui/ScreenMenu').getContent(); ?>
+    <?!= HtmlService.createHtmlOutputFromFile('ui/ScreenSearch').getContent(); ?>
+    <?!= HtmlService.createHtmlOutputFromFile('ui/ScreenList').getContent(); ?>
+    <?!= HtmlService.createHtmlOutputFromFile('ui/ScreenDetail').getContent(); ?>
+    <?!= HtmlService.createHtmlOutputFromFile('ui/ScreenResult').getContent(); ?>
+    <?!= HtmlService.createHtmlOutputFromFile('ui/ScreenRegister').getContent(); ?>
+    <?!= HtmlService.createHtmlOutputFromFile('ui/ScreenInput').getContent(); ?>
+    <?!= HtmlService.createHtmlOutputFromFile('ui/ScreenImport').getContent(); ?>
+  </div>
+
+  <!-- 共通スタイル -->
+  <?!= HtmlService.createHtmlOutputFromFile('ui/Styles').getContent(); ?>
+
+  <!-- 共通コンポーネント -->
+  <?!= HtmlService.createHtmlOutputFromFile('ui/Common').getContent(); ?>
+
+  <!-- 共通JavaScript -->
+  <?!= HtmlService.createHtmlOutputFromFile('ui/JavaScript').getContent(); ?>
+
+</body>
+</html>

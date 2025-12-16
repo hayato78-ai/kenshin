@@ -1,0 +1,434 @@
+<!--
+  健診結果DB 統合システム - 受診者詳細画面 (SCR-005)
+
+  @description UI設計書: 健診結果DB_UI設計書_v1.md 2.5章
+  @version 1.0.0
+  @date 2025-12-14
+-->
+
+<div id="screen-detail" class="screen hidden">
+  <div class="main-content">
+    <!-- ページヘッダー -->
+    <div class="flex-between mb-lg">
+      <h1 style="font-size: var(--font-size-xl);">受診者詳細</h1>
+      <a href="#" class="btn btn-outline" onclick="App.goBack(); return false;">
+        一覧に戻る
+      </a>
+    </div>
+
+    <!-- 基本情報カード -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">基本情報</span>
+        <button class="btn btn-sm btn-outline" onclick="PatientDetail.showEditModal()">編集</button>
+      </div>
+      <div class="card-body">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--spacing-md);">
+          <div>
+            <div class="text-secondary" style="font-size: var(--font-size-sm);">受診者ID</div>
+            <div id="detail-patient-id" style="font-size: var(--font-size-lg); font-weight: bold;">-</div>
+          </div>
+          <div>
+            <div class="text-secondary" style="font-size: var(--font-size-sm);">氏名</div>
+            <div id="detail-name" style="font-size: var(--font-size-lg); font-weight: bold;">-</div>
+          </div>
+          <div>
+            <div class="text-secondary" style="font-size: var(--font-size-sm);">カナ</div>
+            <div id="detail-name-kana">-</div>
+          </div>
+          <div>
+            <div class="text-secondary" style="font-size: var(--font-size-sm);">性別</div>
+            <div id="detail-gender">-</div>
+          </div>
+          <div>
+            <div class="text-secondary" style="font-size: var(--font-size-sm);">生年月日</div>
+            <div id="detail-birth-date">-</div>
+          </div>
+          <div>
+            <div class="text-secondary" style="font-size: var(--font-size-sm);">年齢</div>
+            <div id="detail-age">-</div>
+          </div>
+          <div>
+            <div class="text-secondary" style="font-size: var(--font-size-sm);">電話番号</div>
+            <div id="detail-phone">-</div>
+          </div>
+          <div>
+            <div class="text-secondary" style="font-size: var(--font-size-sm);">企業名</div>
+            <div id="detail-company">-</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 受診履歴カード -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">受診履歴</span>
+        <button class="btn btn-sm btn-primary" onclick="PatientDetail.newVisit()">新規受診登録</button>
+      </div>
+      <div class="card-body" style="padding: 0;">
+        <div class="table-container">
+          <table class="table" id="visit-history-table">
+            <thead>
+              <tr>
+                <th>受診日</th>
+                <th>検診種別</th>
+                <th>コース</th>
+                <th>総合判定</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="visit-history-body">
+              <tr>
+                <td colspan="5" class="text-center text-secondary">読み込み中...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 操作メニュー -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">操作メニュー</span>
+      </div>
+      <div class="card-body">
+        <div class="flex gap-md" style="flex-wrap: wrap;">
+          <button class="btn btn-outline" onclick="PatientDetail.showGuidance()">
+            保健指導記録
+          </button>
+          <button class="btn btn-outline" onclick="PatientDetail.showReportModal()">
+            帳票出力
+          </button>
+          <button class="btn btn-outline" onclick="PatientDetail.exportCSV()">
+            データ出力(CSV)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 基本情報編集モーダル -->
+<template id="edit-patient-modal-template">
+  <div class="modal-overlay" id="edit-patient-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">基本情報編集</span>
+        <button class="modal-close" onclick="PatientDetail.closeEditModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label required">氏名</label>
+          <input type="text" id="edit-name" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">カナ</label>
+          <input type="text" id="edit-name-kana" class="form-control">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label required">生年月日</label>
+            <input type="date" id="edit-birth-date" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label required">性別</label>
+            <select id="edit-gender" class="form-control">
+              <option value="M">男性</option>
+              <option value="F">女性</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">電話番号</label>
+          <input type="tel" id="edit-phone" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">企業名</label>
+          <input type="text" id="edit-company" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="PatientDetail.closeEditModal()">キャンセル</button>
+        <button class="btn btn-primary" onclick="PatientDetail.savePatient()">保存</button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+/**
+ * 受診者詳細画面の処理
+ */
+const PatientDetail = {
+  /** 現在の受診者データ */
+  patient: null,
+
+  /** 受診履歴 */
+  visits: [],
+
+  /**
+   * 初期化
+   * @param {Object} params - パラメータ
+   */
+  init: function(params) {
+    console.log('PatientDetail.init', params);
+
+    // モーダルを追加
+    this.setupModal();
+
+    if (params && params.patientId) {
+      this.loadPatient(params.patientId);
+    } else if (App.state.currentPatient) {
+      this.loadPatient(App.state.currentPatient.patientId);
+    } else {
+      App.showMessage('エラー', '受診者が指定されていません', 'error');
+      App.navigate('search');
+    }
+  },
+
+  /**
+   * モーダルをセットアップ
+   */
+  setupModal: function() {
+    if (!document.getElementById('edit-patient-modal')) {
+      const template = document.getElementById('edit-patient-modal-template');
+      if (template) {
+        const clone = template.content.cloneNode(true);
+        document.body.appendChild(clone);
+        document.getElementById('edit-patient-modal').classList.add('hidden');
+      }
+    }
+  },
+
+  /**
+   * 受診者情報を読み込み
+   * @param {string} patientId - 受診者ID
+   */
+  loadPatient: function(patientId) {
+    const self = this;
+    App.showLoading();
+
+    google.script.run
+      .withSuccessHandler(function(patient) {
+        App.hideLoading();
+        if (patient) {
+          self.patient = patient;
+          App.state.currentPatient = patient;
+          self.renderPatientInfo();
+          self.loadVisitHistory(patientId);
+        } else {
+          App.showMessage('エラー', '受診者が見つかりません', 'error');
+          App.navigate('search');
+        }
+      })
+      .withFailureHandler(function(error) {
+        App.hideLoading();
+        console.error('Failed to load patient:', error);
+        App.showMessage('エラー', '受診者情報の取得に失敗しました', 'error');
+      })
+      .getPatientById(patientId);
+  },
+
+  /**
+   * 受診者情報を描画
+   */
+  renderPatientInfo: function() {
+    const p = this.patient;
+    if (!p) return;
+
+    document.getElementById('detail-patient-id').textContent = p.patientId || '-';
+    document.getElementById('detail-name').textContent = p.name || '-';
+    document.getElementById('detail-name-kana').textContent = p.nameKana || '-';
+    document.getElementById('detail-gender').textContent = App.formatGender(p.gender);
+    document.getElementById('detail-birth-date').textContent = p.birthDate ? App.formatDate(p.birthDate) : '-';
+    document.getElementById('detail-age').textContent = p.birthDate ? App.calculateAge(p.birthDate) + '歳' : '-';
+    document.getElementById('detail-phone').textContent = p.phone || '-';
+    document.getElementById('detail-company').textContent = p.company || '-';
+  },
+
+  /**
+   * 受診履歴を読み込み
+   * @param {string} patientId - 受診者ID
+   */
+  loadVisitHistory: function(patientId) {
+    const self = this;
+
+    google.script.run
+      .withSuccessHandler(function(visits) {
+        self.visits = visits || [];
+        self.renderVisitHistory();
+      })
+      .withFailureHandler(function(error) {
+        console.error('Failed to load visit history:', error);
+        self.visits = [];
+        self.renderVisitHistory();
+      })
+      .getVisitRecordsByPatientId(patientId);
+  },
+
+  /**
+   * 受診履歴を描画
+   */
+  renderVisitHistory: function() {
+    const tbody = document.getElementById('visit-history-body');
+    if (!tbody) return;
+
+    if (this.visits.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-secondary">受診履歴がありません</td></tr>';
+      return;
+    }
+
+    let html = '';
+    this.visits.forEach(function(visit) {
+      const hasInput = visit.status !== 'CONFIRMED' && visit.status !== 'REPORTED';
+
+      html += '<tr>';
+      html += '<td>' + App.formatDate(visit.visitDate) + '</td>';
+      html += '<td>' + (visit.examTypeName || visit.examTypeId || '-') + '</td>';
+      html += '<td>' + (visit.courseName || '-') + '</td>';
+      html += '<td>' + App.getJudgmentBadge(visit.overallJudgment) + '</td>';
+      html += '<td>';
+      html += '<button class="btn btn-sm btn-outline" onclick="PatientDetail.viewResult(\'' + visit.visitId + '\')">結果</button>';
+      if (hasInput) {
+        html += ' <button class="btn btn-sm btn-primary" onclick="PatientDetail.inputResult(\'' + visit.visitId + '\')">入力</button>';
+      }
+      html += '</td>';
+      html += '</tr>';
+    });
+
+    tbody.innerHTML = html;
+  },
+
+  /**
+   * 検査結果を表示
+   * @param {string} visitId - 受診ID
+   */
+  viewResult: function(visitId) {
+    const visit = this.visits.find(function(v) { return v.visitId === visitId; });
+    if (visit) {
+      App.state.currentVisit = visit;
+    }
+    App.navigate('result', { visitId: visitId });
+  },
+
+  /**
+   * 検査結果を入力
+   * @param {string} visitId - 受診ID
+   */
+  inputResult: function(visitId) {
+    const visit = this.visits.find(function(v) { return v.visitId === visitId; });
+    if (visit) {
+      App.state.currentVisit = visit;
+    }
+    App.navigate('input', { visitId: visitId });
+  },
+
+  /**
+   * 新規受診登録
+   */
+  newVisit: function() {
+    App.navigate('register', { patientId: this.patient?.patientId });
+  },
+
+  /**
+   * 編集モーダルを表示
+   */
+  showEditModal: function() {
+    const modal = document.getElementById('edit-patient-modal');
+    if (!modal || !this.patient) return;
+
+    // 現在の値をセット
+    document.getElementById('edit-name').value = this.patient.name || '';
+    document.getElementById('edit-name-kana').value = this.patient.nameKana || '';
+    document.getElementById('edit-birth-date').value = this.patient.birthDate || '';
+    document.getElementById('edit-gender').value = this.patient.gender || 'M';
+    document.getElementById('edit-phone').value = this.patient.phone || '';
+    document.getElementById('edit-company').value = this.patient.company || '';
+
+    modal.classList.remove('hidden');
+  },
+
+  /**
+   * 編集モーダルを閉じる
+   */
+  closeEditModal: function() {
+    const modal = document.getElementById('edit-patient-modal');
+    if (modal) {
+      modal.classList.add('hidden');
+    }
+  },
+
+  /**
+   * 受診者情報を保存
+   */
+  savePatient: function() {
+    const self = this;
+
+    const data = {
+      name: document.getElementById('edit-name').value.trim(),
+      nameKana: document.getElementById('edit-name-kana').value.trim(),
+      birthDate: document.getElementById('edit-birth-date').value,
+      gender: document.getElementById('edit-gender').value,
+      phone: document.getElementById('edit-phone').value.trim(),
+      company: document.getElementById('edit-company').value.trim()
+    };
+
+    // バリデーション
+    if (!data.name) {
+      App.showMessage('エラー', '氏名は必須です', 'error');
+      return;
+    }
+    if (!data.nameKana) {
+      App.showMessage('エラー', 'カナは必須です', 'error');
+      return;
+    }
+    if (!data.birthDate) {
+      App.showMessage('エラー', '生年月日は必須です', 'error');
+      return;
+    }
+
+    App.showLoading();
+
+    google.script.run
+      .withSuccessHandler(function(success) {
+        App.hideLoading();
+        if (success) {
+          self.closeEditModal();
+          App.showMessage('成功', '保存しました', 'success');
+          self.loadPatient(self.patient.patientId);
+        } else {
+          App.showMessage('エラー', '保存に失敗しました', 'error');
+        }
+      })
+      .withFailureHandler(function(error) {
+        App.hideLoading();
+        console.error('Failed to save patient:', error);
+        App.showMessage('エラー', '保存に失敗しました: ' + error.message, 'error');
+      })
+      .updatePatient(self.patient.patientId, data);
+  },
+
+  /**
+   * 保健指導記録を表示
+   */
+  showGuidance: function() {
+    App.showMessage('未実装', 'この機能は Phase 3 で実装予定です', 'info');
+  },
+
+  /**
+   * 帳票出力モーダルを表示
+   */
+  showReportModal: function() {
+    App.showMessage('未実装', 'この機能は Phase 4 で実装予定です', 'info');
+  },
+
+  /**
+   * CSVエクスポート
+   */
+  exportCSV: function() {
+    App.showMessage('未実装', 'この機能は Phase 3 で実装予定です', 'info');
+  }
+};
+</script>

@@ -1,0 +1,672 @@
+<!--
+  健診結果DB 統合システム - 新規受診登録画面 (SCR-007)
+
+  @description UI設計書: 健診結果DB_UI設計書_v1.md 2.7章
+  @version 1.0.0
+  @date 2025-12-14
+-->
+
+<div id="screen-register" class="screen hidden">
+  <div class="main-content">
+    <!-- ページヘッダー -->
+    <div class="flex-between mb-lg">
+      <h1 style="font-size: var(--font-size-xl);">新規受診登録</h1>
+      <a href="#" class="btn btn-outline" onclick="Register.cancel(); return false;">
+        キャンセル
+      </a>
+    </div>
+
+    <!-- ステップインジケーター -->
+    <div class="steps mb-lg">
+      <div class="step" id="step-1">
+        <div class="step-number">1</div>
+        <div class="step-label">受診者</div>
+      </div>
+      <div class="step-connector" id="step-connector-1"></div>
+      <div class="step" id="step-2">
+        <div class="step-number">2</div>
+        <div class="step-label">受診情報</div>
+      </div>
+      <div class="step-connector" id="step-connector-2"></div>
+      <div class="step" id="step-3">
+        <div class="step-number">3</div>
+        <div class="step-label">確認</div>
+      </div>
+    </div>
+
+    <!-- ステップ1: 受診者情報 -->
+    <div id="register-step-1" class="card">
+      <div class="card-header">
+        <span class="card-title">受診者情報</span>
+      </div>
+      <div class="card-body">
+        <!-- 既存受診者選択 -->
+        <div class="form-group">
+          <label class="form-label">既存受診者を選択</label>
+          <div class="flex gap-sm">
+            <input type="text" id="register-search-patient" class="form-control" placeholder="氏名またはIDで検索">
+            <button class="btn btn-outline" onclick="Register.searchPatient()">検索</button>
+          </div>
+          <div id="register-patient-search-results" class="mt-sm hidden">
+            <select id="register-patient-select" class="form-control" size="4" onchange="Register.selectPatient()">
+            </select>
+          </div>
+          <div id="register-selected-patient" class="mt-sm hidden">
+            <div class="alert alert-info">
+              選択中: <strong id="register-selected-patient-name">-</strong>
+              <button class="btn btn-sm btn-outline" style="float: right;" onclick="Register.clearPatient()">選択解除</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="text-center" style="margin: var(--spacing-lg) 0;">
+          <span style="color: var(--color-text-secondary);">───────── または ─────────</span>
+        </div>
+
+        <!-- 新規受診者入力 -->
+        <div id="register-new-patient-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label required">氏名</label>
+              <input type="text" id="register-name" class="form-control" placeholder="山田 太郎">
+            </div>
+            <div class="form-group">
+              <label class="form-label required">カナ</label>
+              <input type="text" id="register-name-kana" class="form-control" placeholder="ヤマダ タロウ">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label required">生年月日</label>
+              <input type="date" id="register-birth-date" class="form-control">
+            </div>
+            <div class="form-group">
+              <label class="form-label required">性別</label>
+              <select id="register-gender" class="form-control">
+                <option value="">選択してください</option>
+                <option value="M">男性</option>
+                <option value="F">女性</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">電話番号</label>
+              <input type="tel" id="register-phone" class="form-control" placeholder="090-1234-5678">
+            </div>
+            <div class="form-group">
+              <label class="form-label">企業名</label>
+              <input type="text" id="register-company" class="form-control">
+            </div>
+          </div>
+        </div>
+
+        <div class="text-right mt-lg">
+          <button class="btn btn-primary" onclick="Register.goToStep2()">次へ</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ステップ2: 受診情報 -->
+    <div id="register-step-2" class="card hidden">
+      <div class="card-header">
+        <span class="card-title">受診情報</span>
+      </div>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label required">受診日</label>
+            <input type="date" id="register-visit-date" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label required">検診種別</label>
+            <select id="register-exam-type" class="form-control" onchange="Register.onExamTypeChange()">
+              <option value="">選択してください</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" id="register-course-group" style="display: none;">
+          <label class="form-label">コース</label>
+          <select id="register-course" class="form-control">
+            <option value="">選択してください</option>
+          </select>
+          <div class="form-help">※人間ドックの場合はコースを選択してください</div>
+        </div>
+
+        <div class="flex-between mt-lg">
+          <button class="btn btn-outline" onclick="Register.goToStep1()">戻る</button>
+          <button class="btn btn-primary" onclick="Register.goToStep3()">次へ</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ステップ3: 確認 -->
+    <div id="register-step-3" class="card hidden">
+      <div class="card-header">
+        <span class="card-title">登録内容確認</span>
+      </div>
+      <div class="card-body">
+        <h3 style="margin-bottom: var(--spacing-sm);">【受診者情報】</h3>
+        <div style="padding-left: var(--spacing-md); margin-bottom: var(--spacing-lg);">
+          <div class="form-row">
+            <div class="form-group">
+              <span class="text-secondary">氏名:</span>
+              <span id="confirm-name">-</span>
+            </div>
+            <div class="form-group">
+              <span class="text-secondary">カナ:</span>
+              <span id="confirm-name-kana">-</span>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <span class="text-secondary">生年月日:</span>
+              <span id="confirm-birth-date">-</span>
+            </div>
+            <div class="form-group">
+              <span class="text-secondary">性別:</span>
+              <span id="confirm-gender">-</span>
+            </div>
+          </div>
+        </div>
+
+        <h3 style="margin-bottom: var(--spacing-sm);">【受診情報】</h3>
+        <div style="padding-left: var(--spacing-md); margin-bottom: var(--spacing-lg);">
+          <div class="form-row">
+            <div class="form-group">
+              <span class="text-secondary">受診日:</span>
+              <span id="confirm-visit-date">-</span>
+            </div>
+            <div class="form-group">
+              <span class="text-secondary">検診種別:</span>
+              <span id="confirm-exam-type">-</span>
+            </div>
+          </div>
+          <div class="form-group" id="confirm-course-group">
+            <span class="text-secondary">コース:</span>
+            <span id="confirm-course">-</span>
+          </div>
+        </div>
+
+        <div class="flex-between mt-lg">
+          <button class="btn btn-outline" onclick="Register.goToStep2()">戻る</button>
+          <button class="btn btn-primary btn-lg" onclick="Register.submit()">登録</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/**
+ * 新規受診登録画面の処理
+ */
+const Register = {
+  /** 現在のステップ */
+  currentStep: 1,
+
+  /** 選択された既存受診者 */
+  selectedPatient: null,
+
+  /** 検診種別マスタ */
+  examTypes: [],
+
+  /** コースマスタ */
+  courses: [],
+
+  /**
+   * 初期化
+   * @param {Object} params - パラメータ
+   */
+  init: function(params) {
+    console.log('Register.init', params);
+
+    this.currentStep = 1;
+    this.selectedPatient = null;
+    this.clearForm();
+
+    // 既存受診者が指定されている場合
+    if (params && params.patientId) {
+      this.loadPatientById(params.patientId);
+    }
+
+    // マスタデータ読み込み
+    this.loadMasterData();
+
+    // ステップ表示更新
+    this.updateStepIndicator();
+    this.showCurrentStep();
+
+    // 今日の日付をデフォルト設定
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('register-visit-date').value = today;
+  },
+
+  /**
+   * マスタデータを読み込み
+   */
+  loadMasterData: function() {
+    const self = this;
+
+    // 検診種別
+    google.script.run
+      .withSuccessHandler(function(types) {
+        self.examTypes = types || [];
+        self.populateExamTypes();
+      })
+      .withFailureHandler(function(error) {
+        console.error('Failed to load exam types:', error);
+      })
+      .getExamTypeMaster();
+
+    // コース
+    google.script.run
+      .withSuccessHandler(function(courses) {
+        self.courses = courses || [];
+        self.populateCourses();
+      })
+      .withFailureHandler(function(error) {
+        console.error('Failed to load courses:', error);
+      })
+      .getCourseMaster();
+  },
+
+  /**
+   * 検診種別をプルダウンに設定
+   */
+  populateExamTypes: function() {
+    const select = document.getElementById('register-exam-type');
+    if (!select) return;
+
+    // 既存のオプションを保持
+    const firstOption = select.options[0];
+    select.innerHTML = '';
+    select.appendChild(firstOption);
+
+    this.examTypes.forEach(function(type) {
+      const option = document.createElement('option');
+      option.value = type.examTypeId;
+      option.textContent = type.name;
+      select.appendChild(option);
+    });
+  },
+
+  /**
+   * コースをプルダウンに設定
+   */
+  populateCourses: function() {
+    const select = document.getElementById('register-course');
+    if (!select) return;
+
+    const firstOption = select.options[0];
+    select.innerHTML = '';
+    select.appendChild(firstOption);
+
+    this.courses.forEach(function(course) {
+      const option = document.createElement('option');
+      option.value = course.courseId;
+      option.textContent = course.name;
+      select.appendChild(option);
+    });
+  },
+
+  /**
+   * フォームをクリア
+   */
+  clearForm: function() {
+    document.getElementById('register-search-patient').value = '';
+    document.getElementById('register-patient-search-results').classList.add('hidden');
+    document.getElementById('register-selected-patient').classList.add('hidden');
+    document.getElementById('register-name').value = '';
+    document.getElementById('register-name-kana').value = '';
+    document.getElementById('register-birth-date').value = '';
+    document.getElementById('register-gender').value = '';
+    document.getElementById('register-phone').value = '';
+    document.getElementById('register-company').value = '';
+    document.getElementById('register-exam-type').value = '';
+    document.getElementById('register-course').value = '';
+    document.getElementById('register-course-group').style.display = 'none';
+  },
+
+  /**
+   * 受診者をIDで読み込み
+   * @param {string} patientId - 受診者ID
+   */
+  loadPatientById: function(patientId) {
+    const self = this;
+
+    google.script.run
+      .withSuccessHandler(function(patient) {
+        if (patient) {
+          self.selectedPatient = patient;
+          self.showSelectedPatient();
+        }
+      })
+      .withFailureHandler(function(error) {
+        console.error('Failed to load patient:', error);
+      })
+      .getPatientById(patientId);
+  },
+
+  /**
+   * 受診者を検索
+   */
+  searchPatient: function() {
+    const self = this;
+    const keyword = document.getElementById('register-search-patient').value.trim();
+
+    if (!keyword) {
+      App.showMessage('入力エラー', '検索キーワードを入力してください', 'warning');
+      return;
+    }
+
+    google.script.run
+      .withSuccessHandler(function(patients) {
+        self.showPatientSearchResults(patients || []);
+      })
+      .withFailureHandler(function(error) {
+        console.error('Search failed:', error);
+        App.showMessage('エラー', '検索に失敗しました', 'error');
+      })
+      .searchPatients({ name: keyword });
+  },
+
+  /**
+   * 検索結果を表示
+   * @param {Array} patients - 受診者リスト
+   */
+  showPatientSearchResults: function(patients) {
+    const container = document.getElementById('register-patient-search-results');
+    const select = document.getElementById('register-patient-select');
+
+    select.innerHTML = '';
+
+    if (patients.length === 0) {
+      const option = document.createElement('option');
+      option.disabled = true;
+      option.textContent = '該当する受診者が見つかりません';
+      select.appendChild(option);
+    } else {
+      patients.forEach(function(p) {
+        const option = document.createElement('option');
+        option.value = p.patientId;
+        option.textContent = p.patientId + ' - ' + p.name + ' (' + (p.nameKana || '') + ')';
+        option.dataset.patient = JSON.stringify(p);
+        select.appendChild(option);
+      });
+    }
+
+    container.classList.remove('hidden');
+  },
+
+  /**
+   * 受診者を選択
+   */
+  selectPatient: function() {
+    const select = document.getElementById('register-patient-select');
+    const option = select.options[select.selectedIndex];
+
+    if (option && option.dataset.patient) {
+      this.selectedPatient = JSON.parse(option.dataset.patient);
+      this.showSelectedPatient();
+    }
+  },
+
+  /**
+   * 選択された受診者を表示
+   */
+  showSelectedPatient: function() {
+    const p = this.selectedPatient;
+    if (!p) return;
+
+    document.getElementById('register-selected-patient-name').textContent =
+      p.patientId + ' - ' + p.name;
+    document.getElementById('register-selected-patient').classList.remove('hidden');
+    document.getElementById('register-patient-search-results').classList.add('hidden');
+
+    // 新規入力フォームを無効化
+    this.toggleNewPatientForm(true);
+  },
+
+  /**
+   * 受診者選択を解除
+   */
+  clearPatient: function() {
+    this.selectedPatient = null;
+    document.getElementById('register-selected-patient').classList.add('hidden');
+    this.toggleNewPatientForm(false);
+  },
+
+  /**
+   * 新規受診者フォームの有効/無効を切り替え
+   * @param {boolean} disabled - 無効化するか
+   */
+  toggleNewPatientForm: function(disabled) {
+    const inputs = document.querySelectorAll('#register-new-patient-form input, #register-new-patient-form select');
+    inputs.forEach(function(input) {
+      input.disabled = disabled;
+      if (disabled) {
+        input.style.backgroundColor = '#f5f5f5';
+      } else {
+        input.style.backgroundColor = '';
+      }
+    });
+  },
+
+  /**
+   * 検診種別変更時
+   */
+  onExamTypeChange: function() {
+    const examType = document.getElementById('register-exam-type').value;
+    const courseGroup = document.getElementById('register-course-group');
+
+    if (examType === 'DOCK') {
+      courseGroup.style.display = 'block';
+    } else {
+      courseGroup.style.display = 'none';
+      document.getElementById('register-course').value = '';
+    }
+  },
+
+  /**
+   * ステップインジケーターを更新
+   */
+  updateStepIndicator: function() {
+    for (let i = 1; i <= 3; i++) {
+      const step = document.getElementById('step-' + i);
+      const connector = document.getElementById('step-connector-' + (i - 1));
+
+      step.classList.remove('active', 'completed');
+
+      if (i < this.currentStep) {
+        step.classList.add('completed');
+        if (connector) connector.classList.add('completed');
+      } else if (i === this.currentStep) {
+        step.classList.add('active');
+      }
+    }
+  },
+
+  /**
+   * 現在のステップを表示
+   */
+  showCurrentStep: function() {
+    for (let i = 1; i <= 3; i++) {
+      const stepEl = document.getElementById('register-step-' + i);
+      if (stepEl) {
+        if (i === this.currentStep) {
+          stepEl.classList.remove('hidden');
+        } else {
+          stepEl.classList.add('hidden');
+        }
+      }
+    }
+  },
+
+  /**
+   * ステップ1へ
+   */
+  goToStep1: function() {
+    this.currentStep = 1;
+    this.updateStepIndicator();
+    this.showCurrentStep();
+  },
+
+  /**
+   * ステップ2へ
+   */
+  goToStep2: function() {
+    // バリデーション
+    if (!this.selectedPatient) {
+      const name = document.getElementById('register-name').value.trim();
+      const nameKana = document.getElementById('register-name-kana').value.trim();
+      const birthDate = document.getElementById('register-birth-date').value;
+      const gender = document.getElementById('register-gender').value;
+
+      if (!name) {
+        App.showMessage('入力エラー', '氏名を入力してください', 'warning');
+        return;
+      }
+      if (!nameKana) {
+        App.showMessage('入力エラー', 'カナを入力してください', 'warning');
+        return;
+      }
+      if (!birthDate) {
+        App.showMessage('入力エラー', '生年月日を入力してください', 'warning');
+        return;
+      }
+      if (!gender) {
+        App.showMessage('入力エラー', '性別を選択してください', 'warning');
+        return;
+      }
+    }
+
+    this.currentStep = 2;
+    this.updateStepIndicator();
+    this.showCurrentStep();
+  },
+
+  /**
+   * ステップ3へ（確認）
+   */
+  goToStep3: function() {
+    const visitDate = document.getElementById('register-visit-date').value;
+    const examType = document.getElementById('register-exam-type').value;
+
+    if (!visitDate) {
+      App.showMessage('入力エラー', '受診日を入力してください', 'warning');
+      return;
+    }
+    if (!examType) {
+      App.showMessage('入力エラー', '検診種別を選択してください', 'warning');
+      return;
+    }
+
+    // 確認画面に値を設定
+    this.populateConfirmation();
+
+    this.currentStep = 3;
+    this.updateStepIndicator();
+    this.showCurrentStep();
+  },
+
+  /**
+   * 確認画面に値を設定
+   */
+  populateConfirmation: function() {
+    const p = this.selectedPatient;
+
+    if (p) {
+      document.getElementById('confirm-name').textContent = p.name;
+      document.getElementById('confirm-name-kana').textContent = p.nameKana;
+      document.getElementById('confirm-birth-date').textContent = App.formatDate(p.birthDate);
+      document.getElementById('confirm-gender').textContent = App.formatGender(p.gender);
+    } else {
+      document.getElementById('confirm-name').textContent = document.getElementById('register-name').value;
+      document.getElementById('confirm-name-kana').textContent = document.getElementById('register-name-kana').value;
+      document.getElementById('confirm-birth-date').textContent = document.getElementById('register-birth-date').value;
+      document.getElementById('confirm-gender').textContent = App.formatGender(document.getElementById('register-gender').value);
+    }
+
+    document.getElementById('confirm-visit-date').textContent = document.getElementById('register-visit-date').value;
+
+    const examTypeSelect = document.getElementById('register-exam-type');
+    const examTypeName = examTypeSelect.options[examTypeSelect.selectedIndex].textContent;
+    document.getElementById('confirm-exam-type').textContent = examTypeName;
+
+    const courseSelect = document.getElementById('register-course');
+    const courseGroup = document.getElementById('confirm-course-group');
+    if (examTypeSelect.value === 'DOCK' && courseSelect.value) {
+      const courseName = courseSelect.options[courseSelect.selectedIndex].textContent;
+      document.getElementById('confirm-course').textContent = courseName;
+      courseGroup.style.display = 'block';
+    } else {
+      courseGroup.style.display = 'none';
+    }
+  },
+
+  /**
+   * 登録実行
+   */
+  submit: function() {
+    const self = this;
+    App.showLoading();
+
+    // 受診者データ
+    let patientData = null;
+    let patientId = null;
+
+    if (this.selectedPatient) {
+      patientId = this.selectedPatient.patientId;
+    } else {
+      patientData = {
+        name: document.getElementById('register-name').value.trim(),
+        nameKana: document.getElementById('register-name-kana').value.trim(),
+        birthDate: document.getElementById('register-birth-date').value,
+        gender: document.getElementById('register-gender').value,
+        phone: document.getElementById('register-phone').value.trim(),
+        company: document.getElementById('register-company').value.trim()
+      };
+    }
+
+    // 受診データ
+    const visitData = {
+      visitDate: document.getElementById('register-visit-date').value,
+      examTypeId: document.getElementById('register-exam-type').value,
+      courseId: document.getElementById('register-course').value || null
+    };
+
+    google.script.run
+      .withSuccessHandler(function(result) {
+        App.hideLoading();
+        if (result && result.success) {
+          App.showMessage('成功', '登録が完了しました', 'success');
+          // 受診者詳細画面へ遷移
+          App.navigate('detail', { patientId: result.patientId });
+        } else {
+          App.showMessage('エラー', '登録に失敗しました', 'error');
+        }
+      })
+      .withFailureHandler(function(error) {
+        App.hideLoading();
+        console.error('Registration failed:', error);
+        App.showMessage('エラー', '登録に失敗しました: ' + error.message, 'error');
+      })
+      .registerPatientAndVisit(patientId, patientData, visitData);
+  },
+
+  /**
+   * キャンセル
+   */
+  cancel: function() {
+    App.showConfirm('確認', '入力内容を破棄してメニューに戻りますか？', function(result) {
+      if (result) {
+        App.navigate('menu');
+      }
+    });
+  }
+};
+</script>

@@ -1,0 +1,175 @@
+<!--
+  健診結果DB 統合システム - 受診者一覧画面 (SCR-004)
+
+  @description UI設計書: 健診結果DB_UI設計書_v1.md 2.4章
+  @version 1.0.0
+  @date 2025-12-14
+-->
+
+<div id="screen-list" class="screen hidden">
+  <div class="main-content">
+    <!-- ページヘッダー -->
+    <div class="flex-between mb-lg">
+      <div>
+        <h1 style="font-size: var(--font-size-xl);">検索結果: <span id="list-result-count">0</span>件</h1>
+      </div>
+      <a href="#" class="btn btn-outline" onclick="App.navigate('search'); return false;">
+        検索条件に戻る
+      </a>
+    </div>
+
+    <!-- 結果テーブル -->
+    <div class="card">
+      <div class="card-body" style="padding: 0;">
+        <div class="table-container">
+          <table class="table" id="patient-list-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>氏名</th>
+                <th>カナ</th>
+                <th>受診日</th>
+                <th>検診種別</th>
+                <th>総合判定</th>
+              </tr>
+            </thead>
+            <tbody id="patient-list-body">
+              <tr>
+                <td colspan="6" class="text-center text-secondary">データがありません</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ページネーション -->
+    <div class="pagination" id="list-pagination">
+      <button class="pagination-btn" id="list-prev-btn" onclick="PatientList.prevPage()" disabled>
+        &lt;&lt; 前へ
+      </button>
+      <span class="pagination-info">
+        <span id="list-current-page">1</span> / <span id="list-total-pages">1</span> ページ
+      </span>
+      <button class="pagination-btn" id="list-next-btn" onclick="PatientList.nextPage()" disabled>
+        次へ &gt;&gt;
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+/**
+ * 受診者一覧画面の処理
+ */
+const PatientList = {
+  /** ページサイズ */
+  pageSize: 20,
+
+  /** 現在のページ */
+  currentPage: 1,
+
+  /** 総ページ数 */
+  totalPages: 1,
+
+  /**
+   * 初期化
+   * @param {Object} params - パラメータ
+   */
+  init: function(params) {
+    console.log('PatientList.init');
+    this.currentPage = 1;
+    this.render();
+  },
+
+  /**
+   * 一覧を描画
+   */
+  render: function() {
+    const results = App.state.searchResults || [];
+    const totalCount = results.length;
+
+    // 件数表示
+    document.getElementById('list-result-count').textContent = totalCount;
+
+    // ページ計算
+    this.totalPages = Math.max(1, Math.ceil(totalCount / this.pageSize));
+    if (this.currentPage > this.totalPages) {
+      this.currentPage = this.totalPages;
+    }
+
+    // ページ情報表示
+    document.getElementById('list-current-page').textContent = this.currentPage;
+    document.getElementById('list-total-pages').textContent = this.totalPages;
+
+    // ページネーションボタン
+    document.getElementById('list-prev-btn').disabled = (this.currentPage <= 1);
+    document.getElementById('list-next-btn').disabled = (this.currentPage >= this.totalPages);
+
+    // テーブル描画
+    this.renderTable();
+  },
+
+  /**
+   * テーブルを描画
+   */
+  renderTable: function() {
+    const tbody = document.getElementById('patient-list-body');
+    if (!tbody) return;
+
+    const results = App.state.searchResults || [];
+
+    if (results.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-secondary">データがありません</td></tr>';
+      return;
+    }
+
+    // ページ範囲を計算
+    const startIndex = (this.currentPage - 1) * this.pageSize;
+    const endIndex = Math.min(startIndex + this.pageSize, results.length);
+    const pageData = results.slice(startIndex, endIndex);
+
+    let html = '';
+    pageData.forEach(function(item) {
+      html += '<tr class="clickable" onclick="PatientList.selectPatient(\'' + item.patientId + '\')">';
+      html += '<td>' + (item.patientId || '') + '</td>';
+      html += '<td>' + (item.name || '') + '</td>';
+      html += '<td>' + (item.nameKana || '') + '</td>';
+      html += '<td>' + (item.lastVisitDate ? App.formatDate(item.lastVisitDate) : '-') + '</td>';
+      html += '<td>' + (item.lastExamTypeName || '-') + '</td>';
+      html += '<td>' + App.getJudgmentBadge(item.lastJudgment) + '</td>';
+      html += '</tr>';
+    });
+
+    tbody.innerHTML = html;
+  },
+
+  /**
+   * 前のページへ
+   */
+  prevPage: function() {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+      this.render();
+    }
+  },
+
+  /**
+   * 次のページへ
+   */
+  nextPage: function() {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+      this.render();
+    }
+  },
+
+  /**
+   * 受診者を選択
+   * @param {string} patientId - 受診者ID
+   */
+  selectPatient: function(patientId) {
+    App.navigate('detail', { patientId: patientId });
+  }
+};
+</script>

@@ -1,0 +1,323 @@
+<!--
+  健診結果DB 統合システム - 検査結果表示画面 (SCR-006)
+
+  @description UI設計書: 健診結果DB_UI設計書_v1.md 2.6章
+  @version 1.0.0
+  @date 2025-12-14
+-->
+
+<div id="screen-result" class="screen hidden">
+  <div class="main-content">
+    <!-- ページヘッダー -->
+    <div class="flex-between mb-lg">
+      <h1 style="font-size: var(--font-size-xl);">検査結果</h1>
+      <a href="#" class="btn btn-outline" onclick="App.goBack(); return false;">
+        受診者詳細に戻る
+      </a>
+    </div>
+
+    <!-- 受診情報 -->
+    <div class="card mb-lg">
+      <div class="card-body">
+        <div class="flex-between">
+          <div>
+            <span id="result-patient-name" style="font-size: var(--font-size-lg); font-weight: bold;">-</span>
+            <span style="margin-left: var(--spacing-md);" id="result-visit-info">-</span>
+          </div>
+          <div>
+            <span class="text-secondary">総合判定: </span>
+            <span id="result-overall-judgment" style="font-size: var(--font-size-xl);">-</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 検査結果一覧 -->
+    <div id="result-categories-container">
+      <!-- カテゴリごとに動的に生成 -->
+    </div>
+
+    <!-- 操作ボタン -->
+    <div class="card mt-lg">
+      <div class="card-body">
+        <div class="flex gap-md" style="flex-wrap: wrap;">
+          <button class="btn btn-primary" onclick="TestResult.goToInput()">結果入力</button>
+          <button class="btn btn-outline" onclick="TestResult.showReportModal()">帳票出力</button>
+          <button class="btn btn-outline" onclick="TestResult.print()">印刷</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/**
+ * 検査結果表示画面の処理
+ */
+const TestResult = {
+  /** 受診情報 */
+  visit: null,
+
+  /** 検査結果 */
+  results: [],
+
+  /** 項目マスタ */
+  itemMaster: [],
+
+  /** 前回結果 */
+  previousResults: {},
+
+  /**
+   * 初期化
+   * @param {Object} params - パラメータ
+   */
+  init: function(params) {
+    console.log('TestResult.init', params);
+
+    const visitId = (params && params.visitId) ||
+                    (App.state.currentVisit && App.state.currentVisit.visitId);
+
+    if (visitId) {
+      this.loadData(visitId);
+    } else {
+      App.showMessage('エラー', '受診情報が指定されていません', 'error');
+      App.goBack();
+    }
+  },
+
+  /**
+   * データを読み込み
+   * @param {string} visitId - 受診ID
+   */
+  loadData: function(visitId) {
+    const self = this;
+    App.showLoading();
+
+    // 項目マスタを取得
+    google.script.run
+      .withSuccessHandler(function(items) {
+        self.itemMaster = items || [];
+        self.loadVisit(visitId);
+      })
+      .withFailureHandler(function(error) {
+        App.hideLoading();
+        console.error('Failed to load item master:', error);
+        App.showMessage('エラー', '項目マスタの取得に失敗しました', 'error');
+      })
+      .getItemMaster();
+  },
+
+  /**
+   * 受診情報を読み込み
+   * @param {string} visitId - 受診ID
+   */
+  loadVisit: function(visitId) {
+    const self = this;
+
+    google.script.run
+      .withSuccessHandler(function(visit) {
+        if (visit) {
+          self.visit = visit;
+          App.state.currentVisit = visit;
+          self.loadResults(visitId);
+        } else {
+          App.hideLoading();
+          App.showMessage('エラー', '受診情報が見つかりません', 'error');
+          App.goBack();
+        }
+      })
+      .withFailureHandler(function(error) {
+        App.hideLoading();
+        console.error('Failed to load visit:', error);
+        App.showMessage('エラー', '受診情報の取得に失敗しました', 'error');
+      })
+      .getVisitRecordById(visitId);
+  },
+
+  /**
+   * 検査結果を読み込み
+   * @param {string} visitId - 受診ID
+   */
+  loadResults: function(visitId) {
+    const self = this;
+
+    google.script.run
+      .withSuccessHandler(function(results) {
+        App.hideLoading();
+        self.results = results || [];
+        self.loadPreviousResults();
+      })
+      .withFailureHandler(function(error) {
+        App.hideLoading();
+        console.error('Failed to load results:', error);
+        self.results = [];
+        self.render();
+      })
+      .getTestResultsByVisitId(visitId);
+  },
+
+  /**
+   * 前回結果を読み込み
+   */
+  loadPreviousResults: function() {
+    const self = this;
+    const patientId = this.visit.patientId;
+    const currentVisitDate = this.visit.visitDate;
+
+    google.script.run
+      .withSuccessHandler(function(previous) {
+        self.previousResults = previous || {};
+        self.render();
+      })
+      .withFailureHandler(function(error) {
+        console.error('Failed to load previous results:', error);
+        self.previousResults = {};
+        self.render();
+      })
+      .getPreviousTestResults(patientId, currentVisitDate);
+  },
+
+  /**
+   * 描画
+   */
+  render: function() {
+    // 受診情報
+    const patient = App.state.currentPatient || {};
+    document.getElementById('result-patient-name').textContent =
+      (patient.name || '-') + ' 様';
+
+    const visitInfo = App.formatDate(this.visit.visitDate) + '  ' +
+                      (this.visit.examTypeName || this.visit.examTypeId || '') +
+                      (this.visit.courseName ? '（' + this.visit.courseName + '）' : '');
+    document.getElementById('result-visit-info').textContent = visitInfo;
+
+    document.getElementById('result-overall-judgment').innerHTML =
+      App.getJudgmentBadge(this.visit.overallJudgment);
+
+    // カテゴリ別に結果をグループ化
+    this.renderCategories();
+  },
+
+  /**
+   * カテゴリ別に描画
+   */
+  renderCategories: function() {
+    const container = document.getElementById('result-categories-container');
+    if (!container) return;
+
+    // カテゴリでグループ化
+    const categories = {};
+    const itemMap = {};
+
+    this.itemMaster.forEach(function(item) {
+      itemMap[item.itemId] = item;
+      if (!categories[item.category]) {
+        categories[item.category] = [];
+      }
+    });
+
+    this.results.forEach(function(result) {
+      const item = itemMap[result.itemId];
+      if (item) {
+        if (!categories[item.category]) {
+          categories[item.category] = [];
+        }
+        categories[item.category].push({
+          result: result,
+          item: item
+        });
+      }
+    });
+
+    let html = '';
+
+    for (const category in categories) {
+      const items = categories[category];
+      if (items.length === 0) continue;
+
+      html += '<div class="card mb-md">';
+      html += '<div class="card-header">';
+      html += '<span class="card-title">■ ' + category + '</span>';
+      html += '</div>';
+      html += '<div class="card-body" style="padding: 0;">';
+      html += '<div class="table-container">';
+      html += '<table class="table">';
+      html += '<thead><tr>';
+      html += '<th>項目</th>';
+      html += '<th>結果</th>';
+      html += '<th>基準値</th>';
+      html += '<th>判定</th>';
+      html += '<th>前回値</th>';
+      html += '</tr></thead>';
+      html += '<tbody>';
+
+      items.forEach(function(data) {
+        const result = data.result;
+        const item = data.item;
+        const prev = this.previousResults[result.itemId];
+
+        html += '<tr>';
+        html += '<td>' + (item.name || result.itemId) + '</td>';
+        html += '<td>' + (result.value !== null && result.value !== '' ? result.value : '-') + '</td>';
+        html += '<td>' + this.formatRange(item) + '</td>';
+        html += '<td>' + App.getJudgmentBadge(result.judgment) + '</td>';
+        html += '<td>' + (prev || '-') + '</td>';
+        html += '</tr>';
+      }, this);
+
+      html += '</tbody></table>';
+      html += '</div></div></div>';
+    }
+
+    if (html === '') {
+      html = '<div class="card"><div class="card-body text-center text-secondary">検査結果がありません</div></div>';
+    }
+
+    container.innerHTML = html;
+  },
+
+  /**
+   * 基準範囲をフォーマット
+   * @param {Object} item - 項目マスタ
+   * @returns {string}
+   */
+  formatRange: function(item) {
+    if (!item || item.judgmentMethod === 'なし') return '-';
+
+    if (item.aMin !== '' && item.aMax !== '') {
+      return item.aMin + ' - ' + item.aMax;
+    }
+
+    if (item.aMax !== '' && item.aMin === '') {
+      return '≤' + item.aMax;
+    }
+
+    if (item.aMin !== '' && item.aMax === '') {
+      return '≥' + item.aMin;
+    }
+
+    return '-';
+  },
+
+  /**
+   * 入力画面へ
+   */
+  goToInput: function() {
+    App.navigate('input', { visitId: this.visit.visitId });
+  },
+
+  /**
+   * 帳票出力モーダル
+   */
+  showReportModal: function() {
+    App.showMessage('未実装', 'この機能は Phase 4 で実装予定です', 'info');
+  },
+
+  /**
+   * 印刷
+   */
+  print: function() {
+    window.print();
+  }
+};
+</script>

@@ -33,13 +33,24 @@ function setupAutoNextFields() {
     input.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') {
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+
         const nextId = this.getAttribute('data-next');
         if (nextId) {
           const nextElement = document.getElementById(nextId);
           if (nextElement) {
-            nextElement.focus();
+            // 少し遅延させてフォーカス移動（ブラウザの自動入力を回避）
+            setTimeout(function() {
+              nextElement.focus();
+              // selectで既存の値を選択状態に（上書きしやすく）
+              if (nextElement.select) {
+                nextElement.select();
+              }
+            }, 10);
           }
         }
+        return false;
       }
     });
   });

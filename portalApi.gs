@@ -75,7 +75,9 @@ function portalSearchPatients(criteria) {
     const data = sheet.getDataRange().getValues();
     const results = [];
 
-    // 列インデックス: patientId(0), status(1), examDate(2), name(3), nameKana(4), gender(5), birthDate(6), age(7), course(8), company(9)
+    // 列インデックス（実際のスプレッドシート構造）:
+    // 0:受診ID, 1:ステータス, 2:受診日, 3:氏名, 4:カナ, 5:性別, 6:生年月日, 7:年齢,
+    // 8:受診コース, 9:事業所名, 10:所属, 11:総合判定, 12:CSV取込日時, 13:最終更新日時, 14:出力日時
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
 
@@ -85,9 +87,11 @@ function portalSearchPatients(criteria) {
       // 検索条件でフィルタ
       let match = true;
 
-      if (criteria.patientId && String(row[0]) !== String(criteria.patientId)) {
-        // 部分一致も許可
-        if (!String(row[0]).includes(criteria.patientId)) {
+      if (criteria.patientId) {
+        const searchId = String(criteria.patientId).toLowerCase();
+        const rowId = String(row[0]).toLowerCase();
+        // 部分一致で検索
+        if (!rowId.includes(searchId)) {
           match = false;
         }
       }
@@ -100,17 +104,17 @@ function portalSearchPatients(criteria) {
 
       if (match) {
         results.push({
-          '患者ID': row[0],
+          '受診ID': row[0],
           'ステータス': row[1],
-          '検査日': row[2],
+          '受診日': row[2],
           '氏名': row[3],
           'カナ': row[4],
           '性別': row[5],
           '生年月日': row[6],
           '年齢': row[7],
-          'コース': row[8],
-          '企業名': row[9],
-          '部署': row[10],
+          '受診コース': row[8],
+          '事業所名': row[9],
+          '所属': row[10],
           '総合判定': row[11],
           _rowIndex: i + 1
         });
@@ -144,24 +148,29 @@ function portalRegisterPatient(patientData) {
     const existingData = sheet.getDataRange().getValues();
     for (let i = 1; i < existingData.length; i++) {
       if (String(existingData[i][0]) === String(patientData.patientId)) {
-        return { success: false, error: '患者ID「' + patientData.patientId + '」は既に登録されています' };
+        return { success: false, error: '受診ID「' + patientData.patientId + '」は既に登録されています' };
       }
     }
 
-    // 列順序: patientId, status, examDate, name, nameKana, gender, birthDate, age, course, company, department, overallJudgment
+    // 列順序（実際のスプレッドシート構造）:
+    // 受診ID, ステータス, 受診日, 氏名, カナ, 性別, 生年月日, 年齢, 受診コース, 事業所名, 所属, 総合判定, CSV取込日時, 最終更新日時, 出力日時
+    const now = new Date();
     const newRow = [
-      patientData.patientId || '',
-      patientData.status || '入力中',
-      patientData.examDate || '',
-      patientData.name || '',
-      patientData.nameKana || '',
-      patientData.gender || '',
-      patientData.birthDate || '',
-      patientData.age || '',
-      patientData.course || '',
-      patientData.company || '',
-      patientData.department || '',
-      patientData.overallJudgment || ''
+      patientData.patientId || '',        // 受診ID
+      patientData.status || '入力中',      // ステータス
+      patientData.examDate || '',          // 受診日
+      patientData.name || '',              // 氏名
+      patientData.nameKana || '',          // カナ
+      patientData.gender || '',            // 性別
+      patientData.birthDate || '',         // 生年月日
+      patientData.age || '',               // 年齢
+      patientData.course || '',            // 受診コース
+      patientData.company || '',           // 事業所名
+      patientData.department || '',        // 所属
+      patientData.overallJudgment || '',   // 総合判定
+      '',                                   // CSV取込日時
+      now,                                  // 最終更新日時
+      ''                                    // 出力日時
     ];
 
     sheet.appendRow(newRow);

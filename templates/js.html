@@ -158,18 +158,18 @@ function displayPatientSearchResults(result) {
   }
 
   let html = '<table class="results-table"><thead><tr>';
-  html += '<th>患者ID</th><th>氏名</th><th>カナ</th><th>生年月日</th><th>性別</th><th>操作</th>';
+  html += '<th>受診ID</th><th>氏名</th><th>カナ</th><th>受診日</th><th>受診コース</th><th>操作</th>';
   html += '</tr></thead><tbody>';
 
   result.data.forEach(patient => {
     html += '<tr>';
-    html += '<td>' + escapeHtml(patient['患者ID'] || '') + '</td>';
+    html += '<td>' + escapeHtml(patient['受診ID'] || '') + '</td>';
     html += '<td>' + escapeHtml(patient['氏名'] || '') + '</td>';
     html += '<td>' + escapeHtml(patient['カナ'] || '') + '</td>';
-    html += '<td>' + formatDate(patient['生年月日']) + '</td>';
-    html += '<td>' + escapeHtml(patient['性別'] || '') + '</td>';
+    html += '<td>' + formatDate(patient['受診日']) + '</td>';
+    html += '<td>' + escapeHtml(patient['受診コース'] || '') + '</td>';
     html += '<td>';
-    html += '<button class="btn btn-sm btn-primary" onclick="selectPatientForInput(\'' + patient['患者ID'] + '\')">結果入力</button>';
+    html += '<button class="btn btn-sm btn-primary" onclick="selectPatientForInput(\'' + patient['受診ID'] + '\')">結果入力</button>';
     html += '</td>';
     html += '</tr>';
   });

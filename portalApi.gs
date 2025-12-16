@@ -14,7 +14,17 @@
  * @returns {Spreadsheet} スプレッドシート
  */
 function getPortalSpreadsheet() {
-  // 方法1: スクリプトがバインドされているスプレッドシートを取得
+  // 確実に動作するようにスプレッドシートIDを直接指定
+  const SPREADSHEET_ID = '16KtctyT2gd7oJZdcu84kUtuP-D9jB9KtLxxzxXx_wdk';
+
+  // 方法1: 直接IDで取得（最も確実）
+  try {
+    return SpreadsheetApp.openById(SPREADSHEET_ID);
+  } catch (e) {
+    console.error('直接ID取得失敗:', e);
+  }
+
+  // 方法2: スクリプトがバインドされているスプレッドシートを取得
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     if (ss) return ss;
@@ -22,7 +32,7 @@ function getPortalSpreadsheet() {
     // Webアプリではエラーになる場合がある
   }
 
-  // 方法2: PropertiesServiceからIDを取得
+  // 方法3: PropertiesServiceからIDを取得
   try {
     const props = PropertiesService.getScriptProperties();
     const ssId = props.getProperty('SPREADSHEET_ID');
@@ -33,11 +43,7 @@ function getPortalSpreadsheet() {
     // プロパティが設定されていない場合
   }
 
-  // 方法3: 直接IDを指定（初回設定用）
-  // この行を実際のスプレッドシートIDに置き換えてください
-  // return SpreadsheetApp.openById('YOUR_SPREADSHEET_ID_HERE');
-
-  throw new Error('スプレッドシートに接続できません。setupSpreadsheetId()を実行してください。');
+  throw new Error('スプレッドシートに接続できません。');
 }
 
 /**
@@ -107,36 +113,56 @@ function normalizeKana(str) {
 // ============================================================
 
 /**
- * 受診者を検索
+ * 受診者を検索（修正版 v3 - シリアライズ対応）
+ *
+ * 【修正ポイント】
+ * 1. Dateオブジェクトを文字列に変換してからreturn
+ * 2. 値をすべてプリミティブ型に変換
+ * 3. undefinedをnullまたは空文字に変換
+ *
  * @param {Object} criteria - 検索条件
  * @returns {Object} 検索結果
  */
 function portalSearchPatients(criteria) {
+  const debugInfo = {
+    version: '2025-12-16-v3-serializable',
+    criteriaReceived: criteria ? JSON.stringify(criteria) : 'null',
+    timestamp: new Date().toISOString()
+  };
+
   try {
     const ss = getPortalSpreadsheet();
+    debugInfo.spreadsheetId = ss.getId();
+
     const sheet = ss.getSheetByName('受診者マスタ');
     if (!sheet) {
-      return { success: false, error: '受診者マスタシートが見つかりません', data: [] };
+      return { success: false, error: '受診者マスタシートが見つかりません', data: [], _debug: debugInfo };
     }
+    debugInfo.sheetFound = true;
 
     const data = sheet.getDataRange().getValues();
+    debugInfo.totalRows = data.length;
+    debugInfo.firstRowId = data.length > 1 ? String(data[1][0]) : 'NO_DATA';
+
     const results = [];
 
-    // 検索条件を正規化
-    const searchId = criteria.patientId ? normalizeString(criteria.patientId) : '';
-    const searchName = criteria.name ? normalizeString(criteria.name) : '';
-    const searchKana = criteria.kana ? normalizeKana(criteria.kana) : '';
+    // 検索条件を正規化（nullチェック追加）
+    const searchId = criteria && criteria.patientId ? normalizeString(criteria.patientId) : '';
+    const searchName = criteria && criteria.name ? normalizeString(criteria.name) : '';
+    const searchKana = criteria && criteria.kana ? normalizeKana(criteria.kana) : '';
 
-    // 列インデックス（実際のスプレッドシート構造）:
+    debugInfo.normalizedCriteria = { searchId: searchId, searchName: searchName, searchKana: searchKana };
+
+    // 列インデックス:
     // 0:受診ID, 1:ステータス, 2:受診日, 3:氏名, 4:カナ, 5:性別, 6:生年月日, 7:年齢,
-    // 8:受診コース, 9:事業所名, 10:所属, 11:総合判定, 12:CSV取込日時, 13:最終更新日時, 14:出力日時
+    // 8:受診コース, 9:事業所名, 10:所属, 11:総合判定
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
 
       // 空行スキップ
       if (!row[0]) continue;
 
-      // 検索条件でフィルタ（正規化して比較）
+      // 検索条件でフィルタ
       let match = true;
 
       if (searchId) {
@@ -145,13 +171,13 @@ function portalSearchPatients(criteria) {
           match = false;
         }
       }
-      if (searchName) {
+      if (searchName && match) {
         const rowName = normalizeString(row[3]);
         if (!rowName.includes(searchName)) {
           match = false;
         }
       }
-      if (searchKana) {
+      if (searchKana && match) {
         const rowKana = normalizeKana(row[4]);
         if (!rowKana.includes(searchKana)) {
           match = false;
@@ -159,19 +185,20 @@ function portalSearchPatients(criteria) {
       }
 
       if (match) {
+        // ★★★ 重要: すべての値をシリアライズ可能な形式に変換 ★★★
         results.push({
-          '受診ID': row[0],
-          'ステータス': row[1],
-          '受診日': row[2],
-          '氏名': row[3],
-          'カナ': row[4],
-          '性別': row[5],
-          '生年月日': row[6],
-          '年齢': row[7],
-          '受診コース': row[8],
-          '事業所名': row[9],
-          '所属': row[10],
-          '総合判定': row[11],
+          '受診ID': safeString(row[0]),
+          'ステータス': safeString(row[1]),
+          '受診日': formatDateToString(row[2]),
+          '氏名': safeString(row[3]),
+          'カナ': safeString(row[4]),
+          '性別': safeString(row[5]),
+          '生年月日': formatDateToString(row[6]),
+          '年齢': safeNumber(row[7]),
+          '受診コース': safeString(row[8]),
+          '事業所名': safeString(row[9]),
+          '所属': safeString(row[10]),
+          '総合判定': safeString(row[11]),
           _rowIndex: i + 1
         });
       }
@@ -180,11 +207,80 @@ function portalSearchPatients(criteria) {
       if (results.length >= 100) break;
     }
 
-    return { success: true, data: results, count: results.length };
+    debugInfo.resultsCount = results.length;
+
+    return {
+      success: true,
+      data: results,
+      count: results.length,
+      _debug: debugInfo
+    };
+
   } catch (error) {
     console.error('portalSearchPatients error:', error);
-    return { success: false, error: error.message, data: [] };
+    debugInfo.error = String(error.message);
+    return {
+      success: false,
+      error: String(error.message),
+      data: [],
+      _debug: debugInfo
+    };
   }
+}
+
+// ============================================================
+// シリアライズ用ヘルパー関数
+// ============================================================
+
+/**
+ * 値を安全な文字列に変換
+ * @param {*} value - 任意の値
+ * @returns {string} 文字列
+ */
+function safeString(value) {
+  if (value === null || value === undefined) return '';
+  if (value instanceof Date) return formatDateToString(value);
+  return String(value);
+}
+
+/**
+ * 値を安全な数値に変換
+ * @param {*} value - 任意の値
+ * @returns {number|string} 数値または空文字
+ */
+function safeNumber(value) {
+  if (value === null || value === undefined || value === '') return '';
+  const num = Number(value);
+  return isNaN(num) ? String(value) : num;
+}
+
+/**
+ * Dateオブジェクトを文字列に変換
+ * @param {*} value - 日付値
+ * @returns {string} 日付文字列 (YYYY/MM/DD)
+ */
+function formatDateToString(value) {
+  if (!value) return '';
+
+  // 既に文字列の場合はそのまま返す
+  if (typeof value === 'string') return value;
+
+  // Dateオブジェクトの場合
+  if (value instanceof Date) {
+    if (isNaN(value.getTime())) return '';
+
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return year + '/' + month + '/' + day;
+  }
+
+  // 数値の場合
+  if (typeof value === 'number') {
+    return String(value);
+  }
+
+  return String(value);
 }
 
 /**
@@ -862,4 +958,291 @@ function portalGetAdjacentPatient(currentId, direction) {
     console.error('portalGetAdjacentPatient error:', error);
     return { success: false, error: error.message };
   }
+}
+
+// ============================================================
+// デバッグ用テスト関数
+// ============================================================
+
+/**
+ * デプロイ確認用テスト関数
+ * ブラウザコンソールから google.script.run.testPortalApi() で呼び出し可能
+ */
+function testPortalApi() {
+  return {
+    success: true,
+    message: 'portalApi.gs is deployed correctly',
+    timestamp: new Date().toISOString(),
+    version: '2025-12-16'
+  };
+}
+
+/**
+ * 検索機能デバッグ用
+ * 固定値を返してAPI呼び出しが正常か確認
+ */
+function testSearchDebug() {
+  return {
+    success: true,
+    data: [
+      {
+        '受診ID': 'TEST001',
+        'ステータス': 'テスト',
+        '受診日': '2025-12-16',
+        '氏名': 'テスト 太郎',
+        'カナ': 'テスト タロウ',
+        '性別': '男',
+        '生年月日': '1990-01-01',
+        '年齢': 35,
+        '受診コース': '人間ドック',
+        '事業所名': 'テスト会社',
+        '所属': '',
+        '総合判定': 'A'
+      }
+    ],
+    count: 1
+  };
+}
+
+/**
+ * 詳細検索デバッグ - GASエディタから実行
+ * 11111 を検索して各ステップをログ出力
+ */
+function debugSearchDetailed() {
+  console.log('========== 詳細検索デバッグ開始 ==========');
+
+  const criteria = { patientId: '11111', name: '', kana: '' };
+  console.log('検索条件:', JSON.stringify(criteria));
+
+  // スプレッドシート接続
+  const ss = getPortalSpreadsheet();
+  console.log('スプレッドシートID:', ss.getId());
+
+  const sheet = ss.getSheetByName('受診者マスタ');
+  if (!sheet) {
+    console.log('ERROR: 受診者マスタシートが見つかりません');
+    return;
+  }
+  console.log('シート名:', sheet.getName());
+
+  const data = sheet.getDataRange().getValues();
+  console.log('総行数:', data.length);
+  console.log('ヘッダー:', JSON.stringify(data[0]));
+
+  // 検索条件を正規化
+  const searchId = criteria.patientId ? normalizeString(criteria.patientId) : '';
+  const searchName = criteria.name ? normalizeString(criteria.name) : '';
+  const searchKana = criteria.kana ? normalizeKana(criteria.kana) : '';
+
+  console.log('正規化後 - searchId:', searchId, ', searchName:', searchName, ', searchKana:', searchKana);
+
+  console.log('\n========== 各行の検索処理 ==========');
+
+  const results = [];
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const rowId = row[0];
+    const rowName = row[3];
+    const rowKana = row[4];
+
+    // 空行スキップ
+    if (!rowId) {
+      console.log('行', i + 1, ': 空行 - スキップ');
+      continue;
+    }
+
+    const normalizedRowId = normalizeString(rowId);
+    const normalizedRowName = normalizeString(rowName);
+    const normalizedRowKana = normalizeKana(rowKana);
+
+    console.log('行', i + 1, ':');
+    console.log('  元データ - ID:', rowId, '(型:', typeof rowId, '), 氏名:', rowName, ', カナ:', rowKana);
+    console.log('  正規化後 - ID:', normalizedRowId, ', 氏名:', normalizedRowName, ', カナ:', normalizedRowKana);
+
+    let match = true;
+
+    if (searchId) {
+      const idMatch = normalizedRowId.includes(searchId);
+      console.log('  ID検索:', normalizedRowId, '.includes(', searchId, ') =', idMatch);
+      if (!idMatch) match = false;
+    }
+
+    if (searchName && match) {
+      const nameMatch = normalizedRowName.includes(searchName);
+      console.log('  氏名検索:', normalizedRowName, '.includes(', searchName, ') =', nameMatch);
+      if (!nameMatch) match = false;
+    }
+
+    if (searchKana && match) {
+      const kanaMatch = normalizedRowKana.includes(searchKana);
+      console.log('  カナ検索:', normalizedRowKana, '.includes(', searchKana, ') =', kanaMatch);
+      if (!kanaMatch) match = false;
+    }
+
+    console.log('  → 結果:', match ? 'マッチ ✓' : '不一致 ✗');
+
+    if (match) {
+      results.push({
+        '受診ID': rowId,
+        '氏名': rowName,
+        'カナ': rowKana
+      });
+    }
+  }
+
+  console.log('\n========== 検索結果 ==========');
+  console.log('ヒット件数:', results.length);
+  console.log('結果:', JSON.stringify(results, null, 2));
+
+  return { success: true, data: results, count: results.length };
+}
+
+/**
+ * Webアプリから呼び出して接続先スプレッドシートを確認
+ */
+function debugWebAppConnection() {
+  try {
+    const ss = getPortalSpreadsheet();
+    const sheet = ss.getSheetByName('受診者マスタ');
+    const rowCount = sheet ? sheet.getLastRow() : 0;
+
+    return {
+      success: true,
+      spreadsheetId: ss.getId(),
+      spreadsheetName: ss.getName(),
+      sheetExists: !!sheet,
+      rowCount: rowCount,
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Webアプリコンテキストで検索の全ステップをデバッグ
+ * ブラウザコンソールから呼び出し、結果をJSONで返す
+ * @param {string} searchId - 検索する受診ID（デフォルト: '11111'）
+ * @returns {Object} 各ステップの詳細情報
+ */
+function debugSearchFromWebApp(searchId) {
+  const debug = {
+    timestamp: new Date().toISOString(),
+    steps: [],
+    searchId: searchId || '11111',
+    finalResult: null
+  };
+
+  try {
+    // Step 1: スプレッドシート接続
+    debug.steps.push({ step: 1, action: 'getPortalSpreadsheet 呼び出し' });
+    const ss = getPortalSpreadsheet();
+    debug.steps.push({
+      step: 1,
+      result: 'SUCCESS',
+      spreadsheetId: ss.getId(),
+      spreadsheetName: ss.getName()
+    });
+
+    // Step 2: シート取得
+    debug.steps.push({ step: 2, action: '受診者マスタシート取得' });
+    const sheet = ss.getSheetByName('受診者マスタ');
+    if (!sheet) {
+      debug.steps.push({ step: 2, result: 'FAILED', error: 'シートが見つからない' });
+      debug.finalResult = { success: false, error: 'シートが見つからない' };
+      return debug;
+    }
+    debug.steps.push({ step: 2, result: 'SUCCESS', sheetName: sheet.getName() });
+
+    // Step 3: データ取得
+    debug.steps.push({ step: 3, action: 'getDataRange().getValues()' });
+    const data = sheet.getDataRange().getValues();
+    debug.steps.push({
+      step: 3,
+      result: 'SUCCESS',
+      totalRows: data.length,
+      headers: data[0] ? data[0].slice(0, 5).join(', ') + '...' : 'EMPTY'
+    });
+
+    // Step 4: データの先頭3行を取得（デバッグ用）
+    debug.steps.push({ step: 4, action: 'サンプルデータ取得（先頭3行）' });
+    const sampleData = [];
+    for (let i = 1; i < Math.min(data.length, 4); i++) {
+      sampleData.push({
+        rowNum: i + 1,
+        col0_受診ID: data[i][0],
+        col0_type: typeof data[i][0],
+        col3_氏名: data[i][3],
+        col4_カナ: data[i][4]
+      });
+    }
+    debug.steps.push({ step: 4, result: 'SUCCESS', sampleData: sampleData });
+
+    // Step 5: 検索実行
+    const targetId = searchId || '11111';
+    debug.steps.push({ step: 5, action: '検索実行', targetId: targetId });
+
+    const normalizedSearchId = normalizeString(targetId);
+    debug.steps.push({ step: 5, normalizedSearchId: normalizedSearchId });
+
+    const results = [];
+    const matchLog = [];
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const rowId = row[0];
+
+      if (!rowId) continue;
+
+      const normalizedRowId = normalizeString(rowId);
+      const isMatch = normalizedRowId.includes(normalizedSearchId);
+
+      matchLog.push({
+        row: i + 1,
+        rawId: rowId,
+        normalizedId: normalizedRowId,
+        searchId: normalizedSearchId,
+        match: isMatch
+      });
+
+      if (isMatch) {
+        results.push({
+          '受診ID': row[0],
+          '氏名': row[3],
+          'カナ': row[4]
+        });
+      }
+
+      // 最初の5行分のマッチログのみ保持
+      if (matchLog.length > 5) break;
+    }
+
+    debug.steps.push({
+      step: 5,
+      result: 'SUCCESS',
+      matchLog: matchLog,
+      resultsCount: results.length,
+      results: results
+    });
+
+    debug.finalResult = {
+      success: true,
+      data: results,
+      count: results.length
+    };
+
+  } catch (error) {
+    debug.steps.push({
+      step: 'ERROR',
+      error: error.message,
+      stack: error.stack
+    });
+    debug.finalResult = { success: false, error: error.message };
+  }
+
+  return debug;
 }

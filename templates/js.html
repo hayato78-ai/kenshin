@@ -135,11 +135,40 @@ function searchPatients() {
   google.script.run
     .withSuccessHandler(function(result) {
       hideLoading();
+
+      console.log('=== searchPatients Success Handler ===');
+      console.log('Raw result:', result);
+      console.log('Result type:', typeof result);
+
+      // ★ result が undefined の場合（Dateシリアライズ問題の可能性）
+      if (result === undefined) {
+        console.error('Result is undefined - this indicates a serialization issue');
+        showNotification('検索結果の取得に失敗しました。サーバー側でシリアライズエラーが発生した可能性があります。', 'error');
+        document.getElementById('patientSearchResults').innerHTML =
+          '<p class="error">検索結果を取得できませんでした。F12でコンソールを確認してください。</p>';
+        return;
+      }
+
+      // デバッグ情報を出力
+      if (result && result._debug) {
+        console.log('=== Server Debug Info ===');
+        console.log('version:', result._debug.version);
+        console.log('spreadsheetId:', result._debug.spreadsheetId);
+        console.log('totalRows:', result._debug.totalRows);
+        console.log('firstRowId:', result._debug.firstRowId);
+        console.log('resultsCount:', result._debug.resultsCount);
+      }
+
       displayPatientSearchResults(result);
     })
     .withFailureHandler(function(error) {
       hideLoading();
-      showNotification('検索エラー: ' + error.message, 'error');
+      console.error('=== searchPatients Failure Handler ===');
+      console.error('Error:', error);
+      console.error('Error message:', error.message);
+      showNotification('検索エラー: ' + (error.message || '不明なエラー'), 'error');
+      document.getElementById('patientSearchResults').innerHTML =
+        '<p class="error">検索エラー: ' + escapeHtml(error.message || '不明なエラー') + '</p>';
     })
     .portalSearchPatients(criteria);
 }
@@ -150,15 +179,47 @@ let lastSearchResults = [];
 function displayPatientSearchResults(result) {
   const container = document.getElementById('patientSearchResults');
 
-  if (!result.success) {
-    container.innerHTML = '<p class="error">' + result.error + '</p>';
+  // ★ 1. resultのnullチェック（Dateシリアライズ問題対策）
+  if (!result) {
+    console.error('displayPatientSearchResults: result is null or undefined');
+    container.innerHTML = '<p class="error">検索結果の取得に失敗しました（result is null）</p>';
     return;
   }
 
+  // ★ デバッグ情報を常にコンソールに出力
+  console.log('=== displayPatientSearchResults called ===');
+  console.log('result:', JSON.stringify(result, null, 2));
+
+  // ★ 2. result.success のチェック
+  if (!result.success) {
+    const errorMsg = result.error || '不明なエラー';
+    console.error('Search failed:', errorMsg);
+    container.innerHTML = '<p class="error">検索エラー: ' + escapeHtml(errorMsg) + '</p>';
+    return;
+  }
+
+  // ★ 3. result.data のチェック
+  if (!result.data) {
+    console.warn('result.data is undefined or null');
+    container.innerHTML = '<p>検索結果データがありません</p>';
+    return;
+  }
+
+  // ★ 4. result.data が配列かチェック
+  if (!Array.isArray(result.data)) {
+    console.error('result.data is not an array:', typeof result.data);
+    container.innerHTML = '<p class="error">検索結果の形式が不正です</p>';
+    return;
+  }
+
+  // ★ 5. 空配列チェック
   if (result.data.length === 0) {
+    console.log('No results found');
     container.innerHTML = '<p>該当する受診者が見つかりませんでした。</p>';
     return;
   }
+
+  console.log('Displaying', result.data.length, 'results');
 
   // 検索結果を保持
   lastSearchResults = result.data;
@@ -168,22 +229,30 @@ function displayPatientSearchResults(result) {
   html += '</tr></thead><tbody>';
 
   result.data.forEach((patient, index) => {
+    // ★ 各患者データもnullチェック
+    if (!patient) {
+      console.warn('Patient at index', index, 'is null');
+      return;
+    }
+
     html += '<tr class="clickable" onclick="showPatientDetail(' + index + ')">';
     html += '<td>' + escapeHtml(patient['受診ID'] || '') + '</td>';
     html += '<td>' + escapeHtml(patient['氏名'] || '') + '</td>';
     html += '<td>' + escapeHtml(patient['カナ'] || '') + '</td>';
-    html += '<td>' + formatDate(patient['受診日']) + '</td>';
+    html += '<td>' + escapeHtml(patient['受診日'] || '') + '</td>';
     html += '<td>' + escapeHtml(patient['受診コース'] || '') + '</td>';
     html += '<td>' + escapeHtml(patient['ステータス'] || '-') + '</td>';
     html += '<td>';
     html += '<button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); showPatientDetail(' + index + ')">詳細</button> ';
-    html += '<button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); selectPatientForInput(\'' + patient['受診ID'] + '\')">結果入力</button>';
+    html += '<button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); selectPatientForInput(\'' + escapeHtml(patient['受診ID'] || '') + '\')">結果入力</button>';
     html += '</td>';
     html += '</tr>';
   });
 
   html += '</tbody></table>';
+  html += '<p class="result-count">検索結果: ' + result.data.length + '件</p>';
   container.innerHTML = html;
+  console.log('Table rendered successfully');
 }
 
 // ============================================================

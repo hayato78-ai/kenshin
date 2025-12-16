@@ -56,6 +56,53 @@ function setupSpreadsheetId() {
 }
 
 // ============================================================
+// ユーティリティ関数
+// ============================================================
+
+/**
+ * 文字列を正規化（スペースを統一、大文字小文字を統一）
+ * @param {*} str - 入力文字列
+ * @returns {string} 正規化された文字列
+ */
+function normalizeString(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/[\s　]+/g, ' ')  // 全角・半角スペースを半角スペースに統一
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * カナを正規化（全角カナに統一）
+ * @param {*} str - 入力文字列
+ * @returns {string} 正規化されたカナ
+ */
+function normalizeKana(str) {
+  if (str === null || str === undefined) return '';
+  let result = String(str).replace(/[\s　]+/g, ' ').trim();
+  // 半角カナを全角カナに変換
+  const kanaMap = {
+    'ｱ':'ア','ｲ':'イ','ｳ':'ウ','ｴ':'エ','ｵ':'オ',
+    'ｶ':'カ','ｷ':'キ','ｸ':'ク','ｹ':'ケ','ｺ':'コ',
+    'ｻ':'サ','ｼ':'シ','ｽ':'ス','ｾ':'セ','ｿ':'ソ',
+    'ﾀ':'タ','ﾁ':'チ','ﾂ':'ツ','ﾃ':'テ','ﾄ':'ト',
+    'ﾅ':'ナ','ﾆ':'ニ','ﾇ':'ヌ','ﾈ':'ネ','ﾉ':'ノ',
+    'ﾊ':'ハ','ﾋ':'ヒ','ﾌ':'フ','ﾍ':'ヘ','ﾎ':'ホ',
+    'ﾏ':'マ','ﾐ':'ミ','ﾑ':'ム','ﾒ':'メ','ﾓ':'モ',
+    'ﾔ':'ヤ','ﾕ':'ユ','ﾖ':'ヨ',
+    'ﾗ':'ラ','ﾘ':'リ','ﾙ':'ル','ﾚ':'レ','ﾛ':'ロ',
+    'ﾜ':'ワ','ｦ':'ヲ','ﾝ':'ン',
+    'ｧ':'ァ','ｨ':'ィ','ｩ':'ゥ','ｪ':'ェ','ｫ':'ォ',
+    'ｯ':'ッ','ｬ':'ャ','ｭ':'ュ','ｮ':'ョ',
+    'ﾞ':'゛','ﾟ':'゜','ｰ':'ー'
+  };
+  for (const [half, full] of Object.entries(kanaMap)) {
+    result = result.replace(new RegExp(half, 'g'), full);
+  }
+  return result;
+}
+
+// ============================================================
 // 受診者管理 API
 // ============================================================
 
@@ -75,6 +122,11 @@ function portalSearchPatients(criteria) {
     const data = sheet.getDataRange().getValues();
     const results = [];
 
+    // 検索条件を正規化
+    const searchId = criteria.patientId ? normalizeString(criteria.patientId) : '';
+    const searchName = criteria.name ? normalizeString(criteria.name) : '';
+    const searchKana = criteria.kana ? normalizeKana(criteria.kana) : '';
+
     // 列インデックス（実際のスプレッドシート構造）:
     // 0:受診ID, 1:ステータス, 2:受診日, 3:氏名, 4:カナ, 5:性別, 6:生年月日, 7:年齢,
     // 8:受診コース, 9:事業所名, 10:所属, 11:総合判定, 12:CSV取込日時, 13:最終更新日時, 14:出力日時
@@ -84,22 +136,26 @@ function portalSearchPatients(criteria) {
       // 空行スキップ
       if (!row[0]) continue;
 
-      // 検索条件でフィルタ
+      // 検索条件でフィルタ（正規化して比較）
       let match = true;
 
-      if (criteria.patientId) {
-        const searchId = String(criteria.patientId).toLowerCase();
-        const rowId = String(row[0]).toLowerCase();
-        // 部分一致で検索
+      if (searchId) {
+        const rowId = normalizeString(row[0]);
         if (!rowId.includes(searchId)) {
           match = false;
         }
       }
-      if (criteria.name && !String(row[3] || '').includes(criteria.name)) {
-        match = false;
+      if (searchName) {
+        const rowName = normalizeString(row[3]);
+        if (!rowName.includes(searchName)) {
+          match = false;
+        }
       }
-      if (criteria.kana && !String(row[4] || '').includes(criteria.kana)) {
-        match = false;
+      if (searchKana) {
+        const rowKana = normalizeKana(row[4]);
+        if (!rowKana.includes(searchKana)) {
+          match = false;
+        }
       }
 
       if (match) {

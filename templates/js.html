@@ -1,0 +1,778 @@
+<script>
+/**
+ * CDmedical 健診システム - JavaScript
+ */
+
+// ============================================================
+// グローバル状態
+// ============================================================
+let currentPatientId = null;
+let currentPatientData = null;
+let csvContent = null;
+let patientProgressData = [];
+
+// ============================================================
+// 初期化
+// ============================================================
+function initializePortal() {
+  // ドラッグ＆ドロップ設定
+  setupCsvDropZone();
+
+  // 初期データ読み込み
+  loadPatientProgress();
+
+  console.log('Portal initialized');
+}
+
+// ============================================================
+// セクション切り替え
+// ============================================================
+function showSection(sectionName) {
+  // 全セクション非表示
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+
+  // 指定セクション表示
+  const section = document.getElementById('section-' + sectionName);
+  if (section) {
+    section.classList.add('active');
+  }
+
+  // ナビボタンアクティブ化
+  const navBtn = document.querySelector('.nav-btn[data-section="' + sectionName + '"]');
+  if (navBtn) {
+    navBtn.classList.add('active');
+  }
+
+  // セクション固有の初期化
+  if (sectionName === 'csv') {
+    loadPatientProgress();
+  } else if (sectionName === 'billing') {
+    loadBillingList();
+  }
+}
+
+// ============================================================
+// 通知・ローディング
+// ============================================================
+function showLoading(message) {
+  const loading = document.getElementById('loading');
+  if (loading) {
+    loading.querySelector('p').textContent = message || '処理中...';
+    loading.style.display = 'flex';
+  }
+}
+
+function hideLoading() {
+  const loading = document.getElementById('loading');
+  if (loading) {
+    loading.style.display = 'none';
+  }
+}
+
+function showNotification(message, type) {
+  const notification = document.getElementById('notification');
+  if (notification) {
+    notification.textContent = message;
+    notification.className = 'notification ' + (type || 'info');
+    notification.style.display = 'block';
+
+    setTimeout(() => {
+      notification.style.display = 'none';
+    }, 4000);
+  }
+}
+
+// ============================================================
+// 受診者管理
+// ============================================================
+function searchPatients() {
+  const criteria = {
+    patientId: document.getElementById('patientSearchId').value.trim(),
+    name: document.getElementById('patientSearchName').value.trim(),
+    kana: document.getElementById('patientSearchKana').value.trim()
+  };
+
+  if (!criteria.patientId && !criteria.name && !criteria.kana) {
+    showNotification('検索条件を入力してください', 'error');
+    return;
+  }
+
+  showLoading('検索中...');
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      displayPatientSearchResults(result);
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showNotification('検索エラー: ' + error.message, 'error');
+    })
+    .portalSearchPatients(criteria);
+}
+
+function displayPatientSearchResults(result) {
+  const container = document.getElementById('patientSearchResults');
+
+  if (!result.success) {
+    container.innerHTML = '<p class="error">' + result.error + '</p>';
+    return;
+  }
+
+  if (result.data.length === 0) {
+    container.innerHTML = '<p>該当する受診者が見つかりませんでした。</p>';
+    return;
+  }
+
+  let html = '<table class="results-table"><thead><tr>';
+  html += '<th>患者ID</th><th>氏名</th><th>カナ</th><th>生年月日</th><th>性別</th><th>操作</th>';
+  html += '</tr></thead><tbody>';
+
+  result.data.forEach(patient => {
+    html += '<tr>';
+    html += '<td>' + escapeHtml(patient['患者ID'] || '') + '</td>';
+    html += '<td>' + escapeHtml(patient['氏名'] || '') + '</td>';
+    html += '<td>' + escapeHtml(patient['カナ'] || '') + '</td>';
+    html += '<td>' + formatDate(patient['生年月日']) + '</td>';
+    html += '<td>' + escapeHtml(patient['性別'] || '') + '</td>';
+    html += '<td>';
+    html += '<button class="btn btn-sm btn-primary" onclick="selectPatientForInput(\'' + patient['患者ID'] + '\')">結果入力</button>';
+    html += '</td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function showNewPatientForm() {
+  document.getElementById('newPatientForm').style.display = 'block';
+  document.getElementById('newPatientId').focus();
+
+  // 今日の日付をデフォルトに
+  document.getElementById('newPatientExamDate').value = new Date().toISOString().split('T')[0];
+}
+
+function hideNewPatientForm() {
+  document.getElementById('newPatientForm').style.display = 'none';
+}
+
+function registerNewPatient() {
+  const patientData = {
+    '患者ID': document.getElementById('newPatientId').value.trim(),
+    '氏名': document.getElementById('newPatientName').value.trim(),
+    'カナ': document.getElementById('newPatientKana').value.trim(),
+    '生年月日': document.getElementById('newPatientBirthDate').value,
+    '性別': document.getElementById('newPatientGender').value,
+    'コース': document.getElementById('newPatientCourse').value,
+    '検査日': document.getElementById('newPatientExamDate').value,
+    '企業名': document.getElementById('newPatientCompany').value.trim(),
+    '登録日': new Date().toISOString()
+  };
+
+  if (!patientData['患者ID'] || !patientData['氏名'] || !patientData['カナ']) {
+    showNotification('患者ID、氏名、カナは必須です', 'error');
+    return;
+  }
+
+  showLoading('登録中...');
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        showNotification('受診者を登録しました', 'success');
+        hideNewPatientForm();
+        clearNewPatientForm();
+      } else {
+        showNotification('登録エラー: ' + result.error, 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showNotification('登録エラー: ' + error.message, 'error');
+    })
+    .portalRegisterPatient(patientData);
+}
+
+function clearNewPatientForm() {
+  document.getElementById('newPatientId').value = '';
+  document.getElementById('newPatientName').value = '';
+  document.getElementById('newPatientKana').value = '';
+  document.getElementById('newPatientBirthDate').value = '';
+  document.getElementById('newPatientGender').value = '';
+  document.getElementById('newPatientCompany').value = '';
+}
+
+// ============================================================
+// CSV取込
+// ============================================================
+function setupCsvDropZone() {
+  const dropZone = document.getElementById('csvDropZone');
+  if (!dropZone) return;
+
+  dropZone.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+
+  dropZone.addEventListener('dragleave', function(e) {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+  });
+
+  dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleCsvFileObject(files[0]);
+    }
+  });
+}
+
+function handleCsvFile(input) {
+  if (input.files.length > 0) {
+    handleCsvFileObject(input.files[0]);
+  }
+}
+
+function handleCsvFileObject(file) {
+  if (!file.name.endsWith('.csv')) {
+    showNotification('CSVファイルを選択してください', 'error');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    csvContent = e.target.result;
+    showCsvPreview(csvContent);
+  };
+  reader.readAsText(file, 'Shift_JIS');
+}
+
+function showCsvPreview(content) {
+  const lines = content.split(/\r?\n/).filter(line => line.trim());
+  const previewContainer = document.getElementById('csvPreview');
+  const previewTable = document.getElementById('csvPreviewTable');
+
+  if (lines.length < 2) {
+    showNotification('CSVデータが空です', 'error');
+    return;
+  }
+
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+  const previewRows = lines.slice(1, Math.min(6, lines.length));
+
+  let html = '<table class="results-table"><thead><tr>';
+  headers.forEach(h => {
+    html += '<th>' + escapeHtml(h) + '</th>';
+  });
+  html += '</tr></thead><tbody>';
+
+  previewRows.forEach(line => {
+    const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+    html += '<tr>';
+    values.forEach(v => {
+      html += '<td>' + escapeHtml(v) + '</td>';
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  html += '<p>全 ' + (lines.length - 1) + ' 件</p>';
+
+  previewTable.innerHTML = html;
+  previewContainer.style.display = 'block';
+}
+
+function executeCsvImport() {
+  if (!csvContent) {
+    showNotification('CSVファイルを選択してください', 'error');
+    return;
+  }
+
+  showLoading('CSV取込中...');
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      displayCsvImportResult(result);
+      if (result.success) {
+        loadPatientProgress();
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showNotification('取込エラー: ' + error.message, 'error');
+    })
+    .portalImportCsv(csvContent, {});
+}
+
+function displayCsvImportResult(result) {
+  const container = document.getElementById('csvImportResult');
+
+  if (result.success) {
+    container.className = 'import-result success';
+    container.innerHTML = '<strong>取込完了</strong><br>' + result.message;
+    if (result.errors && result.errors.length > 0) {
+      container.innerHTML += '<br><br><strong>エラー:</strong><ul>';
+      result.errors.forEach(err => {
+        container.innerHTML += '<li>行 ' + err.row + ': ' + err.error + '</li>';
+      });
+      container.innerHTML += '</ul>';
+    }
+  } else {
+    container.className = 'import-result error';
+    container.innerHTML = '<strong>エラー</strong><br>' + result.error;
+  }
+
+  container.style.display = 'block';
+
+  // プレビューとファイル選択をリセット
+  document.getElementById('csvPreview').style.display = 'none';
+  csvContent = null;
+}
+
+function cancelCsvImport() {
+  document.getElementById('csvPreview').style.display = 'none';
+  csvContent = null;
+}
+
+// ============================================================
+// 進捗管理
+// ============================================================
+function loadPatientProgress() {
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result.success) {
+        patientProgressData = result.data;
+        displayPatientProgress(result);
+      }
+    })
+    .withFailureHandler(function(error) {
+      console.error('Progress load error:', error);
+    })
+    .portalGetPatientProgress({});
+}
+
+function displayPatientProgress(result) {
+  // 統計表示
+  const statsContainer = document.getElementById('progressStats');
+  if (statsContainer && result.stats) {
+    const stats = result.stats;
+    statsContainer.innerHTML = `
+      <div class="stat-card">
+        <div class="stat-value">${stats.total}</div>
+        <div class="stat-label">総件数</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${stats.complete}</div>
+        <div class="stat-label">入力完了</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${stats.bloodPending}</div>
+        <div class="stat-label">血液未取込</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${stats.bodyPending}</div>
+        <div class="stat-label">身体計測未入力</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${stats.findingsPending}</div>
+        <div class="stat-label">所見未入力</div>
+      </div>
+    `;
+  }
+
+  // 一覧表示
+  const listContainer = document.getElementById('patientProgressList');
+  if (!listContainer) return;
+
+  if (result.data.length === 0) {
+    listContainer.innerHTML = '<p>データがありません。</p>';
+    return;
+  }
+
+  let html = '<table class="results-table"><thead><tr>';
+  html += '<th>患者ID</th><th>氏名</th><th>検査日</th><th>血液</th><th>身体計測</th><th>所見</th><th>操作</th>';
+  html += '</tr></thead><tbody>';
+
+  result.data.forEach(patient => {
+    const bloodStatus = patient.bloodComplete ? '✅' : '⬜';
+    const bodyStatus = patient.bodyComplete ? '✅' : '⬜';
+    const findingsStatus = patient.findingsComplete ? '✅' : '⬜';
+
+    html += '<tr class="clickable" onclick="selectPatientForInput(\'' + patient.patientId + '\')">';
+    html += '<td>' + escapeHtml(patient.patientId) + '</td>';
+    html += '<td>' + escapeHtml(patient.name) + '</td>';
+    html += '<td>' + formatDate(patient.examDate) + '</td>';
+    html += '<td>' + bloodStatus + '</td>';
+    html += '<td>' + bodyStatus + '</td>';
+    html += '<td>' + findingsStatus + '</td>';
+    html += '<td><button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); selectPatientForInput(\'' + patient.patientId + '\')">入力</button></td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  listContainer.innerHTML = html;
+}
+
+// ============================================================
+// 結果入力
+// ============================================================
+function selectPatientForInput(patientId) {
+  currentPatientId = patientId;
+  showSection('results');
+  loadPatientForResults(patientId);
+}
+
+function searchPatientForResults() {
+  const searchText = document.getElementById('resultPatientSearch').value.trim();
+  if (!searchText) return;
+
+  showLoading('検索中...');
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success && result.data.length > 0) {
+        selectPatientForInput(result.data[0]['患者ID']);
+      } else {
+        showNotification('該当する患者が見つかりません', 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showNotification('検索エラー: ' + error.message, 'error');
+    })
+    .portalSearchPatients({ patientId: searchText, name: searchText });
+}
+
+function loadPatientForResults(patientId) {
+  showLoading('データ読込中...');
+
+  // 患者情報と検査結果を並列で取得
+  Promise.all([
+    new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(reject)
+        .portalGetPatient(patientId);
+    }),
+    new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(reject)
+        .portalGetBloodTestResults(patientId);
+    })
+  ]).then(([patientResult, bloodResult]) => {
+    hideLoading();
+
+    if (patientResult.success) {
+      currentPatientData = patientResult.data;
+      displayPatientHeader(patientResult.data);
+      document.getElementById('selectedPatientHeader').style.display = 'flex';
+      document.getElementById('resultInputTabs').style.display = 'flex';
+    }
+
+    if (bloodResult.success && bloodResult.data) {
+      displayBloodTestResults(bloodResult.data);
+      populateMeasurementForm(bloodResult.data);
+    }
+
+    showResultTab('body'); // 身体計測タブを表示
+  }).catch(error => {
+    hideLoading();
+    showNotification('データ読込エラー: ' + error.message, 'error');
+  });
+}
+
+function displayPatientHeader(patient) {
+  const header = document.getElementById('selectedPatientHeader');
+
+  header.querySelector('.patient-id').textContent = 'ID: ' + patient['患者ID'];
+  header.querySelector('.patient-name').textContent = patient['氏名'] || '';
+  header.querySelector('.patient-birth').textContent = formatDate(patient['生年月日']);
+  header.querySelector('.patient-gender').textContent = patient['性別'] || '';
+
+  // 年齢計算
+  if (patient['生年月日']) {
+    const age = calculateAge(patient['生年月日']);
+    header.querySelector('.patient-age').textContent = age + '歳';
+  }
+
+  document.getElementById('currentPatientInfo').textContent =
+    patient['患者ID'] + ' ' + (patient['氏名'] || '');
+}
+
+function displayBloodTestResults(data) {
+  const container = document.getElementById('bloodTestDisplay');
+
+  // 血液検査項目（主要なもの）
+  const bloodItems = [
+    '白血球', '赤血球', 'ヘモグロビン', 'ヘマトクリット',
+    'GOT', 'GPT', 'γ-GTP', 'ALP',
+    '総コレステロール', 'HDLコレステロール', 'LDLコレステロール', '中性脂肪',
+    '空腹時血糖', 'HbA1c', '尿酸', 'クレアチニン',
+    '尿素窒素', '総蛋白', 'アルブミン'
+  ];
+
+  let html = '';
+  bloodItems.forEach(item => {
+    if (data[item] !== undefined && data[item] !== '') {
+      html += `
+        <div class="blood-test-item">
+          <span class="label">${item}</span>
+          <span class="value">${data[item]}</span>
+        </div>
+      `;
+    }
+  });
+
+  if (!html) {
+    html = '<p>血液検査データがありません（CSV取込後に表示されます）</p>';
+  }
+
+  container.innerHTML = html;
+}
+
+function populateMeasurementForm(data) {
+  // 既存データがあればフォームに反映
+  if (data['身長']) document.getElementById('mHeight').value = data['身長'];
+  if (data['体重']) document.getElementById('mWeight').value = data['体重'];
+  if (data['BMI']) document.getElementById('mBMI').value = data['BMI'];
+  if (data['収縮期血圧']) document.getElementById('mSystolicBP').value = data['収縮期血圧'];
+  if (data['拡張期血圧']) document.getElementById('mDiastolicBP').value = data['拡張期血圧'];
+  if (data['脈拍']) document.getElementById('mPulse').value = data['脈拍'];
+  if (data['視力_右']) document.getElementById('mVisionRight').value = data['視力_右'];
+  if (data['視力_左']) document.getElementById('mVisionLeft').value = data['視力_左'];
+  if (data['視力_矯正']) document.getElementById('mVisionCorrected').value = data['視力_矯正'];
+  if (data['心電図所見']) document.getElementById('mEcgFindings').value = data['心電図所見'];
+  if (data['心電図コメント']) document.getElementById('mEcgComment').value = data['心電図コメント'];
+  if (data['胸部X線所見']) document.getElementById('mXrayFindings').value = data['胸部X線所見'];
+  if (data['胸部X線コメント']) document.getElementById('mXrayComment').value = data['胸部X線コメント'];
+
+  // 所見タブのデータ
+  if (data['総合判定']) document.getElementById('fOverallJudgment').value = data['総合判定'];
+  if (data['総合所見']) document.getElementById('fOverallFindings').value = data['総合所見'];
+  if (data['医師コメント']) document.getElementById('fDoctorComment').value = data['医師コメント'];
+  if (data['生活指導']) document.getElementById('fLifestyleGuidance').value = data['生活指導'];
+  if (data['要精密検査項目']) document.getElementById('fNeedsDetailedExam').value = data['要精密検査項目'];
+  if (data['要治療項目']) document.getElementById('fNeedsTreatment').value = data['要治療項目'];
+}
+
+function showResultTab(tabName) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+
+  const tab = document.getElementById('tab-' + tabName);
+  if (tab) {
+    tab.classList.add('active');
+  }
+
+  const tabBtn = document.querySelector('.tab-btn[data-tab="' + tabName + '"]');
+  if (tabBtn) {
+    tabBtn.classList.add('active');
+  }
+}
+
+function calculateBMI() {
+  const height = parseFloat(document.getElementById('mHeight').value);
+  const weight = parseFloat(document.getElementById('mWeight').value);
+
+  if (height && weight) {
+    const heightM = height / 100;
+    const bmi = (weight / (heightM * heightM)).toFixed(1);
+    document.getElementById('mBMI').value = bmi;
+  }
+}
+
+function saveBodyMeasurements() {
+  if (!currentPatientId) {
+    showNotification('患者を選択してください', 'error');
+    return;
+  }
+
+  const measurements = {
+    height: document.getElementById('mHeight').value,
+    weight: document.getElementById('mWeight').value,
+    bmi: document.getElementById('mBMI').value,
+    systolicBP: document.getElementById('mSystolicBP').value,
+    diastolicBP: document.getElementById('mDiastolicBP').value,
+    pulse: document.getElementById('mPulse').value,
+    visionRight: document.getElementById('mVisionRight').value,
+    visionLeft: document.getElementById('mVisionLeft').value,
+    visionCorrected: document.getElementById('mVisionCorrected').value,
+    hearingRight1000: document.getElementById('mHearingR1000').value,
+    hearingRight4000: document.getElementById('mHearingR4000').value,
+    hearingLeft1000: document.getElementById('mHearingL1000').value,
+    hearingLeft4000: document.getElementById('mHearingL4000').value,
+    ecgFindings: document.getElementById('mEcgFindings').value,
+    ecgComment: document.getElementById('mEcgComment').value,
+    chestXrayFindings: document.getElementById('mXrayFindings').value,
+    chestXrayComment: document.getElementById('mXrayComment').value
+  };
+
+  showLoading('保存中...');
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        showNotification('身体計測結果を保存しました', 'success');
+      } else {
+        showNotification('保存エラー: ' + result.error, 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showNotification('保存エラー: ' + error.message, 'error');
+    })
+    .portalSaveBodyMeasurements(currentPatientId, measurements);
+}
+
+function saveBodyMeasurementsAndNext() {
+  saveBodyMeasurements();
+  // 保存完了後に次の患者へ
+  setTimeout(() => navigatePatient('next'), 500);
+}
+
+function saveFindings() {
+  if (!currentPatientId) {
+    showNotification('患者を選択してください', 'error');
+    return;
+  }
+
+  const findings = {
+    overallJudgment: document.getElementById('fOverallJudgment').value,
+    overallFindings: document.getElementById('fOverallFindings').value,
+    doctorComment: document.getElementById('fDoctorComment').value,
+    lifestyleGuidance: document.getElementById('fLifestyleGuidance').value,
+    needsDetailedExam: document.getElementById('fNeedsDetailedExam').value,
+    needsTreatment: document.getElementById('fNeedsTreatment').value
+  };
+
+  showLoading('保存中...');
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        showNotification('所見を保存しました', 'success');
+      } else {
+        showNotification('保存エラー: ' + result.error, 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showNotification('保存エラー: ' + error.message, 'error');
+    })
+    .portalSaveFindings(currentPatientId, findings);
+}
+
+function saveFindingsAndNext() {
+  saveFindings();
+  setTimeout(() => navigatePatient('next'), 500);
+}
+
+function navigatePatient(direction) {
+  if (!currentPatientId) return;
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result.success && result.data) {
+        selectPatientForInput(result.data.patientId);
+      }
+    })
+    .withFailureHandler(function(error) {
+      console.error('Navigation error:', error);
+    })
+    .portalGetAdjacentPatient(currentPatientId, direction);
+}
+
+// ============================================================
+// 帳票出力
+// ============================================================
+function generateReport() {
+  const reportType = document.getElementById('reportType').value;
+  showNotification('帳票出力機能は開発中です', 'info');
+}
+
+// ============================================================
+// 請求管理
+// ============================================================
+function loadBillingList() {
+  const criteria = {
+    status: document.getElementById('billingStatusFilter').value,
+    company: document.getElementById('billingCompanyFilter').value,
+    month: document.getElementById('billingMonthFilter').value
+  };
+
+  showLoading('読込中...');
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      displayBillingList(result);
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showNotification('読込エラー: ' + error.message, 'error');
+    })
+    .portalGetBillingList(criteria);
+}
+
+function displayBillingList(result) {
+  const container = document.getElementById('billingList');
+
+  if (!result.success) {
+    container.innerHTML = '<p>請求管理機能は billingManager.gs と連携して動作します。</p>';
+    return;
+  }
+
+  // 表示処理（billingManager.gsの既存機能を活用）
+  container.innerHTML = '<p>請求データ: ' + (result.data ? result.data.length : 0) + '件</p>';
+}
+
+function exportBillingToExcel() {
+  showNotification('Excel出力機能は billingManager.gs の機能を使用します', 'info');
+}
+
+// ============================================================
+// ユーティリティ
+// ============================================================
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function formatDate(value) {
+  if (!value) return '';
+  if (value instanceof Date) {
+    return value.toLocaleDateString('ja-JP');
+  }
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString('ja-JP');
+}
+
+function calculateAge(birthDate) {
+  if (!birthDate) return '';
+  const birth = new Date(birthDate);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+}
+</script>

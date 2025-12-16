@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CDmedical 健診システム</title>
+  <base target="_top">
+  <?!= include('templates/css'); ?>
+</head>
+<body>
+  <!-- ヘッダー -->
+  <header class="header">
+    <div class="header-brand">
+      <h1>CDmedical 健診システム</h1>
+    </div>
+    <div class="header-actions">
+      <span id="currentUser" class="user-info"></span>
+    </div>
+  </header>
+
+  <!-- メインナビゲーション -->
+  <nav class="main-nav">
+    <button class="nav-btn active" data-section="patients" onclick="showSection('patients')">
+      <span class="nav-icon">👤</span>
+      <span class="nav-label">受診者登録</span>
+    </button>
+    <button class="nav-btn" data-section="csv" onclick="showSection('csv')">
+      <span class="nav-icon">📥</span>
+      <span class="nav-label">CSV取込</span>
+    </button>
+    <button class="nav-btn" data-section="results" onclick="showSection('results')">
+      <span class="nav-icon">📝</span>
+      <span class="nav-label">結果入力</span>
+    </button>
+    <button class="nav-btn" data-section="reports" onclick="showSection('reports')">
+      <span class="nav-icon">📄</span>
+      <span class="nav-label">帳票出力</span>
+    </button>
+    <button class="nav-btn" data-section="billing" onclick="showSection('billing')">
+      <span class="nav-icon">💰</span>
+      <span class="nav-label">請求管理</span>
+    </button>
+  </nav>
+
+  <!-- メインコンテンツ -->
+  <main class="main-content">
+    <!-- ローディング -->
+    <div id="loading" class="loading-overlay" style="display:none;">
+      <div class="loading-spinner"></div>
+      <p>処理中...</p>
+    </div>
+
+    <!-- 通知 -->
+    <div id="notification" class="notification" style="display:none;"></div>
+
+    <!-- ========== 受診者登録セクション ========== -->
+    <section id="section-patients" class="section active">
+      <div class="section-header">
+        <h2>受診者登録・検索</h2>
+      </div>
+
+      <!-- 検索フォーム -->
+      <div class="search-box">
+        <input type="text" id="patientSearchId" placeholder="患者ID" class="input-sm">
+        <input type="text" id="patientSearchName" placeholder="氏名" class="input-md">
+        <input type="text" id="patientSearchKana" placeholder="カナ" class="input-md">
+        <button class="btn btn-primary" onclick="searchPatients()">検索</button>
+        <button class="btn btn-success" onclick="showNewPatientForm()">新規登録</button>
+      </div>
+
+      <!-- 検索結果 -->
+      <div id="patientSearchResults" class="results-table-container"></div>
+
+      <!-- 新規登録フォーム -->
+      <div id="newPatientForm" class="form-panel" style="display:none;">
+        <h3>新規受診者登録</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>患者ID <span class="required">*</span></label>
+            <input type="text" id="newPatientId" class="input-md" required>
+          </div>
+          <div class="form-group">
+            <label>氏名 <span class="required">*</span></label>
+            <input type="text" id="newPatientName" class="input-md" required>
+          </div>
+          <div class="form-group">
+            <label>カナ <span class="required">*</span></label>
+            <input type="text" id="newPatientKana" class="input-md" required>
+          </div>
+          <div class="form-group">
+            <label>生年月日</label>
+            <input type="date" id="newPatientBirthDate" class="input-md">
+          </div>
+          <div class="form-group">
+            <label>性別</label>
+            <select id="newPatientGender" class="input-sm">
+              <option value="">選択</option>
+              <option value="男">男</option>
+              <option value="女">女</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>コース</label>
+            <select id="newPatientCourse" class="input-md">
+              <option value="人間ドック">人間ドック</option>
+              <option value="定期健診">定期健診</option>
+              <option value="労災二次検診">労災二次検診</option>
+              <option value="生活習慣病予防健診">生活習慣病予防健診</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>検査日</label>
+            <input type="date" id="newPatientExamDate" class="input-md">
+          </div>
+          <div class="form-group">
+            <label>企業名</label>
+            <input type="text" id="newPatientCompany" class="input-md">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="registerNewPatient()">登録</button>
+          <button class="btn btn-secondary" onclick="hideNewPatientForm()">キャンセル</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== CSV取込セクション ========== -->
+    <section id="section-csv" class="section">
+      <div class="section-header">
+        <h2>CSV取込（血液検査結果）</h2>
+      </div>
+
+      <div class="upload-area" id="csvDropZone">
+        <div class="upload-icon">📁</div>
+        <p>CSVファイルをドラッグ＆ドロップ</p>
+        <p>または</p>
+        <input type="file" id="csvFileInput" accept=".csv" style="display:none;" onchange="handleCsvFile(this)">
+        <button class="btn btn-primary" onclick="document.getElementById('csvFileInput').click()">ファイルを選択</button>
+      </div>
+
+      <div id="csvPreview" class="csv-preview" style="display:none;">
+        <h3>プレビュー</h3>
+        <div id="csvPreviewTable"></div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="executeCsvImport()">取込実行</button>
+          <button class="btn btn-secondary" onclick="cancelCsvImport()">キャンセル</button>
+        </div>
+      </div>
+
+      <div id="csvImportResult" class="import-result" style="display:none;"></div>
+
+      <!-- 進捗一覧 -->
+      <div class="progress-section">
+        <div class="section-header">
+          <h3>取込済み一覧・進捗</h3>
+          <button class="btn btn-sm" onclick="loadPatientProgress()">更新</button>
+        </div>
+        <div id="progressStats" class="progress-stats"></div>
+        <div id="patientProgressList" class="results-table-container"></div>
+      </div>
+    </section>
+
+    <!-- ========== 結果入力セクション ========== -->
+    <section id="section-results" class="section">
+      <div class="section-header">
+        <h2>結果入力</h2>
+      </div>
+
+      <!-- 患者選択 -->
+      <div class="patient-selector">
+        <div class="search-inline">
+          <input type="text" id="resultPatientSearch" placeholder="患者IDまたは氏名で検索" class="input-lg">
+          <button class="btn btn-primary" onclick="searchPatientForResults()">検索</button>
+        </div>
+        <div class="patient-nav">
+          <button class="btn btn-sm" onclick="navigatePatient('prev')">← 前へ</button>
+          <span id="currentPatientInfo" class="current-patient">患者未選択</span>
+          <button class="btn btn-sm" onclick="navigatePatient('next')">次へ →</button>
+        </div>
+      </div>
+
+      <!-- 患者情報ヘッダー -->
+      <div id="selectedPatientHeader" class="patient-header" style="display:none;">
+        <div class="patient-basic-info">
+          <span class="patient-id"></span>
+          <span class="patient-name"></span>
+          <span class="patient-birth"></span>
+          <span class="patient-gender"></span>
+          <span class="patient-age"></span>
+        </div>
+        <div class="patient-status">
+          <span class="status-badge blood">血液: -</span>
+          <span class="status-badge body">身体計測: -</span>
+          <span class="status-badge findings">所見: -</span>
+        </div>
+      </div>
+
+      <!-- 入力タブ -->
+      <div id="resultInputTabs" class="tabs" style="display:none;">
+        <button class="tab-btn active" data-tab="blood" onclick="showResultTab('blood')">血液検査</button>
+        <button class="tab-btn" data-tab="body" onclick="showResultTab('body')">身体計測</button>
+        <button class="tab-btn" data-tab="findings" onclick="showResultTab('findings')">所見入力</button>
+      </div>
+
+      <!-- 血液検査タブ -->
+      <div id="tab-blood" class="tab-content active">
+        <div class="info-box">
+          <p>血液検査結果はCSV取込で自動登録されます。</p>
+        </div>
+        <div id="bloodTestDisplay" class="blood-test-grid"></div>
+      </div>
+
+      <!-- 身体計測タブ -->
+      <div id="tab-body" class="tab-content">
+        <div class="form-grid measurement-form">
+          <fieldset class="form-fieldset">
+            <legend>基本測定</legend>
+            <div class="form-row">
+              <div class="form-group">
+                <label>身長 (cm)</label>
+                <input type="number" id="mHeight" step="0.1" class="input-sm">
+              </div>
+              <div class="form-group">
+                <label>体重 (kg)</label>
+                <input type="number" id="mWeight" step="0.1" class="input-sm" onchange="calculateBMI()">
+              </div>
+              <div class="form-group">
+                <label>BMI</label>
+                <input type="text" id="mBMI" class="input-sm" readonly>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="form-fieldset">
+            <legend>血圧・脈拍</legend>
+            <div class="form-row">
+              <div class="form-group">
+                <label>収縮期 (mmHg)</label>
+                <input type="number" id="mSystolicBP" class="input-sm">
+              </div>
+              <div class="form-group">
+                <label>拡張期 (mmHg)</label>
+                <input type="number" id="mDiastolicBP" class="input-sm">
+              </div>
+              <div class="form-group">
+                <label>脈拍 (/分)</label>
+                <input type="number" id="mPulse" class="input-sm">
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="form-fieldset">
+            <legend>視力</legend>
+            <div class="form-row">
+              <div class="form-group">
+                <label>右</label>
+                <input type="text" id="mVisionRight" class="input-sm" placeholder="1.0">
+              </div>
+              <div class="form-group">
+                <label>左</label>
+                <input type="text" id="mVisionLeft" class="input-sm" placeholder="1.0">
+              </div>
+              <div class="form-group">
+                <label>矯正</label>
+                <select id="mVisionCorrected" class="input-sm">
+                  <option value="">-</option>
+                  <option value="裸眼">裸眼</option>
+                  <option value="矯正">矯正</option>
+                </select>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="form-fieldset">
+            <legend>聴力</legend>
+            <div class="form-row">
+              <div class="form-group">
+                <label>右 1000Hz</label>
+                <select id="mHearingR1000" class="input-sm">
+                  <option value="">-</option>
+                  <option value="正常">正常</option>
+                  <option value="所見あり">所見あり</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>右 4000Hz</label>
+                <select id="mHearingR4000" class="input-sm">
+                  <option value="">-</option>
+                  <option value="正常">正常</option>
+                  <option value="所見あり">所見あり</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>左 1000Hz</label>
+                <select id="mHearingL1000" class="input-sm">
+                  <option value="">-</option>
+                  <option value="正常">正常</option>
+                  <option value="所見あり">所見あり</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>左 4000Hz</label>
+                <select id="mHearingL4000" class="input-sm">
+                  <option value="">-</option>
+                  <option value="正常">正常</option>
+                  <option value="所見あり">所見あり</option>
+                </select>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="form-fieldset">
+            <legend>心電図</legend>
+            <div class="form-row">
+              <div class="form-group">
+                <label>所見</label>
+                <select id="mEcgFindings" class="input-md">
+                  <option value="">選択</option>
+                  <option value="異常なし">異常なし</option>
+                  <option value="不完全右脚ブロック">不完全右脚ブロック</option>
+                  <option value="完全右脚ブロック">完全右脚ブロック</option>
+                  <option value="左室肥大">左室肥大</option>
+                  <option value="心房細動">心房細動</option>
+                  <option value="その他">その他</option>
+                </select>
+              </div>
+              <div class="form-group flex-grow">
+                <label>コメント</label>
+                <input type="text" id="mEcgComment" class="input-lg">
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="form-fieldset">
+            <legend>胸部X線</legend>
+            <div class="form-row">
+              <div class="form-group">
+                <label>所見</label>
+                <select id="mXrayFindings" class="input-md">
+                  <option value="">選択</option>
+                  <option value="異常なし">異常なし</option>
+                  <option value="陳旧性病変">陳旧性病変</option>
+                  <option value="胸膜肥厚">胸膜肥厚</option>
+                  <option value="側弯">側弯</option>
+                  <option value="その他">その他</option>
+                </select>
+              </div>
+              <div class="form-group flex-grow">
+                <label>コメント</label>
+                <input type="text" id="mXrayComment" class="input-lg">
+              </div>
+            </div>
+          </fieldset>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="saveBodyMeasurements()">保存</button>
+          <button class="btn btn-success" onclick="saveBodyMeasurementsAndNext()">保存して次へ</button>
+        </div>
+      </div>
+
+      <!-- 所見入力タブ -->
+      <div id="tab-findings" class="tab-content">
+        <div class="form-grid findings-form">
+          <div class="form-group">
+            <label>総合判定</label>
+            <select id="fOverallJudgment" class="input-md">
+              <option value="">選択</option>
+              <option value="A">A - 異常なし</option>
+              <option value="B">B - 軽度異常</option>
+              <option value="C">C - 要経過観察</option>
+              <option value="D">D - 要精密検査</option>
+              <option value="E">E - 要治療</option>
+              <option value="G">G - 現在治療中</option>
+            </select>
+          </div>
+
+          <div class="form-group full-width">
+            <label>総合所見</label>
+            <textarea id="fOverallFindings" rows="4" class="input-full"></textarea>
+          </div>
+
+          <div class="form-group full-width">
+            <label>医師コメント</label>
+            <textarea id="fDoctorComment" rows="3" class="input-full"></textarea>
+          </div>
+
+          <div class="form-group full-width">
+            <label>生活指導</label>
+            <textarea id="fLifestyleGuidance" rows="3" class="input-full"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>要精密検査項目</label>
+            <input type="text" id="fNeedsDetailedExam" class="input-lg" placeholder="カンマ区切り">
+          </div>
+
+          <div class="form-group">
+            <label>要治療項目</label>
+            <input type="text" id="fNeedsTreatment" class="input-lg" placeholder="カンマ区切り">
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="saveFindings()">保存</button>
+          <button class="btn btn-success" onclick="saveFindingsAndNext()">保存して次へ</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 帳票出力セクション ========== -->
+    <section id="section-reports" class="section">
+      <div class="section-header">
+        <h2>帳票出力</h2>
+      </div>
+
+      <div class="report-options">
+        <div class="form-group">
+          <label>帳票種類</label>
+          <select id="reportType" class="input-md">
+            <option value="individual">個人結果報告書</option>
+            <option value="company">企業一覧表</option>
+            <option value="summary">集計表</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>出力対象</label>
+          <select id="reportTarget" class="input-md">
+            <option value="selected">選択した患者</option>
+            <option value="all">全員（入力完了分）</option>
+            <option value="company">企業別</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="reportPatientSelector" class="patient-list-selector">
+        <h4>出力対象を選択</h4>
+        <div id="reportPatientList"></div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="generateReport()">出力</button>
+      </div>
+
+      <div id="reportResult" class="report-result" style="display:none;"></div>
+    </section>
+
+    <!-- ========== 請求管理セクション ========== -->
+    <section id="section-billing" class="section">
+      <div class="section-header">
+        <h2>請求管理</h2>
+      </div>
+
+      <div class="search-box">
+        <select id="billingStatusFilter" class="input-md">
+          <option value="">全ステータス</option>
+          <option value="未請求">未請求</option>
+          <option value="請求済">請求済</option>
+          <option value="入金済">入金済</option>
+          <option value="キャンセル">キャンセル</option>
+        </select>
+        <input type="text" id="billingCompanyFilter" placeholder="企業名" class="input-md">
+        <input type="month" id="billingMonthFilter" class="input-md">
+        <button class="btn btn-primary" onclick="loadBillingList()">検索</button>
+        <button class="btn btn-success" onclick="exportBillingToExcel()">Excel出力</button>
+      </div>
+
+      <div id="billingStats" class="billing-stats"></div>
+      <div id="billingList" class="results-table-container"></div>
+    </section>
+  </main>
+
+  <!-- フッター -->
+  <footer class="footer">
+    <p>CDmedical 健診システム v1.0.0</p>
+  </footer>
+
+  <?!= include('templates/js'); ?>
+
+  <script>
+    // 初期データの読み込み
+    const initialData = <?!= initialData ?>;
+    document.getElementById('currentUser').textContent = initialData.user || '';
+
+    // 初期化
+    document.addEventListener('DOMContentLoaded', function() {
+      initializePortal();
+    });
+  </script>
+</body>
+</html>

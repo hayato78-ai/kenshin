@@ -71,6 +71,93 @@
       <!-- 検索結果 -->
       <div id="patientSearchResults" class="results-table-container"></div>
 
+      <!-- 受診者詳細・編集パネル -->
+      <div id="patientDetailPanel" class="form-panel" style="display:none;">
+        <div class="section-header">
+          <h3 id="patientDetailTitle">受診者詳細</h3>
+          <div>
+            <button class="btn btn-sm btn-primary" id="editPatientBtn" onclick="enablePatientEdit()">編集</button>
+            <button class="btn btn-sm btn-secondary" onclick="hidePatientDetail()">閉じる</button>
+          </div>
+        </div>
+        <div class="form-grid" id="patientDetailForm">
+          <div class="form-group">
+            <label>受診ID</label>
+            <input type="text" id="detailPatientId" class="input-md" readonly>
+          </div>
+          <div class="form-group">
+            <label>ステータス</label>
+            <select id="detailStatus" class="input-sm" disabled>
+              <option value="入力中">入力中</option>
+              <option value="完了">完了</option>
+              <option value="キャンセル">キャンセル</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>氏名</label>
+            <input type="text" id="detailName" class="input-md" readonly>
+          </div>
+          <div class="form-group">
+            <label>カナ</label>
+            <input type="text" id="detailKana" class="input-md" readonly>
+          </div>
+          <div class="form-group">
+            <label>生年月日</label>
+            <input type="date" id="detailBirthDate" class="input-md" disabled>
+          </div>
+          <div class="form-group">
+            <label>年齢</label>
+            <input type="text" id="detailAge" class="input-sm" readonly>
+          </div>
+          <div class="form-group">
+            <label>性別</label>
+            <select id="detailGender" class="input-sm" disabled>
+              <option value="">選択</option>
+              <option value="男">男</option>
+              <option value="女">女</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>受診コース</label>
+            <select id="detailCourse" class="input-md" disabled>
+              <option value="人間ドック">人間ドック</option>
+              <option value="定期健診">定期健診</option>
+              <option value="労災二次検診">労災二次検診</option>
+              <option value="生活習慣病予防健診">生活習慣病予防健診</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>受診日</label>
+            <input type="date" id="detailExamDate" class="input-md" disabled>
+          </div>
+          <div class="form-group">
+            <label>事業所名</label>
+            <input type="text" id="detailCompany" class="input-md" readonly>
+          </div>
+          <div class="form-group">
+            <label>所属</label>
+            <input type="text" id="detailDepartment" class="input-md" readonly>
+          </div>
+          <div class="form-group">
+            <label>総合判定</label>
+            <select id="detailJudgment" class="input-sm" disabled>
+              <option value="">-</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+              <option value="D">D</option>
+              <option value="E">E</option>
+              <option value="G">G</option>
+            </select>
+          </div>
+        </div>
+        <div id="patientDetailActions" class="form-actions" style="display:none;">
+          <button class="btn btn-success" onclick="savePatientEdit()">保存</button>
+          <button class="btn btn-secondary" onclick="cancelPatientEdit()">キャンセル</button>
+          <button class="btn btn-primary" onclick="goToResultInput()">結果入力へ</button>
+        </div>
+      </div>
+
       <!-- 新規登録フォーム -->
       <div id="newPatientForm" class="form-panel" style="display:none;">
         <h3>新規受診者登録</h3>

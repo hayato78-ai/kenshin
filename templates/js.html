@@ -144,6 +144,9 @@ function searchPatients() {
     .portalSearchPatients(criteria);
 }
 
+// 検索結果データを保持
+let lastSearchResults = [];
+
 function displayPatientSearchResults(result) {
   const container = document.getElementById('patientSearchResults');
 
@@ -157,25 +160,190 @@ function displayPatientSearchResults(result) {
     return;
   }
 
+  // 検索結果を保持
+  lastSearchResults = result.data;
+
   let html = '<table class="results-table"><thead><tr>';
-  html += '<th>受診ID</th><th>氏名</th><th>カナ</th><th>受診日</th><th>受診コース</th><th>操作</th>';
+  html += '<th>受診ID</th><th>氏名</th><th>カナ</th><th>受診日</th><th>受診コース</th><th>ステータス</th><th>操作</th>';
   html += '</tr></thead><tbody>';
 
-  result.data.forEach(patient => {
-    html += '<tr>';
+  result.data.forEach((patient, index) => {
+    html += '<tr class="clickable" onclick="showPatientDetail(' + index + ')">';
     html += '<td>' + escapeHtml(patient['受診ID'] || '') + '</td>';
     html += '<td>' + escapeHtml(patient['氏名'] || '') + '</td>';
     html += '<td>' + escapeHtml(patient['カナ'] || '') + '</td>';
     html += '<td>' + formatDate(patient['受診日']) + '</td>';
     html += '<td>' + escapeHtml(patient['受診コース'] || '') + '</td>';
+    html += '<td>' + escapeHtml(patient['ステータス'] || '-') + '</td>';
     html += '<td>';
-    html += '<button class="btn btn-sm btn-primary" onclick="selectPatientForInput(\'' + patient['受診ID'] + '\')">結果入力</button>';
+    html += '<button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); showPatientDetail(' + index + ')">詳細</button> ';
+    html += '<button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); selectPatientForInput(\'' + patient['受診ID'] + '\')">結果入力</button>';
     html += '</td>';
     html += '</tr>';
   });
 
   html += '</tbody></table>';
   container.innerHTML = html;
+}
+
+// ============================================================
+// 受診者詳細表示・編集
+// ============================================================
+let currentDetailPatient = null;
+let isEditMode = false;
+
+function showPatientDetail(index) {
+  const patient = lastSearchResults[index];
+  if (!patient) {
+    showNotification('患者データが見つかりません', 'error');
+    return;
+  }
+
+  currentDetailPatient = patient;
+  isEditMode = false;
+
+  // フォームにデータをセット
+  document.getElementById('detailPatientId').value = patient['受診ID'] || '';
+  document.getElementById('detailStatus').value = patient['ステータス'] || '入力中';
+  document.getElementById('detailName').value = patient['氏名'] || '';
+  document.getElementById('detailKana').value = patient['カナ'] || '';
+  document.getElementById('detailGender').value = patient['性別'] || '';
+  document.getElementById('detailCourse').value = patient['受診コース'] || '';
+  document.getElementById('detailCompany').value = patient['事業所名'] || '';
+  document.getElementById('detailDepartment').value = patient['所属'] || '';
+  document.getElementById('detailJudgment').value = patient['総合判定'] || '';
+  document.getElementById('detailAge').value = patient['年齢'] ? patient['年齢'] + '歳' : '';
+
+  // 日付フィールド
+  if (patient['生年月日']) {
+    const birthDate = new Date(patient['生年月日']);
+    if (!isNaN(birthDate.getTime())) {
+      document.getElementById('detailBirthDate').value = birthDate.toISOString().split('T')[0];
+    } else {
+      document.getElementById('detailBirthDate').value = '';
+    }
+  } else {
+    document.getElementById('detailBirthDate').value = '';
+  }
+
+  if (patient['受診日']) {
+    const examDate = new Date(patient['受診日']);
+    if (!isNaN(examDate.getTime())) {
+      document.getElementById('detailExamDate').value = examDate.toISOString().split('T')[0];
+    } else {
+      document.getElementById('detailExamDate').value = '';
+    }
+  } else {
+    document.getElementById('detailExamDate').value = '';
+  }
+
+  // 編集モードをリセット
+  setDetailFieldsReadonly(true);
+  document.getElementById('patientDetailActions').style.display = 'none';
+  document.getElementById('editPatientBtn').style.display = 'inline-block';
+  document.getElementById('patientDetailTitle').textContent = '受診者詳細: ' + (patient['氏名'] || patient['受診ID']);
+
+  // パネルを表示
+  document.getElementById('patientDetailPanel').style.display = 'block';
+  document.getElementById('newPatientForm').style.display = 'none';
+
+  // スクロール
+  document.getElementById('patientDetailPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function hidePatientDetail() {
+  document.getElementById('patientDetailPanel').style.display = 'none';
+  currentDetailPatient = null;
+  isEditMode = false;
+}
+
+function enablePatientEdit() {
+  isEditMode = true;
+  setDetailFieldsReadonly(false);
+  document.getElementById('patientDetailActions').style.display = 'flex';
+  document.getElementById('editPatientBtn').style.display = 'none';
+  document.getElementById('patientDetailTitle').textContent = '受診者編集: ' + (currentDetailPatient['氏名'] || currentDetailPatient['受診ID']);
+  showNotification('編集モードになりました。変更後「保存」を押してください。', 'info');
+}
+
+function cancelPatientEdit() {
+  // 元のデータに戻す
+  if (currentDetailPatient) {
+    showPatientDetail(lastSearchResults.indexOf(currentDetailPatient));
+  }
+  isEditMode = false;
+  setDetailFieldsReadonly(true);
+  document.getElementById('patientDetailActions').style.display = 'none';
+  document.getElementById('editPatientBtn').style.display = 'inline-block';
+}
+
+function setDetailFieldsReadonly(readonly) {
+  // input要素
+  ['detailName', 'detailKana', 'detailCompany', 'detailDepartment'].forEach(id => {
+    document.getElementById(id).readOnly = readonly;
+  });
+
+  // select, date要素
+  ['detailStatus', 'detailGender', 'detailCourse', 'detailJudgment', 'detailBirthDate', 'detailExamDate'].forEach(id => {
+    document.getElementById(id).disabled = readonly;
+  });
+}
+
+function savePatientEdit() {
+  if (!currentDetailPatient) {
+    showNotification('編集対象がありません', 'error');
+    return;
+  }
+
+  const patientId = document.getElementById('detailPatientId').value;
+
+  const updateData = {
+    'ステータス': document.getElementById('detailStatus').value,
+    '氏名': document.getElementById('detailName').value,
+    'カナ': document.getElementById('detailKana').value,
+    '性別': document.getElementById('detailGender').value,
+    '生年月日': document.getElementById('detailBirthDate').value,
+    '受診コース': document.getElementById('detailCourse').value,
+    '受診日': document.getElementById('detailExamDate').value,
+    '事業所名': document.getElementById('detailCompany').value,
+    '所属': document.getElementById('detailDepartment').value,
+    '総合判定': document.getElementById('detailJudgment').value
+  };
+
+  // 年齢を再計算
+  if (updateData['生年月日']) {
+    updateData['年齢'] = calculateAge(updateData['生年月日']);
+  }
+
+  showLoading('保存中...');
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        showNotification('保存しました', 'success');
+        // 編集モードを解除
+        isEditMode = false;
+        setDetailFieldsReadonly(true);
+        document.getElementById('patientDetailActions').style.display = 'none';
+        document.getElementById('editPatientBtn').style.display = 'inline-block';
+        // 検索結果を更新
+        searchPatients();
+      } else {
+        showNotification('保存エラー: ' + result.error, 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showNotification('保存エラー: ' + error.message, 'error');
+    })
+    .portalUpdatePatientDetail(patientId, updateData);
+}
+
+function goToResultInput() {
+  if (currentDetailPatient) {
+    selectPatientForInput(currentDetailPatient['受診ID']);
+  }
 }
 
 function showNewPatientForm() {

@@ -264,24 +264,35 @@ function portalGetPatient(patientId) {
  */
 function portalUpdatePatient(patientId, updateData) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getPortalSpreadsheet();
     const sheet = ss.getSheetByName('受診者マスタ');
     if (!sheet) {
       return { success: false, error: '受診者マスタシートが見つかりません' };
     }
 
     const data = sheet.getDataRange().getValues();
-    const headers = data[0];
-    const idColIndex = headers.indexOf('患者ID');
 
+    // 列インデックス（実際のスプレッドシート構造）:
+    // 0:受診ID, 1:ステータス, 2:受診日, 3:氏名, 4:カナ, 5:性別, 6:生年月日, 7:年齢,
+    // 8:受診コース, 9:事業所名, 10:所属, 11:総合判定, 12:CSV取込日時, 13:最終更新日時, 14:出力日時
     for (let i = 1; i < data.length; i++) {
-      if (String(data[i][idColIndex]) === String(patientId)) {
+      if (String(data[i][0]) === String(patientId)) {
         // 該当行を更新
-        headers.forEach((header, colIdx) => {
-          if (updateData.hasOwnProperty(header)) {
-            sheet.getRange(i + 1, colIdx + 1).setValue(updateData[header]);
-          }
-        });
+        if (updateData['ステータス'] !== undefined) sheet.getRange(i + 1, 2).setValue(updateData['ステータス']);
+        if (updateData['受診日'] !== undefined) sheet.getRange(i + 1, 3).setValue(updateData['受診日'] ? new Date(updateData['受診日']) : '');
+        if (updateData['氏名'] !== undefined) sheet.getRange(i + 1, 4).setValue(updateData['氏名']);
+        if (updateData['カナ'] !== undefined) sheet.getRange(i + 1, 5).setValue(updateData['カナ']);
+        if (updateData['性別'] !== undefined) sheet.getRange(i + 1, 6).setValue(updateData['性別']);
+        if (updateData['生年月日'] !== undefined) sheet.getRange(i + 1, 7).setValue(updateData['生年月日'] ? new Date(updateData['生年月日']) : '');
+        if (updateData['年齢'] !== undefined) sheet.getRange(i + 1, 8).setValue(updateData['年齢']);
+        if (updateData['受診コース'] !== undefined) sheet.getRange(i + 1, 9).setValue(updateData['受診コース']);
+        if (updateData['事業所名'] !== undefined) sheet.getRange(i + 1, 10).setValue(updateData['事業所名']);
+        if (updateData['所属'] !== undefined) sheet.getRange(i + 1, 11).setValue(updateData['所属']);
+        if (updateData['総合判定'] !== undefined) sheet.getRange(i + 1, 12).setValue(updateData['総合判定']);
+
+        // 最終更新日時を更新
+        sheet.getRange(i + 1, 14).setValue(new Date());
+
         return { success: true, message: '更新しました' };
       }
     }
@@ -291,6 +302,17 @@ function portalUpdatePatient(patientId, updateData) {
     console.error('portalUpdatePatient error:', error);
     return { success: false, error: error.message };
   }
+}
+
+/**
+ * 受診者詳細を更新（ポータルUI用）
+ * js.html から呼び出される
+ * @param {string} patientId - 受診ID
+ * @param {Object} updateData - 更新データ
+ * @returns {Object} 更新結果
+ */
+function portalUpdatePatientDetail(patientId, updateData) {
+  return portalUpdatePatient(patientId, updateData);
 }
 
 // ============================================================

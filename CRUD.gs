@@ -663,8 +663,8 @@ function getExamTypeMaster() {
   return data
     .filter(row => row[cols.IS_ACTIVE])
     .map(row => ({
-      typeId: row[cols.TYPE_ID],
-      typeName: row[cols.TYPE_NAME],
+      examTypeId: row[cols.TYPE_ID],
+      name: row[cols.TYPE_NAME],
       courseRequired: row[cols.COURSE_REQUIRED],
       displayOrder: row[cols.DISPLAY_ORDER]
     }))
@@ -688,7 +688,7 @@ function getCourseMaster() {
     .filter(row => row[cols.IS_ACTIVE])
     .map(row => ({
       courseId: row[cols.COURSE_ID],
-      courseName: row[cols.COURSE_NAME],
+      name: row[cols.COURSE_NAME],
       price: row[cols.PRICE],
       testItems: row[cols.TEST_ITEMS],
       displayOrder: row[cols.DISPLAY_ORDER]

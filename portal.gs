@@ -10,11 +10,12 @@
  */
 
 /**
- * Webアプリのエントリーポイント
+ * ポータル用エントリーポイント（別デプロイ用）
+ * ※ メインのdoGetはUI.gsで定義
  * @param {Object} e - リクエストパラメータ
  * @returns {HtmlOutput} HTMLページ
  */
-function doGet(e) {
+function doGetPortal(e) {
   try {
     const template = HtmlService.createTemplateFromFile('templates/portal');
 

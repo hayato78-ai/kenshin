@@ -519,6 +519,112 @@ function portalSaveBodyMeasurements(patientId, measurements) {
 }
 
 /**
+ * 血液検査結果を保存
+ * @param {string} patientId - 患者ID
+ * @param {Object} bloodData - 血液検査データ（キー: 項目名, 値: 検査値）
+ * @returns {Object} 保存結果
+ */
+function portalSaveBloodTestResults(patientId, bloodData) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('検査結果');
+    if (!sheet) {
+      return { success: false, error: '検査結果シートが見つかりません' };
+    }
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idColIndex = headers.indexOf('患者ID');
+
+    // 血液検査項目のマッピング（bloodDataのキーはそのまま列名として使用）
+    const bloodFields = {
+      ...bloodData,
+      '血液検査入力日': new Date(),
+      '更新日時': new Date()
+    };
+
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][idColIndex]) === String(patientId)) {
+        // 該当行を更新
+        Object.keys(bloodFields).forEach(fieldName => {
+          const colIdx = headers.indexOf(fieldName);
+          if (colIdx >= 0 && bloodFields[fieldName] !== undefined) {
+            sheet.getRange(i + 1, colIdx + 1).setValue(bloodFields[fieldName]);
+          }
+        });
+        return { success: true, message: '血液検査結果を保存しました' };
+      }
+    }
+
+    // 該当行がない場合は新規行を追加
+    const newRow = headers.map(header => {
+      if (header === '患者ID') return patientId;
+      if (bloodFields.hasOwnProperty(header)) return bloodFields[header];
+      return '';
+    });
+    sheet.appendRow(newRow);
+
+    return { success: true, message: '血液検査結果を新規登録しました' };
+  } catch (error) {
+    console.error('portalSaveBloodTestResults error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * 検査結果を保存（設計書準拠版）
+ * @param {string} patientId - 患者ID
+ * @param {Object} inputData - 検査データ（キー: 項目名, 値: 検査値）
+ * @returns {Object} 保存結果
+ */
+function portalSaveInputResults(patientId, inputData) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('検査結果');
+    if (!sheet) {
+      return { success: false, error: '検査結果シートが見つかりません' };
+    }
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idColIndex = headers.indexOf('患者ID');
+
+    // 入力項目のマッピング（inputDataのキーはそのまま列名として使用）
+    const inputFields = {
+      ...inputData,
+      '結果入力日': new Date(),
+      '更新日時': new Date()
+    };
+
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][idColIndex]) === String(patientId)) {
+        // 該当行を更新
+        Object.keys(inputFields).forEach(fieldName => {
+          const colIdx = headers.indexOf(fieldName);
+          if (colIdx >= 0 && inputFields[fieldName] !== undefined) {
+            sheet.getRange(i + 1, colIdx + 1).setValue(inputFields[fieldName]);
+          }
+        });
+        return { success: true, message: '検査結果を保存しました' };
+      }
+    }
+
+    // 該当行がない場合は新規行を追加
+    const newRow = headers.map(header => {
+      if (header === '患者ID') return patientId;
+      if (inputFields.hasOwnProperty(header)) return inputFields[header];
+      return '';
+    });
+    sheet.appendRow(newRow);
+
+    return { success: true, message: '検査結果を新規登録しました' };
+  } catch (error) {
+    console.error('portalSaveInputResults error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * 所見を保存
  * @param {string} patientId - 患者ID
  * @param {Object} findings - 所見データ

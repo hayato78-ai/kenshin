@@ -297,12 +297,154 @@
         <button class="tab-btn" data-tab="findings" onclick="showResultTab('findings')">所見入力</button>
       </div>
 
-      <!-- 血液検査タブ -->
+      <!-- 結果入力タブ -->
       <div id="tab-blood" class="tab-content active">
-        <div class="info-box">
-          <p>血液検査結果はCSV取込で自動登録されます。</p>
+        <!-- 設計書準拠 入力レイアウト -->
+        <div class="input-columns">
+
+          <!-- ========== 計測・生理検査 ========== -->
+
+          <!-- 身体計測 -->
+          <div class="input-section">
+            <div class="section-title">身体計測</div>
+            <div class="input-row"><span class="item-label">身長</span><input type="number" id="inHeight" step="0.1" class="item-input"><span class="item-unit">cm</span></div>
+            <div class="input-row"><span class="item-label">体重</span><input type="number" id="inWeight" step="0.1" class="item-input"><span class="item-unit">kg</span></div>
+            <div class="input-row"><span class="item-label">BMI</span><input type="text" id="inBMI" class="item-input" readonly><span class="item-unit"></span></div>
+            <div class="input-row"><span class="item-label">体脂肪率</span><input type="number" id="inBodyFat" step="0.1" class="item-input"><span class="item-unit">%</span></div>
+            <div class="input-row"><span class="item-label">腹囲</span><input type="number" id="inWaist" step="0.1" class="item-input"><span class="item-unit">cm</span></div>
+          </div>
+
+          <!-- 血圧 -->
+          <div class="input-section">
+            <div class="section-title">血圧</div>
+            <div class="input-row"><span class="item-label">収縮期①</span><input type="number" id="inSBP1" class="item-input"><span class="item-unit">mmHg</span></div>
+            <div class="input-row"><span class="item-label">拡張期①</span><input type="number" id="inDBP1" class="item-input"><span class="item-unit">mmHg</span></div>
+            <div class="input-row"><span class="item-label">収縮期②</span><input type="number" id="inSBP2" class="item-input"><span class="item-unit">mmHg</span></div>
+            <div class="input-row"><span class="item-label">拡張期②</span><input type="number" id="inDBP2" class="item-input"><span class="item-unit">mmHg</span></div>
+            <div class="input-row"><span class="item-label">脈拍</span><input type="number" id="inPulse" class="item-input"><span class="item-unit">/分</span></div>
+          </div>
+
+          <!-- 尿検査 -->
+          <div class="input-section">
+            <div class="section-title">尿検査</div>
+            <div class="input-row"><span class="item-label">蛋白</span><div class="qual-btns" data-field="inUrineProtein"><button type="button" class="q-btn" data-val="(-)">-</button><button type="button" class="q-btn" data-val="(±)">±</button><button type="button" class="q-btn" data-val="(+)">+</button><button type="button" class="q-btn" data-val="(++)">2+</button><button type="button" class="q-btn" data-val="(+++)">3+</button></div><input type="hidden" id="inUrineProtein"></div>
+            <div class="input-row"><span class="item-label">糖</span><div class="qual-btns" data-field="inUrineSugar"><button type="button" class="q-btn" data-val="(-)">-</button><button type="button" class="q-btn" data-val="(±)">±</button><button type="button" class="q-btn" data-val="(+)">+</button><button type="button" class="q-btn" data-val="(++)">2+</button><button type="button" class="q-btn" data-val="(+++)">3+</button></div><input type="hidden" id="inUrineSugar"></div>
+            <div class="input-row"><span class="item-label">潜血</span><div class="qual-btns" data-field="inUrineBlood"><button type="button" class="q-btn" data-val="(-)">-</button><button type="button" class="q-btn" data-val="(±)">±</button><button type="button" class="q-btn" data-val="(+)">+</button><button type="button" class="q-btn" data-val="(++)">2+</button><button type="button" class="q-btn" data-val="(+++)">3+</button></div><input type="hidden" id="inUrineBlood"></div>
+            <div class="input-row"><span class="item-label">ウロビリ</span><div class="qual-btns" data-field="inUrineUro"><button type="button" class="q-btn" data-val="(-)">-</button><button type="button" class="q-btn" data-val="(±)">±</button><button type="button" class="q-btn" data-val="(+)">+</button><button type="button" class="q-btn" data-val="(++)">2+</button><button type="button" class="q-btn" data-val="(+++)">3+</button></div><input type="hidden" id="inUrineUro"></div>
+            <div class="input-row"><span class="item-label">ビリルビン</span><div class="qual-btns" data-field="inUrineBil"><button type="button" class="q-btn" data-val="(-)">-</button><button type="button" class="q-btn" data-val="(+)">+</button><button type="button" class="q-btn" data-val="(++)">2+</button><button type="button" class="q-btn" data-val="(+++)">3+</button></div><input type="hidden" id="inUrineBil"></div>
+            <div class="input-row"><span class="item-label">ケトン体</span><div class="qual-btns" data-field="inUrineKet"><button type="button" class="q-btn" data-val="(-)">-</button><button type="button" class="q-btn" data-val="(±)">±</button><button type="button" class="q-btn" data-val="(+)">+</button><button type="button" class="q-btn" data-val="(++)">2+</button><button type="button" class="q-btn" data-val="(+++)">3+</button></div><input type="hidden" id="inUrineKet"></div>
+            <div class="input-row"><span class="item-label">pH</span><input type="number" id="inUrinePH" step="0.1" class="item-input"><span class="item-unit"></span></div>
+            <div class="input-row"><span class="item-label">比重</span><input type="number" id="inUrineSG" step="0.001" class="item-input"><span class="item-unit"></span></div>
+          </div>
+
+          <!-- 視機能 -->
+          <div class="input-section">
+            <div class="section-title">視機能</div>
+            <div class="input-row"><span class="item-label">裸眼 右</span><input type="text" id="inVisionRN" class="item-input" placeholder="1.0"><span class="item-unit"></span></div>
+            <div class="input-row"><span class="item-label">裸眼 左</span><input type="text" id="inVisionLN" class="item-input" placeholder="1.0"><span class="item-unit"></span></div>
+            <div class="input-row"><span class="item-label">矯正 右</span><input type="text" id="inVisionRC" class="item-input" placeholder="1.2"><span class="item-unit"></span></div>
+            <div class="input-row"><span class="item-label">矯正 左</span><input type="text" id="inVisionLC" class="item-input" placeholder="1.2"><span class="item-unit"></span></div>
+            <div class="input-row"><span class="item-label">眼圧 右</span><input type="number" id="inIopR" class="item-input"><span class="item-unit">mmHg</span></div>
+            <div class="input-row"><span class="item-label">眼圧 左</span><input type="number" id="inIopL" class="item-input"><span class="item-unit">mmHg</span></div>
+          </div>
+
+          <!-- 聴力 -->
+          <div class="input-section">
+            <div class="section-title">聴力</div>
+            <div class="input-row"><span class="item-label">1kHz 右</span><div class="qual-btns" data-field="inHear1kR"><button type="button" class="q-btn" data-val="○">○</button><button type="button" class="q-btn" data-val="×">×</button></div><input type="hidden" id="inHear1kR"></div>
+            <div class="input-row"><span class="item-label">1kHz 左</span><div class="qual-btns" data-field="inHear1kL"><button type="button" class="q-btn" data-val="○">○</button><button type="button" class="q-btn" data-val="×">×</button></div><input type="hidden" id="inHear1kL"></div>
+            <div class="input-row"><span class="item-label">4kHz 右</span><div class="qual-btns" data-field="inHear4kR"><button type="button" class="q-btn" data-val="○">○</button><button type="button" class="q-btn" data-val="×">×</button></div><input type="hidden" id="inHear4kR"></div>
+            <div class="input-row"><span class="item-label">4kHz 左</span><div class="qual-btns" data-field="inHear4kL"><button type="button" class="q-btn" data-val="○">○</button><button type="button" class="q-btn" data-val="×">×</button></div><input type="hidden" id="inHear4kL"></div>
+          </div>
+
+          <!-- 食事・採血 -->
+          <div class="input-section">
+            <div class="section-title">食事・採血</div>
+            <div class="input-row"><span class="item-label">食事時間</span><input type="time" id="inMealTime" class="item-input"><span class="item-unit"></span></div>
+            <div class="input-row"><span class="item-label">採血時間</span><input type="time" id="inBloodTime" class="item-input"><span class="item-unit"></span></div>
+            <div class="input-row"><span class="item-label">食後</span><input type="number" id="inMealHours" class="item-input"><span class="item-unit">時間</span></div>
+            <div class="input-row"><span class="item-label">空腹/随時</span><div class="qual-btns" data-field="inFasting"><button type="button" class="q-btn" data-val="空腹時">空腹</button><button type="button" class="q-btn" data-val="随時">随時</button></div><input type="hidden" id="inFasting"></div>
+          </div>
+
+          <!-- 心電図 -->
+          <div class="input-section">
+            <div class="section-title">心電図</div>
+            <div class="input-row"><span class="item-label">心拍数</span><input type="number" id="inEcgHR" class="item-input"><span class="item-unit">/分</span></div>
+            <div class="input-row"><span class="item-label">PR間隔</span><input type="number" id="inEcgPR" class="item-input"><span class="item-unit">ms</span></div>
+            <div class="input-row"><span class="item-label">QRS</span><input type="number" id="inEcgQRS" class="item-input"><span class="item-unit">ms</span></div>
+            <div class="input-row"><span class="item-label">QTc</span><input type="number" id="inEcgQTc" class="item-input"><span class="item-unit">ms</span></div>
+          </div>
+
+          <!-- 呼吸機能 -->
+          <div class="input-section">
+            <div class="section-title">呼吸機能</div>
+            <div class="input-row"><span class="item-label">肺活量</span><input type="number" id="inSpiroVC" step="0.01" class="item-input"><span class="item-unit">L</span></div>
+            <div class="input-row"><span class="item-label">1秒量</span><input type="number" id="inSpiroFEV1" step="0.01" class="item-input"><span class="item-unit">L</span></div>
+            <div class="input-row"><span class="item-label">1秒率</span><input type="number" id="inSpiroFEV1p" step="0.1" class="item-input"><span class="item-unit">%</span></div>
+            <div class="input-row"><span class="item-label">%VC</span><input type="number" id="inSpiroVCp" step="0.1" class="item-input"><span class="item-unit">%</span></div>
+          </div>
+
+          <!-- ========== 血液検査 ========== -->
+
+          <!-- 血球系 -->
+          <div class="input-section">
+            <div class="section-title">血球系</div>
+            <div class="input-row"><span class="item-label">白血球</span><input type="number" id="inWBC" step="0.1" class="item-input"><span class="item-unit">×10²</span></div>
+            <div class="input-row"><span class="item-label">赤血球</span><input type="number" id="inRBC" step="1" class="item-input"><span class="item-unit">×10⁴</span></div>
+            <div class="input-row"><span class="item-label">Hb</span><input type="number" id="inHb" step="0.1" class="item-input"><span class="item-unit">g/dL</span></div>
+            <div class="input-row"><span class="item-label">Ht</span><input type="number" id="inHt" step="0.1" class="item-input"><span class="item-unit">%</span></div>
+            <div class="input-row"><span class="item-label">血小板</span><input type="number" id="inPlt" step="0.1" class="item-input"><span class="item-unit">×10⁴</span></div>
+          </div>
+
+          <!-- 肝機能 -->
+          <div class="input-section">
+            <div class="section-title">肝機能</div>
+            <div class="input-row"><span class="item-label">AST</span><input type="number" id="inAST" step="1" class="item-input"><span class="item-unit">U/L</span></div>
+            <div class="input-row"><span class="item-label">ALT</span><input type="number" id="inALT" step="1" class="item-input"><span class="item-unit">U/L</span></div>
+            <div class="input-row"><span class="item-label">γ-GTP</span><input type="number" id="inGGTP" step="1" class="item-input"><span class="item-unit">U/L</span></div>
+            <div class="input-row"><span class="item-label">ALP</span><input type="number" id="inALP" step="1" class="item-input"><span class="item-unit">U/L</span></div>
+            <div class="input-row"><span class="item-label">T-Bil</span><input type="number" id="inTBil" step="0.1" class="item-input"><span class="item-unit">mg/dL</span></div>
+          </div>
+
+          <!-- 脂質 -->
+          <div class="input-section">
+            <div class="section-title">脂質</div>
+            <div class="input-row"><span class="item-label">T-Cho</span><input type="number" id="inTC" step="1" class="item-input"><span class="item-unit">mg/dL</span></div>
+            <div class="input-row"><span class="item-label">HDL</span><input type="number" id="inHDL" step="1" class="item-input"><span class="item-unit">mg/dL</span></div>
+            <div class="input-row"><span class="item-label">LDL</span><input type="number" id="inLDL" step="1" class="item-input"><span class="item-unit">mg/dL</span></div>
+            <div class="input-row"><span class="item-label">TG</span><input type="number" id="inTG" step="1" class="item-input"><span class="item-unit">mg/dL</span></div>
+          </div>
+
+          <!-- 糖代謝 -->
+          <div class="input-section">
+            <div class="section-title">糖代謝</div>
+            <div class="input-row"><span class="item-label">血糖</span><input type="number" id="inGlu" step="1" class="item-input"><span class="item-unit">mg/dL</span></div>
+            <div class="input-row"><span class="item-label">HbA1c</span><input type="number" id="inHbA1c" step="0.1" class="item-input"><span class="item-unit">%</span></div>
+          </div>
+
+          <!-- 腎機能 -->
+          <div class="input-section">
+            <div class="section-title">腎機能</div>
+            <div class="input-row"><span class="item-label">UA</span><input type="number" id="inUA" step="0.1" class="item-input"><span class="item-unit">mg/dL</span></div>
+            <div class="input-row"><span class="item-label">Cr</span><input type="number" id="inCr" step="0.01" class="item-input"><span class="item-unit">mg/dL</span></div>
+            <div class="input-row"><span class="item-label">BUN</span><input type="number" id="inBUN" step="0.1" class="item-input"><span class="item-unit">mg/dL</span></div>
+            <div class="input-row"><span class="item-label">eGFR</span><input type="number" id="inEGFR" step="0.1" class="item-input"><span class="item-unit">mL/min</span></div>
+          </div>
+
+          <!-- 蛋白 -->
+          <div class="input-section">
+            <div class="section-title">蛋白</div>
+            <div class="input-row"><span class="item-label">TP</span><input type="number" id="inTP" step="0.1" class="item-input"><span class="item-unit">g/dL</span></div>
+            <div class="input-row"><span class="item-label">Alb</span><input type="number" id="inAlb" step="0.1" class="item-input"><span class="item-unit">g/dL</span></div>
+          </div>
+
         </div>
-        <div id="bloodTestDisplay" class="blood-test-grid"></div>
+
+        <div class="input-actions">
+          <button class="btn btn-secondary btn-sm" onclick="clearInputForm()">クリア</button>
+          <button class="btn btn-primary" onclick="saveInputResults()">保存</button>
+          <button class="btn btn-success" onclick="saveInputResultsAndNext()">保存して次へ →</button>
+        </div>
       </div>
 
       <!-- 身体計測タブ -->

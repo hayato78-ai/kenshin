@@ -14,7 +14,7 @@ const DB_CONFIG = {
   // スプレッドシートID（デプロイ時に設定）
   SPREADSHEET_ID: '',
 
-  // シート名定義（設計書4章準拠）
+  // シート名定義（設計書4章準拠 + マスタ拡張）
   SHEETS: {
     PATIENT_MASTER: '受診者マスタ',
     VISIT_RECORD: '受診記録',
@@ -22,7 +22,12 @@ const DB_CONFIG = {
     ITEM_MASTER: '項目マスタ',
     EXAM_TYPE_MASTER: '検診種別マスタ',
     COURSE_MASTER: 'コースマスタ',
-    GUIDANCE_RECORD: '保健指導記録'
+    GUIDANCE_RECORD: '保健指導記録',
+    // Phase 1追加: 検査項目マスタ拡張
+    EXAM_ITEM_MASTER: '検査項目マスタ',      // 150項目の詳細定義
+    JUDGMENT_CRITERIA: '判定基準マスタ',      // 判定基準（人間ドック学会2025）
+    SELECT_OPTIONS: '選択肢マスタ',           // 定性検査の選択肢
+    EXAM_COURSE_MASTER: '健診コースマスタ'   // 6コース定義
   },
 
   // ステータス定義（設計書4.2準拠）
@@ -407,4 +412,102 @@ const MAPPING_PATTERN_SHEET = {
     CREATED_AT: 7,
     UPDATED_AT: 8
   }
+};
+
+// ============================================
+// Phase 1: 検査項目マスタ拡張シート定義
+// ============================================
+
+// 検査項目マスタシート定義（150項目対応）
+const EXAM_ITEM_MASTER_DEF = {
+  headers: [
+    '項目ID', '項目名', 'カテゴリ', 'サブカテゴリ', 'データ型',
+    '単位', '人間ドック必須', '定期健診必須', '労災二次必須', '表示順'
+  ],
+  columns: {
+    ITEM_ID: 0,
+    ITEM_NAME: 1,
+    CATEGORY: 2,
+    SUBCATEGORY: 3,
+    DATA_TYPE: 4,
+    UNIT: 5,
+    REQUIRED_DOCK: 6,
+    REQUIRED_REGULAR: 7,
+    REQUIRED_SECONDARY: 8,
+    DISPLAY_ORDER: 9
+  },
+  columnWidths: {
+    A: 120, B: 200, C: 100, D: 100, E: 80,
+    F: 80, G: 80, H: 80, I: 80, J: 60
+  }
+};
+
+// 判定基準マスタシート定義（人間ドック学会2025年度版準拠）
+const JUDGMENT_CRITERIA_DEF = {
+  headers: [
+    '項目ID', '項目名', '性別', '単位',
+    'A下限', 'A上限', 'B下限', 'B上限', 'C下限', 'C上限', 'D下限', 'D上限', '備考'
+  ],
+  columns: {
+    ITEM_ID: 0,
+    ITEM_NAME: 1,
+    GENDER: 2,
+    UNIT: 3,
+    A_MIN: 4,
+    A_MAX: 5,
+    B_MIN: 6,
+    B_MAX: 7,
+    C_MIN: 8,
+    C_MAX: 9,
+    D_MIN: 10,
+    D_MAX: 11,
+    NOTE: 12
+  },
+  columnWidths: {
+    A: 120, B: 150, C: 60, D: 100,
+    E: 60, F: 60, G: 60, H: 60, I: 60, J: 60, K: 60, L: 60, M: 150
+  }
+};
+
+// 選択肢マスタシート定義（定性検査用）
+const SELECT_OPTIONS_DEF = {
+  headers: [
+    '項目ID', '選択肢', '説明'
+  ],
+  columns: {
+    ITEM_ID: 0,
+    OPTIONS: 1,
+    DESCRIPTION: 2
+  },
+  columnWidths: {
+    A: 150, B: 250, C: 200
+  }
+};
+
+// 健診コースマスタシート定義
+const EXAM_COURSE_MASTER_DEF = {
+  headers: [
+    'コースID', 'コース名', '料金', '説明', '項目数', '必須項目リスト'
+  ],
+  columns: {
+    COURSE_ID: 0,
+    COURSE_NAME: 1,
+    PRICE: 2,
+    DESCRIPTION: 3,
+    ITEM_COUNT: 4,
+    REQUIRED_ITEMS: 5
+  },
+  columnWidths: {
+    A: 150, B: 180, C: 80, D: 250, E: 60, F: 400
+  }
+};
+
+// 判定ラベル定義
+const JUDGMENT_LABELS = {
+  'A': '異常なし',
+  'B': '軽度異常',
+  'C': '要再検査・生活改善',
+  'D': '要精密検査・治療',
+  'E': '治療中',
+  'F': '経過観察中'
 };

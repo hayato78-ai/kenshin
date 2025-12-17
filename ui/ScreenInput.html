@@ -35,14 +35,22 @@
       </div>
     </div>
 
-    <!-- カテゴリ選択 -->
+    <!-- カテゴリ選択・表示フィルタ -->
     <div class="card mb-md">
       <div class="card-body">
-        <div class="form-group" style="margin-bottom: 0;">
-          <label class="form-label">カテゴリ</label>
-          <select id="input-category-select" class="form-control" onchange="TestInput.filterByCategory()">
-            <option value="">すべて表示</option>
-          </select>
+        <div class="flex-between" style="gap: var(--spacing-md);">
+          <div class="form-group" style="margin-bottom: 0; flex: 1;">
+            <label class="form-label">カテゴリ</label>
+            <select id="input-category-select" class="form-control" onchange="TestInput.filterByCategory()">
+              <option value="">すべて表示</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">表示フィルタ</label>
+            <button id="btn-toggle-required" class="btn btn-outline" onclick="TestInput.toggleRequiredOnly()">
+              必須項目のみ
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -71,7 +79,7 @@
 
 <script>
 /**
- * 検査結果入力画面の処理
+ * 検査結果入力画面の処理（Phase 3: 150項目対応・コース別表示制御）
  */
 const TestInput = {
   /** 受診情報 */
@@ -80,11 +88,17 @@ const TestInput = {
   /** 受診者情報 */
   patient: null,
 
-  /** 項目マスタ */
+  /** 項目マスタ（150項目対応） */
   itemMaster: [],
+
+  /** 選択肢マスタ */
+  selectOptions: {},
 
   /** 既存の検査結果 */
   existingResults: {},
+
+  /** 前回の検査結果 */
+  previousResults: {},
 
   /** 入力値の変更追跡 */
   inputValues: {},
@@ -94,6 +108,9 @@ const TestInput = {
 
   /** 選択中のカテゴリ */
   selectedCategory: '',
+
+  /** コース別必須項目のみ表示 */
+  showRequiredOnly: false,
 
   /**
    * 初期化
@@ -107,6 +124,8 @@ const TestInput = {
 
     this.inputValues = {};
     this.selectedCategory = '';
+    this.showRequiredOnly = false;
+    this.selectOptions = {};
 
     if (visitId) {
       this.loadData(visitId);
@@ -117,34 +136,60 @@ const TestInput = {
   },
 
   /**
-   * データを読み込み
+   * データを読み込み（Phase 3: getInputScreenData使用）
    * @param {string} visitId - 受診ID
    */
   loadData: function(visitId) {
     const self = this;
     App.showLoading();
 
-    // 項目マスタを取得
+    // 入力画面用データを一括取得
     google.script.run
-      .withSuccessHandler(function(items) {
-        self.itemMaster = items || [];
+      .withSuccessHandler(function(result) {
+        App.hideLoading();
+
+        if (!result.success) {
+          App.showMessage('エラー', result.error || 'データの取得に失敗しました', 'error');
+          App.goBack();
+          return;
+        }
+
+        self.visit = result.visit;
+        self.patient = result.patient;
+        self.itemMaster = result.items || [];
+        self.previousResults = result.previousResults || {};
+
+        // 選択肢マスタをマップに変換
+        (result.selectOptions || []).forEach(function(opt) {
+          self.selectOptions[opt.itemId] = opt.options;
+        });
+
+        // 既存結果を設定
+        self.existingResults = result.existingResults || {};
+        for (const itemId in self.existingResults) {
+          self.inputValues[itemId] = self.existingResults[itemId].value;
+        }
 
         // カテゴリを抽出
         const catSet = new Set();
-        items.forEach(function(item) {
+        self.itemMaster.forEach(function(item) {
           if (item.category) catSet.add(item.category);
         });
         self.categories = Array.from(catSet);
 
+        App.state.currentVisit = result.visit;
+        App.state.currentPatient = result.patient;
+
         self.populateCategorySelect();
-        self.loadVisit(visitId);
+        self.render();
       })
       .withFailureHandler(function(error) {
         App.hideLoading();
-        console.error('Failed to load item master:', error);
-        App.showMessage('エラー', '項目マスタの取得に失敗しました', 'error');
+        console.error('Failed to load input screen data:', error);
+        App.showMessage('エラー', 'データの取得に失敗しました', 'error');
+        App.goBack();
       })
-      .getItemMaster();
+      .getInputScreenData(visitId);
   },
 
   /**
@@ -266,7 +311,7 @@ const TestInput = {
   },
 
   /**
-   * 入力フォームを描画
+   * 入力フォームを描画（Phase 3: サブカテゴリ・選択肢マスタ対応）
    */
   renderInputForms: function() {
     const container = document.getElementById('input-categories-container');
@@ -274,19 +319,26 @@ const TestInput = {
 
     const self = this;
 
-    // カテゴリでグループ化
+    // カテゴリ→サブカテゴリでグループ化
     const categorizedItems = {};
     this.itemMaster.forEach(function(item) {
+      // コース必須項目のみ表示モードの場合
+      if (self.showRequiredOnly && !item.isRequired) return;
+
       if (!categorizedItems[item.category]) {
-        categorizedItems[item.category] = [];
+        categorizedItems[item.category] = {};
       }
-      categorizedItems[item.category].push(item);
+      const subcat = item.subcategory || '一般';
+      if (!categorizedItems[item.category][subcat]) {
+        categorizedItems[item.category][subcat] = [];
+      }
+      categorizedItems[item.category][subcat].push(item);
     });
 
     let html = '';
 
     for (const category in categorizedItems) {
-      const items = categorizedItems[category];
+      const subcategories = categorizedItems[category];
       const isHidden = this.selectedCategory && this.selectedCategory !== category;
 
       html += '<div class="card mb-md category-card" data-category="' + category + '"';
@@ -297,54 +349,140 @@ const TestInput = {
       html += '</div>';
       html += '<div class="card-body">';
 
-      items.forEach(function(item) {
-        const existing = self.existingResults[item.itemId];
-        const value = self.inputValues[item.itemId] !== undefined ?
-                      self.inputValues[item.itemId] : (existing ? existing.value : '');
-        const judgment = existing ? existing.judgment : '';
+      for (const subcategory in subcategories) {
+        const items = subcategories[subcategory];
 
-        html += '<div class="form-row" style="align-items: center; margin-bottom: var(--spacing-sm);">';
-
-        // 項目名
-        html += '<div style="min-width: 120px; font-weight: 500;">' + item.name + '</div>';
-
-        // 入力フィールド
-        html += '<div style="flex: 1; max-width: 150px;">';
-        if (item.dataType === '定性') {
-          html += '<select id="input-' + item.itemId + '" class="form-control" ';
-          html += 'onchange="TestInput.onValueChange(\'' + item.itemId + '\')">';
-          html += '<option value="">-</option>';
-          html += '<option value="(-)"' + (value === '(-)' ? ' selected' : '') + '>(-)</option>';
-          html += '<option value="(±)"' + (value === '(±)' ? ' selected' : '') + '>(±)</option>';
-          html += '<option value="(+)"' + (value === '(+)' ? ' selected' : '') + '>(+)</option>';
-          html += '<option value="(++)"' + (value === '(++)' ? ' selected' : '') + '>(++)</option>';
-          html += '<option value="(+++)"' + (value === '(+++)' ? ' selected' : '') + '>(+++)</option>';
-          html += '</select>';
-        } else {
-          html += '<input type="number" step="any" id="input-' + item.itemId + '" ';
-          html += 'class="form-control" value="' + (value || '') + '" ';
-          html += 'onchange="TestInput.onValueChange(\'' + item.itemId + '\')" ';
-          html += 'onkeypress="TestInput.onKeyPress(event, \'' + item.itemId + '\')">';
-        }
+        // サブカテゴリタイトル
+        html += '<div style="font-size: 0.85rem; color: var(--color-primary); margin: var(--spacing-sm) 0; font-weight: 600;">';
+        html += '▸ ' + subcategory;
         html += '</div>';
 
-        // 単位
-        html += '<div style="min-width: 60px; color: var(--color-text-secondary);">';
-        html += item.unit || '';
-        html += '</div>';
+        items.forEach(function(item) {
+          const existing = self.existingResults[item.itemId];
+          const value = self.inputValues[item.itemId] !== undefined ?
+                        self.inputValues[item.itemId] : (existing ? existing.value : '');
+          const judgment = existing ? existing.judgment : '';
+          const prevValue = self.previousResults[item.itemId] || '';
 
-        // 判定表示
-        html += '<div style="min-width: 50px;" id="judgment-' + item.itemId + '">';
-        html += App.getJudgmentBadge(judgment);
-        html += '</div>';
+          // 必須項目の場合は背景色を変える
+          const rowStyle = item.isRequired ?
+            'background-color: #fef9e7; padding: 4px; border-radius: 4px;' : '';
 
-        html += '</div>';
-      });
+          html += '<div class="form-row" style="align-items: center; margin-bottom: var(--spacing-sm); ' + rowStyle + '">';
+
+          // 項目名（必須マーク付き）
+          html += '<div style="min-width: 160px; font-weight: 500;">';
+          html += item.name;
+          if (item.isRequired) {
+            html += ' <span style="color: #e74c3c; font-size: 0.8rem;">*</span>';
+          }
+          html += '</div>';
+
+          // 入力フィールド（選択肢マスタ対応）
+          html += '<div style="flex: 1; max-width: 150px;">';
+          html += self.renderInputField(item, value);
+          html += '</div>';
+
+          // 単位
+          html += '<div style="min-width: 60px; color: var(--color-text-secondary);">';
+          html += item.unit || '';
+          html += '</div>';
+
+          // 判定表示
+          html += '<div style="min-width: 50px;" id="judgment-' + item.itemId + '">';
+          html += App.getJudgmentBadge(judgment);
+          html += '</div>';
+
+          // 前回値
+          if (prevValue) {
+            html += '<div style="min-width: 80px; color: var(--color-text-secondary); font-size: 0.85rem;">';
+            html += '(前回: ' + prevValue + ')';
+            html += '</div>';
+          }
+
+          html += '</div>';
+        });
+      }
 
       html += '</div></div>';
     }
 
     container.innerHTML = html;
+  },
+
+  /**
+   * 入力フィールドを生成（Phase 3: 選択肢マスタ対応）
+   * @param {Object} item - 項目マスタ
+   * @param {string} value - 現在の値
+   * @returns {string} HTML
+   */
+  renderInputField: function(item, value) {
+    const self = this;
+
+    // 選択肢マスタに定義がある場合
+    if (this.selectOptions[item.itemId]) {
+      const options = this.selectOptions[item.itemId];
+      let html = '<select id="input-' + item.itemId + '" class="form-control" ';
+      html += 'onchange="TestInput.onValueChange(\'' + item.itemId + '\')">';
+      html += '<option value="">-</option>';
+      options.forEach(function(opt) {
+        const selected = (value === opt) ? ' selected' : '';
+        html += '<option value="' + opt + '"' + selected + '>' + opt + '</option>';
+      });
+      html += '</select>';
+      return html;
+    }
+
+    // dataTypeに基づく入力フィールド
+    switch (item.dataType) {
+      case 'select':
+        // 選択肢マスタにない場合のデフォルト
+        let html = '<select id="input-' + item.itemId + '" class="form-control" ';
+        html += 'onchange="TestInput.onValueChange(\'' + item.itemId + '\')">';
+        html += '<option value="">-</option>';
+        html += '</select>';
+        return html;
+
+      case 'text':
+        return '<input type="text" id="input-' + item.itemId + '" ' +
+               'class="form-control" value="' + (value || '') + '" ' +
+               'onchange="TestInput.onValueChange(\'' + item.itemId + '\')" ' +
+               'onkeypress="TestInput.onKeyPress(event, \'' + item.itemId + '\')">';
+
+      case 'date':
+        return '<input type="date" id="input-' + item.itemId + '" ' +
+               'class="form-control" value="' + (value || '') + '" ' +
+               'onchange="TestInput.onValueChange(\'' + item.itemId + '\')">';
+
+      case 'integer':
+        return '<input type="number" step="1" id="input-' + item.itemId + '" ' +
+               'class="form-control" value="' + (value || '') + '" ' +
+               'onchange="TestInput.onValueChange(\'' + item.itemId + '\')" ' +
+               'onkeypress="TestInput.onKeyPress(event, \'' + item.itemId + '\')">';
+
+      case 'decimal':
+      default:
+        return '<input type="number" step="any" id="input-' + item.itemId + '" ' +
+               'class="form-control" value="' + (value || '') + '" ' +
+               'onchange="TestInput.onValueChange(\'' + item.itemId + '\')" ' +
+               'onkeypress="TestInput.onKeyPress(event, \'' + item.itemId + '\')">';
+    }
+  },
+
+  /**
+   * コース必須項目のみ表示切替
+   */
+  toggleRequiredOnly: function() {
+    this.showRequiredOnly = !this.showRequiredOnly;
+    this.renderInputForms();
+    this.updateProgress();
+
+    // ボタンの表示を更新
+    const btn = document.getElementById('btn-toggle-required');
+    if (btn) {
+      btn.textContent = this.showRequiredOnly ? '全項目表示' : '必須項目のみ';
+      btn.className = this.showRequiredOnly ? 'btn btn-primary' : 'btn btn-outline';
+    }
   },
 
   /**

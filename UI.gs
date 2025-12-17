@@ -517,3 +517,363 @@ function getImportMasterData() {
     items: getAllItems()
   };
 }
+
+// ============================================
+// Phase 3: 検査項目マスタ拡張API
+// ============================================
+
+/**
+ * 拡張検査項目マスタを取得（150項目）
+ * MasterData.gsのEXAM_ITEM_MASTER_DATAを使用
+ * @param {string} courseId - コースID（オプション）
+ * @returns {Array} 検査項目リスト
+ */
+function getExtendedItemMaster(courseId) {
+  // MasterData.gsのデータを使用
+  if (typeof EXAM_ITEM_MASTER_DATA === 'undefined') {
+    logError('EXAM_ITEM_MASTER_DATA is not defined. Please ensure MasterData.gs is loaded.');
+    return [];
+  }
+
+  let items = EXAM_ITEM_MASTER_DATA.map(function(item, index) {
+    return {
+      itemId: item.item_id,
+      name: item.item_name,
+      category: item.category,
+      subcategory: item.subcategory,
+      dataType: item.data_type,
+      unit: item.unit,
+      requiredDock: item.required_dock,
+      requiredRegular: item.required_regular,
+      requiredSecondary: item.required_secondary,
+      displayOrder: index + 1
+    };
+  });
+
+  // コースでフィルタ
+  if (courseId) {
+    const courseItems = getRequiredItemsByCourse(courseId);
+    if (courseItems && courseItems.length > 0) {
+      // コース必須項目にマーク
+      items = items.map(function(item) {
+        return {
+          ...item,
+          isRequired: courseItems.includes(item.itemId)
+        };
+      });
+    }
+  }
+
+  return items;
+}
+
+/**
+ * カテゴリ別の項目マスタを取得
+ * @param {string} category - カテゴリ名
+ * @returns {Array} 検査項目リスト
+ */
+function getItemsByCategory(category) {
+  const allItems = getExtendedItemMaster();
+  if (!category) return allItems;
+
+  return allItems.filter(function(item) {
+    return item.category === category;
+  });
+}
+
+/**
+ * カテゴリ一覧を取得
+ * @returns {Array} カテゴリ名リスト
+ */
+function getItemCategories() {
+  const items = getExtendedItemMaster();
+  const categorySet = new Set();
+
+  items.forEach(function(item) {
+    if (item.category) {
+      categorySet.add(item.category);
+    }
+  });
+
+  return Array.from(categorySet);
+}
+
+/**
+ * 選択肢マスタを取得
+ * @param {string} itemId - 項目ID（オプション）
+ * @returns {Object|Array} 選択肢データ
+ */
+function getSelectOptions(itemId) {
+  if (typeof SELECT_OPTIONS_DATA === 'undefined') {
+    return itemId ? null : [];
+  }
+
+  if (itemId) {
+    const option = SELECT_OPTIONS_DATA.find(function(opt) {
+      return opt.item_id === itemId;
+    });
+    if (option) {
+      return {
+        itemId: option.item_id,
+        options: option.options.split('|'),
+        description: option.description
+      };
+    }
+    return null;
+  }
+
+  return SELECT_OPTIONS_DATA.map(function(opt) {
+    return {
+      itemId: opt.item_id,
+      options: opt.options.split('|'),
+      description: opt.description
+    };
+  });
+}
+
+/**
+ * コースマスタを取得（拡張版）
+ * @returns {Array} コースリスト
+ */
+function getExtendedCourseMaster() {
+  if (typeof EXAM_COURSE_MASTER_DATA === 'undefined') {
+    return [];
+  }
+
+  return EXAM_COURSE_MASTER_DATA.map(function(course) {
+    return {
+      courseId: course.course_id,
+      courseName: course.course_name,
+      price: course.price,
+      description: course.description,
+      itemCount: course.item_count,
+      requiredItems: course.required_items ? course.required_items.split(',') : []
+    };
+  });
+}
+
+/**
+ * コース別必須項目を取得
+ * @param {string} courseId - コースID
+ * @returns {Array} 必須項目IDリスト
+ */
+function getCourseRequiredItems(courseId) {
+  const courses = getExtendedCourseMaster();
+  const course = courses.find(function(c) {
+    return c.courseId === courseId;
+  });
+
+  return course ? course.requiredItems : [];
+}
+
+// ============================================
+// Phase 3: 判定計算API
+// ============================================
+
+/**
+ * 検査項目の判定を計算
+ * @param {string} itemId - 項目ID
+ * @param {number|string} value - 検査値
+ * @param {string} gender - 性別（M/F）
+ * @returns {string} 判定（A/B/C/D）
+ */
+function calculateJudgment(itemId, value, gender) {
+  // JudgmentLogic.gsのgetJudgment関数を呼び出し
+  if (typeof getJudgment === 'function') {
+    return getJudgment(itemId, value, gender);
+  }
+
+  logError('getJudgment function not found. Please ensure JudgmentLogic.gs is loaded.');
+  return null;
+}
+
+/**
+ * 糖代謝の組合せ判定を計算
+ * @param {number} fbs - 空腹時血糖
+ * @param {number} hba1c - HbA1c
+ * @returns {string} 判定（A/B/C/D）
+ */
+function calculateGlucoseJudgment(fbs, hba1c) {
+  if (typeof getGlucoseHbA1cJudgment === 'function') {
+    return getGlucoseHbA1cJudgment(fbs, hba1c);
+  }
+
+  logError('getGlucoseHbA1cJudgment function not found.');
+  return null;
+}
+
+/**
+ * 総合判定を計算
+ * @param {string} visitId - 受診ID
+ * @returns {Object} 総合判定結果
+ */
+function calculateOverallJudgmentForVisit(visitId) {
+  // 受診情報を取得
+  const visit = getVisitRecordById(visitId);
+  if (!visit) {
+    return { success: false, error: '受診情報が見つかりません' };
+  }
+
+  // 受診者情報を取得
+  const patient = getPatientById(visit.patientId);
+  const gender = patient ? patient.gender : 'M';
+
+  // 検査結果を取得
+  const results = getTestResultsByVisitId(visitId);
+  if (!results || results.length === 0) {
+    return { success: false, error: '検査結果がありません' };
+  }
+
+  // 結果をマップに変換
+  const resultMap = {};
+  results.forEach(function(r) {
+    resultMap[r.itemId] = r.value;
+  });
+
+  // 総合判定を計算
+  if (typeof calculateOverallJudgment === 'function') {
+    const overall = calculateOverallJudgment(resultMap, gender);
+    return {
+      success: true,
+      judgment: overall.judgment,
+      label: overall.label,
+      summary: overall.summary,
+      worstItems: overall.worstItems
+    };
+  }
+
+  return { success: false, error: 'calculateOverallJudgment function not found' };
+}
+
+/**
+ * 検査結果を一括入力（判定自動計算付き）
+ * @param {string} visitId - 受診ID
+ * @param {Array} items - 項目配列 [{itemId, value}]
+ * @param {string} gender - 性別
+ * @returns {Object} {success, count, overall}
+ */
+function inputBatchTestResults(visitId, items, gender) {
+  try {
+    let count = 0;
+    const resultMap = {};
+
+    for (const item of items) {
+      // 判定を計算
+      const judgment = calculateJudgment(item.itemId, item.value, gender);
+
+      // 検査結果を作成
+      createTestResult({
+        visitId: visitId,
+        itemId: item.itemId,
+        value: item.value,
+        judgment: judgment || ''
+      });
+
+      resultMap[item.itemId] = item.value;
+      count++;
+    }
+
+    // 総合判定を計算
+    let overall = null;
+    if (typeof calculateOverallJudgment === 'function' && count > 0) {
+      overall = calculateOverallJudgment(resultMap, gender);
+
+      // 受診記録の総合判定を更新
+      updateVisitRecord(visitId, {
+        overallJudgment: overall.judgment
+      });
+    }
+
+    return {
+      success: true,
+      count: count,
+      overall: overall
+    };
+
+  } catch (e) {
+    logError('inputBatchTestResults: ' + e.message);
+    return {
+      success: false,
+      error: e.message
+    };
+  }
+}
+
+/**
+ * 判定ラベルを取得
+ * @param {string} judgment - 判定（A/B/C/D/E/F）
+ * @returns {string} 判定ラベル
+ */
+function getJudgmentLabelApi(judgment) {
+  if (typeof getJudgmentLabel === 'function') {
+    return getJudgmentLabel(judgment);
+  }
+
+  const labels = {
+    'A': '異常なし',
+    'B': '軽度異常',
+    'C': '要再検査・生活改善',
+    'D': '要精密検査・治療',
+    'E': '治療中',
+    'F': '経過観察中'
+  };
+  return labels[judgment] || judgment;
+}
+
+// ============================================
+// Phase 3: 入力画面用データ取得API
+// ============================================
+
+/**
+ * 入力画面用の初期データを取得
+ * @param {string} visitId - 受診ID
+ * @returns {Object} 初期データ
+ */
+function getInputScreenData(visitId) {
+  try {
+    // 受診情報
+    const visit = getVisitRecordById(visitId);
+    if (!visit) {
+      return { success: false, error: '受診情報が見つかりません' };
+    }
+
+    // 受診者情報
+    const patient = getPatientById(visit.patientId);
+
+    // 検査項目マスタ（コースでフィルタ）
+    const items = getExtendedItemMaster(visit.courseId);
+
+    // 選択肢マスタ
+    const selectOptions = getSelectOptions();
+
+    // 既存の検査結果
+    const existingResults = getTestResultsByVisitId(visitId);
+    const resultMap = {};
+    existingResults.forEach(function(r) {
+      resultMap[r.itemId] = {
+        value: r.value,
+        judgment: r.judgment
+      };
+    });
+
+    // 前回の検査結果
+    const previousResults = getPreviousTestResults(visit.patientId, visit.visitDate);
+
+    return {
+      success: true,
+      visit: visit,
+      patient: patient,
+      items: items,
+      selectOptions: selectOptions,
+      existingResults: resultMap,
+      previousResults: previousResults
+    };
+
+  } catch (e) {
+    logError('getInputScreenData: ' + e.message);
+    return {
+      success: false,
+      error: e.message
+    };
+  }
+}

@@ -410,3 +410,279 @@ function resetMasterData() {
 
   ui.alert('完了', 'マスタデータをリセットしました。', ui.ButtonSet.OK);
 }
+
+// ============================================
+// Phase 1: 検査項目マスタ拡張シート作成
+// ============================================
+
+/**
+ * Phase 1: 拡張マスタシートをセットアップ
+ * 検査項目マスタ（150項目）、判定基準マスタ、選択肢マスタ、健診コースマスタを作成
+ */
+function setupExtendedMasterSheets() {
+  logInfo('===== Phase 1: 拡張マスタシート作成開始 =====');
+
+  try {
+    const ss = getSpreadsheet();
+
+    // 1. 検査項目マスタシート作成
+    createExamItemMasterSheet(ss);
+
+    // 2. 判定基準マスタシート作成
+    createJudgmentCriteriaSheet(ss);
+
+    // 3. 選択肢マスタシート作成
+    createSelectOptionsSheet(ss);
+
+    // 4. 健診コースマスタシート作成
+    createExamCourseMasterSheet(ss);
+
+    logInfo('===== Phase 1: 拡張マスタシート作成完了 =====');
+
+    // 結果をダイアログで表示
+    const ui = SpreadsheetApp.getUi();
+    ui.alert('セットアップ完了',
+      '拡張マスタシートの作成が完了しました。\n\n' +
+      '作成されたシート:\n' +
+      '- 検査項目マスタ（150項目）\n' +
+      '- 判定基準マスタ（人間ドック学会2025年度版）\n' +
+      '- 選択肢マスタ（定性検査用）\n' +
+      '- 健診コースマスタ（6コース）',
+      ui.ButtonSet.OK);
+
+  } catch (e) {
+    logError('setupExtendedMasterSheets', e);
+    throw e;
+  }
+}
+
+/**
+ * 検査項目マスタシートを作成
+ * @param {Spreadsheet} ss - スプレッドシート
+ */
+function createExamItemMasterSheet(ss) {
+  const sheetName = DB_CONFIG.SHEETS.EXAM_ITEM_MASTER;
+  let sheet = ss.getSheetByName(sheetName);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    logInfo(`  シート作成: ${sheetName}`);
+  } else {
+    logInfo(`  シート既存: ${sheetName}`);
+    // 既存データがある場合はスキップ
+    if (sheet.getLastRow() > 1) {
+      logInfo(`    データ既存、スキップ`);
+      return sheet;
+    }
+  }
+
+  // ヘッダー設定
+  const headers = EXAM_ITEM_MASTER_DEF.headers;
+  const headerRange = sheet.getRange(1, 1, 1, headers.length);
+  headerRange.setValues([headers]);
+  headerRange.setFontWeight('bold');
+  headerRange.setBackground('#4285f4');
+  headerRange.setFontColor('#ffffff');
+  headerRange.setHorizontalAlignment('center');
+
+  // 列幅設定
+  for (const [col, width] of Object.entries(EXAM_ITEM_MASTER_DEF.columnWidths)) {
+    const colIndex = columnLetterToIndex(col);
+    sheet.setColumnWidth(colIndex, width);
+  }
+
+  // 1行目を固定
+  sheet.setFrozenRows(1);
+
+  // データ投入
+  const data = getExamItemMasterRows();
+  if (data.length > 0) {
+    sheet.getRange(2, 1, data.length, data[0].length).setValues(data);
+    logInfo(`    データ投入: ${data.length}件`);
+  }
+
+  return sheet;
+}
+
+/**
+ * 判定基準マスタシートを作成
+ * @param {Spreadsheet} ss - スプレッドシート
+ */
+function createJudgmentCriteriaSheet(ss) {
+  const sheetName = DB_CONFIG.SHEETS.JUDGMENT_CRITERIA;
+  let sheet = ss.getSheetByName(sheetName);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    logInfo(`  シート作成: ${sheetName}`);
+  } else {
+    logInfo(`  シート既存: ${sheetName}`);
+    if (sheet.getLastRow() > 1) {
+      logInfo(`    データ既存、スキップ`);
+      return sheet;
+    }
+  }
+
+  // ヘッダー設定
+  const headers = JUDGMENT_CRITERIA_DEF.headers;
+  const headerRange = sheet.getRange(1, 1, 1, headers.length);
+  headerRange.setValues([headers]);
+  headerRange.setFontWeight('bold');
+  headerRange.setBackground('#ea4335');
+  headerRange.setFontColor('#ffffff');
+  headerRange.setHorizontalAlignment('center');
+
+  // 列幅設定
+  for (const [col, width] of Object.entries(JUDGMENT_CRITERIA_DEF.columnWidths)) {
+    const colIndex = columnLetterToIndex(col);
+    sheet.setColumnWidth(colIndex, width);
+  }
+
+  // 1行目を固定
+  sheet.setFrozenRows(1);
+
+  // データ投入
+  const data = getJudgmentCriteriaRows();
+  if (data.length > 0) {
+    sheet.getRange(2, 1, data.length, data[0].length).setValues(data);
+    logInfo(`    データ投入: ${data.length}件`);
+  }
+
+  return sheet;
+}
+
+/**
+ * 選択肢マスタシートを作成
+ * @param {Spreadsheet} ss - スプレッドシート
+ */
+function createSelectOptionsSheet(ss) {
+  const sheetName = DB_CONFIG.SHEETS.SELECT_OPTIONS;
+  let sheet = ss.getSheetByName(sheetName);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    logInfo(`  シート作成: ${sheetName}`);
+  } else {
+    logInfo(`  シート既存: ${sheetName}`);
+    if (sheet.getLastRow() > 1) {
+      logInfo(`    データ既存、スキップ`);
+      return sheet;
+    }
+  }
+
+  // ヘッダー設定
+  const headers = SELECT_OPTIONS_DEF.headers;
+  const headerRange = sheet.getRange(1, 1, 1, headers.length);
+  headerRange.setValues([headers]);
+  headerRange.setFontWeight('bold');
+  headerRange.setBackground('#fbbc04');
+  headerRange.setFontColor('#000000');
+  headerRange.setHorizontalAlignment('center');
+
+  // 列幅設定
+  for (const [col, width] of Object.entries(SELECT_OPTIONS_DEF.columnWidths)) {
+    const colIndex = columnLetterToIndex(col);
+    sheet.setColumnWidth(colIndex, width);
+  }
+
+  // 1行目を固定
+  sheet.setFrozenRows(1);
+
+  // データ投入
+  const data = getSelectOptionsRows();
+  if (data.length > 0) {
+    sheet.getRange(2, 1, data.length, data[0].length).setValues(data);
+    logInfo(`    データ投入: ${data.length}件`);
+  }
+
+  return sheet;
+}
+
+/**
+ * 健診コースマスタシートを作成
+ * @param {Spreadsheet} ss - スプレッドシート
+ */
+function createExamCourseMasterSheet(ss) {
+  const sheetName = DB_CONFIG.SHEETS.EXAM_COURSE_MASTER;
+  let sheet = ss.getSheetByName(sheetName);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    logInfo(`  シート作成: ${sheetName}`);
+  } else {
+    logInfo(`  シート既存: ${sheetName}`);
+    if (sheet.getLastRow() > 1) {
+      logInfo(`    データ既存、スキップ`);
+      return sheet;
+    }
+  }
+
+  // ヘッダー設定
+  const headers = EXAM_COURSE_MASTER_DEF.headers;
+  const headerRange = sheet.getRange(1, 1, 1, headers.length);
+  headerRange.setValues([headers]);
+  headerRange.setFontWeight('bold');
+  headerRange.setBackground('#34a853');
+  headerRange.setFontColor('#ffffff');
+  headerRange.setHorizontalAlignment('center');
+
+  // 列幅設定
+  for (const [col, width] of Object.entries(EXAM_COURSE_MASTER_DEF.columnWidths)) {
+    const colIndex = columnLetterToIndex(col);
+    sheet.setColumnWidth(colIndex, width);
+  }
+
+  // 1行目を固定
+  sheet.setFrozenRows(1);
+
+  // データ投入
+  const data = getExamCourseMasterRows();
+  if (data.length > 0) {
+    sheet.getRange(2, 1, data.length, data[0].length).setValues(data);
+    logInfo(`    データ投入: ${data.length}件`);
+  }
+
+  return sheet;
+}
+
+/**
+ * 拡張マスタシートを非表示に設定
+ */
+function hideExtendedMasterSheets() {
+  const ss = getSpreadsheet();
+  const sheetNames = [
+    DB_CONFIG.SHEETS.EXAM_ITEM_MASTER,
+    DB_CONFIG.SHEETS.JUDGMENT_CRITERIA,
+    DB_CONFIG.SHEETS.SELECT_OPTIONS,
+    DB_CONFIG.SHEETS.EXAM_COURSE_MASTER
+  ];
+
+  for (const sheetName of sheetNames) {
+    const sheet = ss.getSheetByName(sheetName);
+    if (sheet) {
+      sheet.hideSheet();
+      logInfo(`シート非表示: ${sheetName}`);
+    }
+  }
+}
+
+/**
+ * 拡張マスタシートを表示（開発・デバッグ用）
+ */
+function showExtendedMasterSheets() {
+  const ss = getSpreadsheet();
+  const sheetNames = [
+    DB_CONFIG.SHEETS.EXAM_ITEM_MASTER,
+    DB_CONFIG.SHEETS.JUDGMENT_CRITERIA,
+    DB_CONFIG.SHEETS.SELECT_OPTIONS,
+    DB_CONFIG.SHEETS.EXAM_COURSE_MASTER
+  ];
+
+  for (const sheetName of sheetNames) {
+    const sheet = ss.getSheetByName(sheetName);
+    if (sheet) {
+      sheet.showSheet();
+      logInfo(`シート表示: ${sheetName}`);
+    }
+  }
+}

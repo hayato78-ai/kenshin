@@ -786,7 +786,7 @@ function loadPatientForResults(patientId) {
       populateMeasurementForm(bloodResult.data);
     }
 
-    showResultTab('body'); // 身体計測タブを表示
+    showResultTab('blood'); // 血液検査タブを表示（手入力可能）
   }).catch(error => {
     hideLoading();
     showNotification('データ読込エラー: ' + error.message, 'error');
@@ -811,35 +811,243 @@ function displayPatientHeader(patient) {
     patient['患者ID'] + ' ' + (patient['氏名'] || '');
 }
 
-function displayBloodTestResults(data) {
-  const container = document.getElementById('bloodTestDisplay');
+// 入力フィールドのマッピング（設計書準拠）
+const inputFieldMapping = {
+  // ========== 計測・生理検査 ==========
+  // 身体計測
+  'inHeight': '身長',
+  'inWeight': '体重',
+  'inBMI': 'BMI',
+  'inBodyFat': '体脂肪率',
+  'inWaist': '腹囲',
+  // 血圧
+  'inSBP1': '収縮期血圧1',
+  'inDBP1': '拡張期血圧1',
+  'inSBP2': '収縮期血圧2',
+  'inDBP2': '拡張期血圧2',
+  'inPulse': '脈拍',
+  // 尿検査
+  'inUrineProtein': '尿蛋白',
+  'inUrineSugar': '尿糖',
+  'inUrineBlood': '尿潜血',
+  'inUrineUro': 'ウロビリノーゲン',
+  'inUrineBil': 'ビリルビン',
+  'inUrineKet': 'ケトン体',
+  'inUrinePH': '尿pH',
+  'inUrineSG': '尿比重',
+  // 視機能
+  'inVisionRN': '裸眼視力右',
+  'inVisionLN': '裸眼視力左',
+  'inVisionRC': '矯正視力右',
+  'inVisionLC': '矯正視力左',
+  'inIopR': '眼圧右',
+  'inIopL': '眼圧左',
+  // 聴力
+  'inHear1kR': '聴力1kHz右',
+  'inHear1kL': '聴力1kHz左',
+  'inHear4kR': '聴力4kHz右',
+  'inHear4kL': '聴力4kHz左',
+  // 食事・採血
+  'inMealTime': '食事時間',
+  'inBloodTime': '採血時間',
+  'inMealHours': '食後経過時間',
+  'inFasting': '空腹時随時',
+  // 心電図
+  'inEcgHR': '心電図心拍数',
+  'inEcgPR': 'PR間隔',
+  'inEcgQRS': 'QRS',
+  'inEcgQTc': 'QTc',
+  // 呼吸機能
+  'inSpiroVC': '肺活量',
+  'inSpiroFEV1': '1秒量',
+  'inSpiroFEV1p': '1秒率',
+  'inSpiroVCp': '%VC',
 
-  // 血液検査項目（主要なもの）
-  const bloodItems = [
-    '白血球', '赤血球', 'ヘモグロビン', 'ヘマトクリット',
-    'GOT', 'GPT', 'γ-GTP', 'ALP',
-    '総コレステロール', 'HDLコレステロール', 'LDLコレステロール', '中性脂肪',
-    '空腹時血糖', 'HbA1c', '尿酸', 'クレアチニン',
-    '尿素窒素', '総蛋白', 'アルブミン'
-  ];
+  // ========== 血液検査 ==========
+  // 血球系
+  'inWBC': '白血球',
+  'inRBC': '赤血球',
+  'inHb': 'ヘモグロビン',
+  'inHt': 'ヘマトクリット',
+  'inPlt': '血小板',
+  // 肝機能
+  'inAST': 'AST',
+  'inALT': 'ALT',
+  'inGGTP': 'γ-GTP',
+  'inALP': 'ALP',
+  'inTBil': '総ビリルビン',
+  // 脂質
+  'inTC': '総コレステロール',
+  'inHDL': 'HDLコレステロール',
+  'inLDL': 'LDLコレステロール',
+  'inTG': '中性脂肪',
+  // 糖代謝
+  'inGlu': '空腹時血糖',
+  'inHbA1c': 'HbA1c',
+  // 腎機能
+  'inUA': '尿酸',
+  'inCr': 'クレアチニン',
+  'inBUN': '尿素窒素',
+  'inEGFR': 'eGFR',
+  // 蛋白
+  'inTP': '総蛋白',
+  'inAlb': 'アルブミン'
+};
 
-  let html = '';
-  bloodItems.forEach(item => {
-    if (data[item] !== undefined && data[item] !== '') {
-      html += `
-        <div class="blood-test-item">
-          <span class="label">${item}</span>
-          <span class="value">${data[item]}</span>
-        </div>
-      `;
+function displayInputResults(data) {
+  // 入力フォームにデータを反映
+  for (const [fieldId, dataKey] of Object.entries(inputFieldMapping)) {
+    const element = document.getElementById(fieldId);
+    if (element && data[dataKey] !== undefined && data[dataKey] !== '') {
+      element.value = data[dataKey];
+      // 定性検査ボタンの選択状態を更新
+      if (fieldId.startsWith('inUrine') || fieldId.startsWith('inHear') || fieldId === 'inFasting') {
+        selectQualButton(fieldId, data[dataKey]);
+      }
+    }
+  }
+}
+
+// 定性検査ボタンの選択
+function selectQualButton(fieldId, value) {
+  const btnGroup = document.querySelector('.qual-btns[data-field="' + fieldId + '"]');
+  if (!btnGroup) return;
+
+  btnGroup.querySelectorAll('.q-btn').forEach(btn => {
+    btn.classList.remove('selected');
+    if (btn.dataset.val === value) {
+      btn.classList.add('selected');
     }
   });
+}
 
-  if (!html) {
-    html = '<p>血液検査データがありません（CSV取込後に表示されます）</p>';
+// 定性検査ボタンクリック初期化
+function initQualButtons() {
+  document.querySelectorAll('.qual-btns').forEach(btnGroup => {
+    const fieldId = btnGroup.dataset.field;
+    const hiddenInput = document.getElementById(fieldId);
+
+    btnGroup.querySelectorAll('.q-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        // 同グループの選択解除
+        btnGroup.querySelectorAll('.q-btn').forEach(b => b.classList.remove('selected'));
+        // クリックしたボタンを選択
+        this.classList.add('selected');
+        // hidden inputに値セット
+        if (hiddenInput) {
+          hiddenInput.value = this.dataset.val;
+        }
+      });
+    });
+  });
+}
+
+// BMI自動計算
+function calculateBMIAuto() {
+  const height = parseFloat(document.getElementById('inHeight')?.value);
+  const weight = parseFloat(document.getElementById('inWeight')?.value);
+  const bmiInput = document.getElementById('inBMI');
+
+  if (height && weight && bmiInput) {
+    const heightM = height / 100;
+    const bmi = (weight / (heightM * heightM)).toFixed(1);
+    bmiInput.value = bmi;
+  }
+}
+
+function clearInputForm() {
+  for (const fieldId of Object.keys(inputFieldMapping)) {
+    const element = document.getElementById(fieldId);
+    if (element) {
+      element.value = '';
+    }
+  }
+  // 定性検査ボタンの選択解除
+  document.querySelectorAll('.q-btn.selected').forEach(btn => {
+    btn.classList.remove('selected');
+  });
+  showNotification('入力フォームをクリアしました', 'info');
+}
+
+function saveInputResults() {
+  if (!currentPatientId) {
+    showNotification('患者を選択してください', 'error');
+    return;
   }
 
-  container.innerHTML = html;
+  // フォームからデータを収集
+  const inputData = {};
+  for (const [fieldId, dataKey] of Object.entries(inputFieldMapping)) {
+    const element = document.getElementById(fieldId);
+    if (element && element.value !== '') {
+      inputData[dataKey] = element.value;
+    }
+  }
+
+  if (Object.keys(inputData).length === 0) {
+    showNotification('入力データがありません', 'error');
+    return;
+  }
+
+  showLoading('保存中...');
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        showNotification('検査結果を保存しました', 'success');
+        // 進捗を更新
+        loadPatientProgress();
+      } else {
+        showNotification('保存エラー: ' + result.error, 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showNotification('保存エラー: ' + error.message, 'error');
+    })
+    .portalSaveInputResults(currentPatientId, inputData);
+}
+
+function saveInputResultsAndNext() {
+  if (!currentPatientId) {
+    showNotification('患者を選択してください', 'error');
+    return;
+  }
+
+  // フォームからデータを収集
+  const inputData = {};
+  for (const [fieldId, dataKey] of Object.entries(inputFieldMapping)) {
+    const element = document.getElementById(fieldId);
+    if (element && element.value !== '') {
+      inputData[dataKey] = element.value;
+    }
+  }
+
+  if (Object.keys(inputData).length === 0) {
+    showNotification('入力データがありません', 'error');
+    return;
+  }
+
+  showLoading('保存中...');
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        showNotification('保存しました。次の患者に移動します...', 'success');
+        loadPatientProgress();
+        // 次の患者へ移動
+        setTimeout(() => navigatePatient('next'), 500);
+      } else {
+        showNotification('保存エラー: ' + result.error, 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showNotification('保存エラー: ' + error.message, 'error');
+    })
+    .portalSaveInputResults(currentPatientId, inputData);
 }
 
 function populateMeasurementForm(data) {
@@ -1078,4 +1286,21 @@ function calculateAge(birthDate) {
   }
   return age;
 }
+
+// ============================================================
+// 初期化
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+  // 定性検査ボタンの初期化
+  initQualButtons();
+
+  // BMI自動計算のイベント設定
+  const heightInput = document.getElementById('inHeight');
+  const weightInput = document.getElementById('inWeight');
+  if (heightInput) heightInput.addEventListener('change', calculateBMIAuto);
+  if (weightInput) weightInput.addEventListener('change', calculateBMIAuto);
+
+  // 初期画面表示
+  showSection('dashboard');
+});
 </script>

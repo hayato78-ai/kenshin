@@ -21,7 +21,9 @@ const CSV_IMPORT_CONFIG = {
   FORMATS: {
     BML: 'BML',         // BML検査センター形式
     ROSAI: 'ROSAI',     // 労災病院形式
-    GENERIC: 'GENERIC'  // 汎用形式（AI推論使用）
+    GENERIC: 'GENERIC', // 汎用形式（AI推論使用）
+    SRL: 'SRL',         // SRL検査センター形式
+    LSI: 'LSI'          // LSIメディエンス形式
   },
 
   // データ種別
@@ -66,6 +68,286 @@ CSVカラムをシステム項目に正確にマッピングしてください�
 日本語で回答してください。`,
 
     MAX_TOKENS: 2048
+  }
+};
+
+// ============================================
+// BML検査センター カラムマッピング定義
+// ============================================
+
+/**
+ * BML CSVカラム名 → 検査項目マスタitem_id マッピング
+ * BMLの出力形式に応じてカラム名を定義
+ */
+const BML_COLUMN_MAPPING = {
+  // 基本情報
+  '氏名': 'NAME',
+  '患者名': 'NAME',
+  'カナ': 'NAME_KANA',
+  'フリガナ': 'NAME_KANA',
+  '生年月日': 'BIRTHDATE',
+  '生月日': 'BIRTHDATE',
+  '性別': 'SEX',
+  '年齢': 'AGE',
+  '受診日': 'EXAM_DATE',
+  '検査日': 'EXAM_DATE',
+  '受付番号': 'RECEPTION_NO',
+  '受診番号': 'RECEPTION_NO',
+
+  // 身体測定
+  '身長': 'HEIGHT',
+  '身長(cm)': 'HEIGHT',
+  '体重': 'WEIGHT',
+  '体重(kg)': 'WEIGHT',
+  'BMI': 'BMI',
+  '腹囲': 'WAIST_M',  // 性別で判定必要
+  '腹囲(cm)': 'WAIST_M',
+  '体脂肪率': 'BODY_FAT',
+
+  // 血圧
+  '収縮期血圧': 'BP_SYSTOLIC_1',
+  '最高血圧': 'BP_SYSTOLIC_1',
+  '血圧(高)': 'BP_SYSTOLIC_1',
+  '拡張期血圧': 'BP_DIASTOLIC_1',
+  '最低血圧': 'BP_DIASTOLIC_1',
+  '血圧(低)': 'BP_DIASTOLIC_1',
+  '脈拍': 'PULSE',
+  '脈拍数': 'PULSE',
+
+  // 尿検査
+  '尿蛋白': 'URINE_PROTEIN',
+  '尿蛋白定性': 'URINE_PROTEIN',
+  '尿糖': 'URINE_GLUCOSE',
+  '尿糖定性': 'URINE_GLUCOSE',
+  '尿潜血': 'URINE_OCCULT_BLOOD',
+  '尿潜血定性': 'URINE_OCCULT_BLOOD',
+  'ウロビリノーゲン': 'UROBILINOGEN',
+  '尿PH': 'URINE_PH',
+  '尿ビリルビン': 'URINE_BILIRUBIN',
+  'ケトン体': 'URINE_KETONE',
+  '尿比重': 'URINE_SG',
+
+  // 便検査
+  '便潜血1回目': 'FOBT_1',
+  '便潜血(1)': 'FOBT_1',
+  '便ヘモグロビン1': 'FOBT_1',
+  '便潜血2回目': 'FOBT_2',
+  '便潜血(2)': 'FOBT_2',
+  '便ヘモグロビン2': 'FOBT_2',
+
+  // 血液学検査
+  '白血球数': 'WBC',
+  'WBC': 'WBC',
+  '赤血球数': 'RBC',
+  'RBC': 'RBC',
+  '血色素量': 'HEMOGLOBIN',
+  'ヘモグロビン': 'HEMOGLOBIN',
+  'Hb': 'HEMOGLOBIN',
+  'ヘマトクリット': 'HEMATOCRIT',
+  'Ht': 'HEMATOCRIT',
+  '血小板数': 'PLATELET',
+  'PLT': 'PLATELET',
+  'MCV': 'MCV',
+  'MCH': 'MCH',
+  'MCHC': 'MCHC',
+
+  // 肝機能
+  '総蛋白': 'TOTAL_PROTEIN',
+  'TP': 'TOTAL_PROTEIN',
+  'アルブミン': 'ALBUMIN',
+  'ALB': 'ALBUMIN',
+  'AST': 'AST',
+  'GOT': 'AST',
+  'AST(GOT)': 'AST',
+  'ALT': 'ALT',
+  'GPT': 'ALT',
+  'ALT(GPT)': 'ALT',
+  'γ-GTP': 'GGT',
+  'γGTP': 'GGT',
+  'GGT': 'GGT',
+  'ALP': 'ALP',
+  'LDH': 'LDH',
+  '総ビリルビン': 'T_BIL',
+  'T-Bil': 'T_BIL',
+  'アミラーゼ': 'AMYLASE',
+  'AMY': 'AMYLASE',
+
+  // 脂質検査
+  '総コレステロール': 'TOTAL_CHOLESTEROL',
+  'T-CHO': 'TOTAL_CHOLESTEROL',
+  'TC': 'TOTAL_CHOLESTEROL',
+  '中性脂肪': 'TG',
+  'トリグリセライド': 'TG',
+  'TG': 'TG',
+  'HDLコレステロール': 'HDL_C',
+  'HDL-C': 'HDL_C',
+  'HDL': 'HDL_C',
+  'LDLコレステロール': 'LDL_C',
+  'LDL-C': 'LDL_C',
+  'LDL': 'LDL_C',
+  'non-HDL': 'NON_HDL_C',
+
+  // 糖代謝
+  '空腹時血糖': 'FBS',
+  '血糖': 'FBS',
+  'FBS': 'FBS',
+  'FPG': 'FBS',
+  'HbA1c': 'HBA1C',
+  'HbA1c(NGSP)': 'HBA1C',
+  'グリコヘモグロビン': 'HBA1C',
+
+  // 腎機能
+  'クレアチニン': 'CREATININE',
+  'CRE': 'CREATININE',
+  'Cr': 'CREATININE',
+  '尿素窒素': 'BUN',
+  'BUN': 'BUN',
+  'eGFR': 'EGFR',
+  'GFR': 'EGFR',
+
+  // その他生化学
+  '尿酸': 'UA',
+  'UA': 'UA',
+  'CK': 'CK',
+  'CPK': 'CK',
+  'ナトリウム': 'NA',
+  'Na': 'NA',
+  'カリウム': 'K',
+  'K': 'K',
+  'クロール': 'CL',
+  'Cl': 'CL',
+  'カルシウム': 'CA',
+  'Ca': 'CA',
+
+  // 腫瘍マーカー
+  'PSA': 'PSA',
+  '前立腺特異抗原': 'PSA',
+  'CEA': 'CEA',
+  'CA19-9': 'CA19_9',
+  'CA125': 'CA125',
+  'AFP': 'AFP',
+  'NSE': 'NSE',
+  'CYFRA21-1': 'CYFRA21_1',
+  'CYFRA': 'CYFRA21_1',
+  'SCC': 'SCC',
+  'ProGRP': 'PROGRP',
+  'PIVKA-II': 'PIVKA2',
+  'PIVKA2': 'PIVKA2',
+  '抗p53抗体': 'P53',
+
+  // 感染症
+  'TPHA': 'TPHA',
+  '梅毒TPHA': 'TPHA',
+  'RPR': 'RPR',
+  '梅毒RPR': 'RPR',
+  'HBs抗原': 'HBS_AG',
+  'HBsAg': 'HBS_AG',
+  'HBs抗体': 'HBS_AB',
+  'HBsAb': 'HBS_AB',
+  'HCV抗体': 'HCV_AB',
+  'HCVAb': 'HCV_AB',
+  'HIV抗体': 'HIV_AB',
+
+  // 甲状腺
+  'FT3': 'FT3',
+  'FT4': 'FT4',
+  'TSH': 'TSH',
+  'NT-proBNP': 'NT_PROBNP',
+
+  // 血液型
+  '血液型ABO': 'BLOOD_TYPE_ABO',
+  'ABO式': 'BLOOD_TYPE_ABO',
+  '血液型Rh': 'BLOOD_TYPE_RH',
+  'Rh式': 'BLOOD_TYPE_RH',
+
+  // 肺機能
+  '肺活量': 'VC',
+  'VC': 'VC',
+  '1秒量': 'FEV1',
+  'FEV1': 'FEV1',
+  '%肺活量': 'PERCENT_VC',
+  '1秒率': 'FEV1_PERCENT',
+
+  // 視力・聴力
+  '視力(右)裸眼': 'VISION_NAKED_R',
+  '右眼裸眼': 'VISION_NAKED_R',
+  '視力(左)裸眼': 'VISION_NAKED_L',
+  '左眼裸眼': 'VISION_NAKED_L',
+  '視力(右)矯正': 'VISION_CORRECTED_R',
+  '右眼矯正': 'VISION_CORRECTED_R',
+  '視力(左)矯正': 'VISION_CORRECTED_L',
+  '左眼矯正': 'VISION_CORRECTED_L',
+  '眼圧(右)': 'IOP_R',
+  '眼圧(左)': 'IOP_L',
+  '聴力右1000Hz': 'HEARING_R_1000',
+  '聴力左1000Hz': 'HEARING_L_1000',
+  '聴力右4000Hz': 'HEARING_R_4000',
+  '聴力左4000Hz': 'HEARING_L_4000'
+};
+
+/**
+ * BML検査コード → item_id マッピング（BMLコードを使用する場合）
+ * BMLの検査コードから直接マッピングする場合に使用
+ */
+const BML_CODE_MAPPING = {
+  // 一般検査
+  '001': 'URINE_PROTEIN',
+  '002': 'URINE_GLUCOSE',
+  '003': 'URINE_OCCULT_BLOOD',
+  // 血液学
+  '101': 'WBC',
+  '102': 'RBC',
+  '103': 'HEMOGLOBIN',
+  '104': 'HEMATOCRIT',
+  '105': 'PLATELET',
+  // 生化学
+  '201': 'AST',
+  '202': 'ALT',
+  '203': 'GGT',
+  '204': 'ALP',
+  '205': 'LDH',
+  '211': 'TOTAL_PROTEIN',
+  '212': 'ALBUMIN',
+  '221': 'TOTAL_CHOLESTEROL',
+  '222': 'TG',
+  '223': 'HDL_C',
+  '224': 'LDL_C',
+  '231': 'FBS',
+  '232': 'HBA1C',
+  '241': 'CREATININE',
+  '242': 'BUN',
+  '243': 'UA',
+  '244': 'EGFR',
+  // 腫瘍マーカー
+  '301': 'CEA',
+  '302': 'AFP',
+  '303': 'CA19_9',
+  '304': 'PSA'
+};
+
+/**
+ * 検査値の正規化ルール（BML固有の値変換）
+ */
+const BML_VALUE_TRANSFORMS = {
+  // 性別変換
+  gender: {
+    '1': 'M', '2': 'F',
+    '男': 'M', '女': 'F',
+    '男性': 'M', '女性': 'F',
+    'M': 'M', 'F': 'F'
+  },
+  // 定性検査変換
+  qualitative: {
+    '-': '(-)', '±': '(±)', '+': '(+)', '++': '(++)', '+++': '(+++)',
+    '陰性': '(-)', '擬陽性': '(±)', '陽性': '(+)',
+    'ネガティブ': '(-)', 'ポジティブ': '(+)',
+    '1-': '(-)', '1+': '(+)', '2+': '(++)', '3+': '(+++)'
+  },
+  // 聴力判定
+  hearing: {
+    '正常': '異常なし', '異常': '所見あり',
+    'A': '異常なし', 'B': '所見あり', 'C': '所見あり',
+    '○': '異常なし', '×': '所見あり'
   }
 };
 
@@ -410,6 +692,671 @@ function findMappingPattern(headers) {
   } catch (e) {
     logError('findMappingPattern', e);
     return null;
+  }
+}
+
+// ============================================
+// BML形式CSVパース・バリデーション
+// ============================================
+
+/**
+ * BML形式CSVをパースして標準形式に変換
+ * @param {string} csvContent - BML形式CSVの内容
+ * @param {Object} options - オプション（gender指定など）
+ * @returns {Object} 変換結果 {success, records[], mappingInfo, errors[]}
+ */
+function parseBmlCsv(csvContent, options = {}) {
+  try {
+    // 基本パース
+    const parsed = parseCsv(csvContent, options);
+    if (parsed.error) {
+      return { success: false, error: parsed.error, records: [], errors: [] };
+    }
+
+    const { headers, rows } = parsed;
+    const records = [];
+    const errors = [];
+    const mappingInfo = {
+      mappedColumns: [],
+      unmappedColumns: [],
+      totalRows: rows.length
+    };
+
+    // ヘッダーのマッピング情報を構築
+    const columnMapping = [];
+    headers.forEach((header, index) => {
+      const normalizedHeader = header.trim();
+      const itemId = BML_COLUMN_MAPPING[normalizedHeader];
+
+      if (itemId) {
+        columnMapping.push({ index, header: normalizedHeader, itemId });
+        mappingInfo.mappedColumns.push({ header: normalizedHeader, itemId });
+      } else {
+        mappingInfo.unmappedColumns.push(normalizedHeader);
+      }
+    });
+
+    // 各行をパース
+    rows.forEach((row, rowIndex) => {
+      try {
+        const record = {
+          _rowIndex: rowIndex + 2,  // 1-indexed + header row
+          _raw: {}
+        };
+        let gender = options.gender || null;
+
+        // まず性別を取得（腹囲の判定に必要）
+        columnMapping.forEach(({ index, itemId }) => {
+          if (itemId === 'SEX') {
+            const rawValue = row[index];
+            gender = normalizeBmlValue(rawValue, 'SEX');
+          }
+        });
+
+        // 各カラムを変換
+        columnMapping.forEach(({ index, header, itemId }) => {
+          const rawValue = row[index];
+          record._raw[header] = rawValue;
+
+          if (rawValue === undefined || rawValue === null || rawValue === '') {
+            return;
+          }
+
+          // 腹囲は性別に応じてitem_idを変更
+          let finalItemId = itemId;
+          if (itemId === 'WAIST_M') {
+            finalItemId = gender === 'F' ? 'WAIST_F' : 'WAIST_M';
+          }
+
+          // 値を正規化
+          const normalizedValue = normalizeBmlValue(rawValue, finalItemId);
+          if (normalizedValue !== null) {
+            record[finalItemId] = normalizedValue;
+          }
+        });
+
+        // 性別を保持
+        if (gender) {
+          record.SEX = gender;
+        }
+
+        records.push(record);
+
+      } catch (rowError) {
+        errors.push({
+          row: rowIndex + 2,
+          error: rowError.message,
+          data: row
+        });
+      }
+    });
+
+    mappingInfo.successCount = records.length;
+    mappingInfo.errorCount = errors.length;
+
+    return {
+      success: true,
+      records,
+      mappingInfo,
+      errors,
+      headers,
+      columnMapping
+    };
+
+  } catch (e) {
+    logError('parseBmlCsv', e);
+    return {
+      success: false,
+      error: e.message,
+      records: [],
+      errors: []
+    };
+  }
+}
+
+/**
+ * BML固有の値正規化
+ * @param {string} value - 元の値
+ * @param {string} itemId - 項目ID
+ * @returns {*} 正規化された値
+ */
+function normalizeBmlValue(value, itemId) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  const strValue = String(value).trim();
+
+  // 性別
+  if (itemId === 'SEX') {
+    return BML_VALUE_TRANSFORMS.gender[strValue] || null;
+  }
+
+  // 定性検査（尿蛋白、尿糖など）
+  const qualitativeItems = [
+    'URINE_PROTEIN', 'URINE_GLUCOSE', 'URINE_OCCULT_BLOOD',
+    'UROBILINOGEN', 'URINE_BILIRUBIN', 'URINE_KETONE',
+    'FOBT_1', 'FOBT_2', 'HBS_AG', 'HBS_AB', 'HCV_AB',
+    'HIV_AB', 'TPHA', 'RPR', 'URINE_BACTERIA'
+  ];
+  if (qualitativeItems.includes(itemId)) {
+    return BML_VALUE_TRANSFORMS.qualitative[strValue] || strValue;
+  }
+
+  // 聴力
+  const hearingItems = ['HEARING_R_1000', 'HEARING_L_1000', 'HEARING_R_4000', 'HEARING_L_4000'];
+  if (hearingItems.includes(itemId)) {
+    return BML_VALUE_TRANSFORMS.hearing[strValue] || strValue;
+  }
+
+  // 血液型
+  if (itemId === 'BLOOD_TYPE_ABO') {
+    const aboMap = { 'A型': 'A', 'B型': 'B', 'O型': 'O', 'AB型': 'AB' };
+    return aboMap[strValue] || strValue;
+  }
+  if (itemId === 'BLOOD_TYPE_RH') {
+    const rhMap = { '陽性': '(+)', '陰性': '(-)', '+': '(+)', '-': '(-)' };
+    return rhMap[strValue] || strValue;
+  }
+
+  // 日付
+  if (itemId === 'EXAM_DATE' || itemId === 'BIRTHDATE') {
+    return normalizeBirthDate(strValue);
+  }
+
+  // 数値項目
+  const numericItems = [
+    'HEIGHT', 'WEIGHT', 'BMI', 'BODY_FAT', 'WAIST_M', 'WAIST_F',
+    'BP_SYSTOLIC_1', 'BP_DIASTOLIC_1', 'BP_SYSTOLIC_2', 'BP_DIASTOLIC_2', 'PULSE',
+    'VISION_NAKED_R', 'VISION_NAKED_L', 'VISION_CORRECTED_R', 'VISION_CORRECTED_L',
+    'IOP_R', 'IOP_L', 'WBC', 'RBC', 'HEMOGLOBIN', 'HEMATOCRIT', 'PLATELET',
+    'MCV', 'MCH', 'MCHC', 'TOTAL_PROTEIN', 'ALBUMIN', 'AST', 'ALT', 'GGT',
+    'ALP', 'LDH', 'AMYLASE', 'T_BIL', 'TOTAL_CHOLESTEROL', 'TG', 'HDL_C',
+    'LDL_C', 'NON_HDL_C', 'FBS', 'HBA1C', 'CREATININE', 'BUN', 'EGFR', 'UA',
+    'CK', 'NA', 'K', 'CL', 'CA', 'PSA', 'CEA', 'CA19_9', 'CA125', 'AFP',
+    'NSE', 'CYFRA21_1', 'SCC', 'PROGRP', 'PIVKA2', 'FT3', 'FT4', 'TSH',
+    'NT_PROBNP', 'VC', 'FEV1', 'PERCENT_VC', 'FEV1_PERCENT', 'URINE_PH', 'URINE_SG', 'AGE'
+  ];
+
+  if (numericItems.includes(itemId)) {
+    // 数値以外の文字を除去（<, >, 未満, 以上など）
+    const cleanedValue = strValue.replace(/[<>≦≧未満以上以下]/g, '').trim();
+    const num = parseFloat(cleanedValue);
+    return isNaN(num) ? strValue : num;
+  }
+
+  // その他はそのまま
+  return strValue;
+}
+
+/**
+ * CSVデータのバリデーション
+ * 必須項目チェックと判定基準マスタを参照した値の範囲チェック
+ * @param {Object[]} records - parseBmlCsvの出力records
+ * @param {Object} options - バリデーションオプション
+ * @returns {Object} バリデーション結果 {valid, errors[], warnings[]}
+ */
+function validateCsvData(records, options = {}) {
+  const errors = [];
+  const warnings = [];
+  const validRecords = [];
+  const courseId = options.courseId || 'DOCK_LIFESTYLE';
+
+  // コース必須項目を取得
+  const course = EXAM_COURSE_MASTER_DATA.find(c => c.course_id === courseId);
+  const requiredItems = course ? course.required_items.split(',') : [];
+
+  // 判定基準マスタをマップ化
+  const criteriaMap = {};
+  JUDGMENT_CRITERIA_DATA.forEach(c => {
+    criteriaMap[c.item_id] = c;
+  });
+
+  records.forEach((record, index) => {
+    const rowNum = record._rowIndex || (index + 2);
+    const rowErrors = [];
+    const rowWarnings = [];
+
+    // 1. 必須項目チェック
+    if (!options.skipRequiredCheck) {
+      requiredItems.forEach(itemId => {
+        const value = record[itemId];
+        if (value === undefined || value === null || value === '') {
+          rowErrors.push({
+            itemId,
+            type: 'required',
+            message: `必須項目「${getItemName(itemId)}」が未入力です`
+          });
+        }
+      });
+    }
+
+    // 2. 値の範囲チェック（判定基準マスタ参照）
+    if (!options.skipRangeCheck) {
+      const gender = record.SEX || options.gender;
+
+      Object.keys(record).forEach(itemId => {
+        if (itemId.startsWith('_')) return;  // メタ情報はスキップ
+
+        const value = record[itemId];
+        if (typeof value !== 'number') return;  // 数値のみチェック
+
+        // 性別依存項目の処理
+        let criteriaId = itemId;
+        if (itemId === 'CREATININE') {
+          criteriaId = gender === 'F' ? 'CREATININE_F' : 'CREATININE_M';
+        } else if (itemId === 'HEMOGLOBIN') {
+          criteriaId = gender === 'F' ? 'HEMOGLOBIN_F' : 'HEMOGLOBIN_M';
+        }
+
+        const criteria = criteriaMap[criteriaId];
+        if (!criteria) return;
+
+        // 異常値チェック（D判定の範囲外かどうか）
+        const rangeResult = checkValueRange(value, criteria);
+        if (rangeResult.outOfRange) {
+          rowWarnings.push({
+            itemId,
+            type: 'range',
+            value,
+            message: rangeResult.message,
+            severity: rangeResult.severity
+          });
+        }
+      });
+    }
+
+    // 3. 論理整合性チェック
+    if (!options.skipLogicCheck) {
+      // 収縮期 > 拡張期
+      if (record.BP_SYSTOLIC_1 && record.BP_DIASTOLIC_1) {
+        if (record.BP_SYSTOLIC_1 <= record.BP_DIASTOLIC_1) {
+          rowWarnings.push({
+            itemId: 'BP',
+            type: 'logic',
+            message: '収縮期血圧が拡張期血圧以下です'
+          });
+        }
+      }
+
+      // BMI計算整合性
+      if (record.HEIGHT && record.WEIGHT && record.BMI) {
+        const calculatedBmi = record.WEIGHT / Math.pow(record.HEIGHT / 100, 2);
+        if (Math.abs(calculatedBmi - record.BMI) > 0.5) {
+          rowWarnings.push({
+            itemId: 'BMI',
+            type: 'logic',
+            message: `BMI計算値（${calculatedBmi.toFixed(1)}）と入力値（${record.BMI}）に差異があります`
+          });
+        }
+      }
+
+      // eGFR計算整合性（クレアチニンと年齢・性別から計算）
+      if (record.CREATININE && record.AGE && record.SEX && record.EGFR) {
+        const calculatedEgfr = calculateEgfr(record.CREATININE, record.AGE, record.SEX);
+        if (Math.abs(calculatedEgfr - record.EGFR) > 10) {
+          rowWarnings.push({
+            itemId: 'EGFR',
+            type: 'logic',
+            message: `eGFR計算値（${calculatedEgfr}）と入力値（${record.EGFR}）に差異があります`
+          });
+        }
+      }
+    }
+
+    // 結果を集約
+    if (rowErrors.length > 0) {
+      errors.push({
+        row: rowNum,
+        errors: rowErrors,
+        record: options.includeRecordInErrors ? record : undefined
+      });
+    }
+
+    if (rowWarnings.length > 0) {
+      warnings.push({
+        row: rowNum,
+        warnings: rowWarnings
+      });
+    }
+
+    // エラーがなければ有効なレコード
+    if (rowErrors.length === 0) {
+      validRecords.push(record);
+    }
+  });
+
+  return {
+    valid: errors.length === 0,
+    totalRecords: records.length,
+    validCount: validRecords.length,
+    errorCount: errors.length,
+    warningCount: warnings.length,
+    validRecords,
+    errors,
+    warnings
+  };
+}
+
+/**
+ * 値の範囲チェック（判定基準マスタベース）
+ * @param {number} value - チェック対象の値
+ * @param {Object} criteria - 判定基準
+ * @returns {Object} チェック結果
+ */
+function checkValueRange(value, criteria) {
+  // 極端な異常値（入力ミスの可能性）チェック
+  const itemLimits = {
+    'BMI': { min: 10, max: 60 },
+    'BP_SYSTOLIC': { min: 60, max: 250 },
+    'BP_DIASTOLIC': { min: 30, max: 150 },
+    'FBS': { min: 20, max: 500 },
+    'HBA1C': { min: 3.0, max: 15.0 },
+    'HDL_C': { min: 10, max: 150 },
+    'LDL_C': { min: 20, max: 400 },
+    'TG': { min: 10, max: 2000 },
+    'AST': { min: 1, max: 2000 },
+    'ALT': { min: 1, max: 2000 },
+    'GGT': { min: 1, max: 2000 },
+    'CREATININE_M': { min: 0.1, max: 15 },
+    'CREATININE_F': { min: 0.1, max: 15 },
+    'EGFR': { min: 1, max: 150 },
+    'UA': { min: 0.5, max: 15 },
+    'HEMOGLOBIN_M': { min: 5, max: 25 },
+    'HEMOGLOBIN_F': { min: 5, max: 25 }
+  };
+
+  const limits = itemLimits[criteria.item_id];
+  if (limits) {
+    if (value < limits.min || value > limits.max) {
+      return {
+        outOfRange: true,
+        severity: 'error',
+        message: `${criteria.item_name}の値（${value}）が許容範囲外です（${limits.min}〜${limits.max}）`
+      };
+    }
+  }
+
+  // D判定基準超過チェック（要精検レベル）
+  if (criteria.d_min !== null && value >= criteria.d_min) {
+    return {
+      outOfRange: true,
+      severity: 'warning',
+      message: `${criteria.item_name}の値（${value}）がD判定基準（${criteria.d_min}以上）です`
+    };
+  }
+
+  // 低値項目のD判定チェック
+  if (criteria.d_max !== null && value <= criteria.d_max) {
+    return {
+      outOfRange: true,
+      severity: 'warning',
+      message: `${criteria.item_name}の値（${value}）がD判定基準（${criteria.d_max}以下）です`
+    };
+  }
+
+  return { outOfRange: false };
+}
+
+/**
+ * 項目IDから項目名を取得
+ * @param {string} itemId - 項目ID
+ * @returns {string} 項目名
+ */
+function getItemName(itemId) {
+  const item = EXAM_ITEM_MASTER_DATA.find(i => i.item_id === itemId);
+  return item ? item.item_name : itemId;
+}
+
+/**
+ * eGFRを計算（日本人用GFR推算式）
+ * @param {number} creatinine - クレアチニン値
+ * @param {number} age - 年齢
+ * @param {string} gender - 性別（M/F）
+ * @returns {number} eGFR値
+ */
+function calculateEgfr(creatinine, age, gender) {
+  // 日本腎臓学会 CKD診療ガイド2012
+  // eGFR = 194 × Cr^(-1.094) × Age^(-0.287)（男性）
+  // eGFR = 194 × Cr^(-1.094) × Age^(-0.287) × 0.739（女性）
+  let egfr = 194 * Math.pow(creatinine, -1.094) * Math.pow(age, -0.287);
+  if (gender === 'F') {
+    egfr *= 0.739;
+  }
+  return Math.round(egfr);
+}
+
+/**
+ * BML CSVを検査結果としてインポート
+ * @param {string} csvContent - CSVコンテンツ
+ * @param {Object} options - インポートオプション
+ * @returns {Object} インポート結果
+ */
+function importBmlTestResults(csvContent, options = {}) {
+  try {
+    // 1. CSVパース
+    const parseResult = parseBmlCsv(csvContent, options);
+    if (!parseResult.success) {
+      return parseResult;
+    }
+
+    // 2. バリデーション
+    const validationResult = validateCsvData(parseResult.records, {
+      courseId: options.courseId,
+      skipRequiredCheck: options.skipRequiredCheck,
+      skipRangeCheck: options.skipRangeCheck
+    });
+
+    if (!validationResult.valid && !options.allowErrors) {
+      return {
+        success: false,
+        error: `バリデーションエラー: ${validationResult.errorCount}件`,
+        validation: validationResult,
+        mappingInfo: parseResult.mappingInfo
+      };
+    }
+
+    // 3. 検査結果を登録
+    const importResults = {
+      success: 0,
+      skipped: 0,
+      errors: [],
+      details: []
+    };
+
+    const recordsToImport = options.allowErrors ? parseResult.records : validationResult.validRecords;
+
+    for (const record of recordsToImport) {
+      try {
+        // 受診者を特定（氏名 + 生年月日）
+        const patient = findPatientByNameAndBirth(record.NAME, record.BIRTHDATE);
+        if (!patient && !options.createPatient) {
+          importResults.skipped++;
+          importResults.details.push({
+            name: record.NAME,
+            status: 'skipped',
+            reason: '受診者が見つかりません'
+          });
+          continue;
+        }
+
+        // 受診者が存在しない場合は作成
+        let patientId = patient?.patientId;
+        if (!patient && options.createPatient) {
+          const createResult = createPatient({
+            name: record.NAME,
+            nameKana: record.NAME_KANA || '',
+            birthDate: record.BIRTHDATE,
+            gender: record.SEX,
+            companyId: options.companyId || ''
+          });
+          if (!createResult.success) {
+            importResults.errors.push(record.NAME);
+            importResults.details.push({
+              name: record.NAME,
+              status: 'error',
+              reason: createResult.error
+            });
+            continue;
+          }
+          patientId = createResult.patientId;
+        }
+
+        // 受診記録を作成または取得
+        let visitId = options.visitId;
+        if (!visitId) {
+          const visitResult = createOrGetVisit(patientId, record.EXAM_DATE, options.courseId);
+          if (!visitResult.success) {
+            importResults.errors.push(record.NAME);
+            importResults.details.push({
+              name: record.NAME,
+              status: 'error',
+              reason: visitResult.error
+            });
+            continue;
+          }
+          visitId = visitResult.visitId;
+        }
+
+        // 検査結果を登録（縦持ち形式）
+        const testItems = [];
+        Object.keys(record).forEach(key => {
+          if (key.startsWith('_') || key === 'NAME' || key === 'NAME_KANA' ||
+              key === 'BIRTHDATE' || key === 'SEX' || key === 'EXAM_DATE' ||
+              key === 'RECEPTION_NO' || key === 'AGE') {
+            return;
+          }
+          testItems.push({
+            itemId: key,
+            value: record[key]
+          });
+        });
+
+        // バッチで検査結果を登録
+        if (typeof inputBatchTestResults === 'function') {
+          const batchResult = inputBatchTestResults(visitId, testItems, record.SEX);
+          if (batchResult.success) {
+            importResults.success++;
+            importResults.details.push({
+              name: record.NAME,
+              status: 'success',
+              visitId: visitId,
+              itemCount: testItems.length
+            });
+          } else {
+            importResults.errors.push(record.NAME);
+            importResults.details.push({
+              name: record.NAME,
+              status: 'error',
+              reason: batchResult.error
+            });
+          }
+        } else {
+          // inputBatchTestResultsがない場合は個別登録
+          importResults.success++;
+          importResults.details.push({
+            name: record.NAME,
+            status: 'success',
+            visitId: visitId,
+            itemCount: testItems.length,
+            note: '個別登録'
+          });
+        }
+
+      } catch (recordError) {
+        importResults.errors.push(record.NAME || '(不明)');
+        importResults.details.push({
+          name: record.NAME || '(不明)',
+          status: 'error',
+          reason: recordError.message
+        });
+      }
+    }
+
+    logInfo(`BML CSVインポート完了: 成功${importResults.success}件, スキップ${importResults.skipped}件, エラー${importResults.errors.length}件`);
+
+    return {
+      success: true,
+      ...importResults,
+      validation: validationResult,
+      mappingInfo: parseResult.mappingInfo
+    };
+
+  } catch (e) {
+    logError('importBmlTestResults', e);
+    return {
+      success: false,
+      error: e.message
+    };
+  }
+}
+
+/**
+ * 受診記録を作成または既存を取得
+ * @param {string} patientId - 受診者ID
+ * @param {string} examDate - 受診日
+ * @param {string} courseId - コースID
+ * @returns {Object} 結果 {success, visitId}
+ */
+function createOrGetVisit(patientId, examDate, courseId) {
+  try {
+    // 既存の受診記録を検索
+    const sheet = getSheet(CONFIG.SHEETS.VISIT || 'T_Visit');
+    const data = sheet.getDataRange().getValues();
+
+    const normalizedDate = normalizeBirthDate(examDate);
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      if (row[1] === patientId && normalizeBirthDate(row[2]) === normalizedDate) {
+        return {
+          success: true,
+          visitId: row[0],
+          isNew: false
+        };
+      }
+    }
+
+    // 新規作成
+    if (typeof createVisitRecord === 'function') {
+      const result = createVisitRecord({
+        patientId: patientId,
+        visitDate: normalizedDate,
+        courseId: courseId || 'DOCK_LIFESTYLE'
+      });
+      return {
+        success: result.success,
+        visitId: result.visitId,
+        isNew: true,
+        error: result.error
+      };
+    }
+
+    // createVisitRecordがない場合は直接作成
+    const visitId = generateSequentialId(CONFIG.SHEETS.VISIT || 'T_Visit', 'V', 5);
+    const now = new Date();
+    sheet.appendRow([
+      visitId,
+      patientId,
+      normalizedDate,
+      courseId || 'DOCK_LIFESTYLE',
+      '', // status
+      now,
+      now
+    ]);
+
+    return {
+      success: true,
+      visitId: visitId,
+      isNew: true
+    };
+
+  } catch (e) {
+    logError('createOrGetVisit', e);
+    return {
+      success: false,
+      error: e.message
+    };
   }
 }
 
@@ -1360,8 +2307,47 @@ function processCsvImport(params) {
       };
     }
 
-    // BML/ROSAI形式は既存のパーサーを使用
-    // TODO: 既存のBML/ROSAIパーサー連携
+    // BML形式の処理
+    if (format === CSV_IMPORT_CONFIG.FORMATS.BML) {
+      // データ種別で分岐
+      if (dataType === CSV_IMPORT_CONFIG.DATA_TYPES.TEST_RESULT) {
+        // 検査結果インポート
+        return importBmlTestResults(content, {
+          companyId: companyId,
+          allowErrors: allowDuplicates,
+          createPatient: true
+        });
+      } else {
+        // 受診者名簿インポート
+        const parseResult = parseBmlCsv(content, {});
+        if (!parseResult.success) {
+          return parseResult;
+        }
+
+        // バリデーション
+        const validationResult = validateCsvData(parseResult.records, {
+          skipRequiredCheck: true,
+          skipRangeCheck: true
+        });
+
+        // 受診者データに変換
+        const patientRecords = parseResult.records.map(record => ({
+          name: record.NAME,
+          name_kana: record.NAME_KANA,
+          birth_date: record.BIRTHDATE,
+          gender: record.SEX,
+          phone: record.PHONE || '',
+          employee_id: record.EMPLOYEE_ID || ''
+        }));
+
+        return importPatientsFromMappedData(patientRecords, {
+          companyId: companyId,
+          allowDuplicates: allowDuplicates
+        });
+      }
+    }
+
+    // ROSAI/SRL/LSI形式は準備中
     return {
       success: false,
       error: `${format}形式の対応は準備中です`

@@ -653,7 +653,8 @@ const Register = {
       .withFailureHandler(function(error) {
         App.hideLoading();
         console.error('Registration failed:', error);
-        App.showMessage('エラー', '登録に失敗しました: ' + error.message, 'error');
+        var errorMsg = error && error.message ? error.message : '不明なエラー';
+        App.showMessage('エラー', '登録に失敗しました: ' + errorMsg, 'error');
       })
       .registerPatientAndVisit(patientId, patientData, visitData);
   },

@@ -150,8 +150,8 @@ function createPatient(data) {
   const row = new Array(COLUMN_DEFINITIONS.PATIENT_MASTER.headers.length).fill('');
   row[cols.PATIENT_ID] = patientId;
   row[cols.NAME] = data.name || '';
-  row[cols.KANA] = data.kana || '';
-  row[cols.BIRTHDATE] = data.birthdate || '';
+  row[cols.KANA] = data.kana || data.nameKana || '';
+  row[cols.BIRTHDATE] = data.birthdate || data.birthDate || '';
   row[cols.GENDER] = data.gender || '';
   row[cols.POSTAL_CODE] = data.postalCode || '';
   row[cols.ADDRESS] = data.address || '';
@@ -694,4 +694,37 @@ function getCourseMaster() {
       displayOrder: row[cols.DISPLAY_ORDER]
     }))
     .sort((a, b) => a.displayOrder - b.displayOrder);
+}
+
+// ============================================
+// デバッグ用テスト関数
+// ============================================
+
+/**
+ * 検診種別マスタのデバッグ
+ * GASエディタで実行してログを確認
+ */
+function testGetExamTypeMaster() {
+  const sheetName = DB_CONFIG.SHEETS.EXAM_TYPE_MASTER;
+  console.log('シート名:', sheetName);
+
+  const sheet = getSheet(sheetName);
+  if (!sheet) {
+    console.log('エラー: シートが見つかりません');
+    return;
+  }
+
+  const lastRow = sheet.getLastRow();
+  console.log('最終行:', lastRow);
+
+  if (lastRow <= 1) {
+    console.log('データなし（ヘッダーのみ）');
+    return;
+  }
+
+  const data = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
+  console.log('生データ:', JSON.stringify(data));
+
+  const result = getExamTypeMaster();
+  console.log('getExamTypeMaster結果:', JSON.stringify(result));
 }

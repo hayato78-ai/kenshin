@@ -511,3 +511,4 @@ const JUDGMENT_LABELS = {
   'E': '治療中',
   'F': '経過観察中'
 };
+// Auto-deploy test: 2025-12-18 07:21:10

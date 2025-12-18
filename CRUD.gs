@@ -728,3 +728,61 @@ function testGetExamTypeMaster() {
   const result = getExamTypeMaster();
   console.log('getExamTypeMaster結果:', JSON.stringify(result));
 }
+
+/**
+ * 登録処理のデバッグ関数
+ */
+function testRegistration() {
+  console.log('=== 登録テスト開始 ===');
+
+  // 1. シート確認
+  const patientSheet = getSheet(DB_CONFIG.SHEETS.PATIENT_MASTER);
+  const visitSheet = getSheet(DB_CONFIG.SHEETS.VISIT_RECORD);
+
+  console.log('受診者マスタシート:', patientSheet ? '存在' : '未作成');
+  console.log('受診記録シート:', visitSheet ? '存在' : '未作成');
+
+  if (patientSheet) {
+    const headers = patientSheet.getRange(1, 1, 1, 13).getValues()[0];
+    console.log('受診者マスタヘッダー:', JSON.stringify(headers));
+    console.log('期待するヘッダー:', JSON.stringify(COLUMN_DEFINITIONS.PATIENT_MASTER.headers));
+  }
+
+  if (visitSheet) {
+    const headers = visitSheet.getRange(1, 1, 1, 11).getValues()[0];
+    console.log('受診記録ヘッダー:', JSON.stringify(headers));
+    console.log('期待するヘッダー:', JSON.stringify(COLUMN_DEFINITIONS.VISIT_RECORD.headers));
+  }
+
+  // 2. テストデータで登録試行
+  const testPatient = {
+    name: 'テスト太郎',
+    nameKana: 'テストタロウ',
+    birthDate: '1965-11-11',
+    gender: '男性'
+  };
+
+  const testVisit = {
+    visitDate: '2025-12-17',
+    examTypeId: 'DOCK',
+    courseId: 'SPECIFIC'
+  };
+
+  console.log('テストデータ（患者）:', JSON.stringify(testPatient));
+  console.log('テストデータ（受診）:', JSON.stringify(testVisit));
+
+  try {
+    const patientId = createPatient(testPatient);
+    console.log('患者作成成功: ' + patientId);
+
+    testVisit.patientId = patientId;
+    const visitId = createVisitRecord(testVisit);
+    console.log('受診記録作成成功: ' + visitId);
+
+  } catch (e) {
+    console.log('エラー発生: ' + e.message);
+    console.log('スタックトレース: ' + e.stack);
+  }
+
+  console.log('=== 登録テスト完了 ===');
+}

@@ -176,20 +176,39 @@ Google Driveで新しいスプレッドシートを作成し、名前を「健�
 - clasp インストール済み (`npm install -g @google/clasp`)
 - clasp ログイン済み (`clasp login`)
 
-### コード編集後のデプロイ
+### 重要: push と deploy の違い
 
-**重要**: コードを編集したら必ずデプロイを実行してください。
+| コマンド | 対象 | 用途 |
+|---------|------|------|
+| `clasp push` | @HEAD（開発版） | コードをGASにアップロード |
+| `clasp deploy` | 本番デプロイメント | Webアプリの本番URLを更新 |
+
+**⚠️ `clasp push`だけでは本番URLに反映されません！**
+
+### コード編集後の完全なデプロイ手順
 
 ```bash
 # 1. プロジェクトディレクトリに移動
 cd /path/to/gas_integrated
 
-# 2. GASにプッシュ（デプロイ）
+# 2. GASにプッシュ（@HEADを更新）
 clasp push
 
-# 3. 確認（任意）
-clasp open  # GASエディタを開く
+# 3. 本番デプロイメントを更新（重要！）
+clasp deploy -i AKfycbzikwbNKNjuTMhAsyPyPOloSJDl6JmAtBToSZStdyxKRN3o5ip3FEEG3C9sBHgDrucI7A -d "変更内容の説明"
+
+# 4. 確認（任意）
+clasp deployments  # デプロイ一覧確認
+clasp open         # GASエディタを開く
 ```
+
+### 本番デプロイメントID
+
+```
+AKfycbzikwbNKNjuTMhAsyPyPOloSJDl6JmAtBToSZStdyxKRN3o5ip3FEEG3C9sBHgDrucI7A
+```
+
+このIDは「Auto deploy from GitHub Actions」デプロイメントです。
 
 ### GitHub Actions自動デプロイ
 
@@ -201,16 +220,17 @@ git add -A
 git commit -m "変更内容"
 git push origin main
 # → GitHub Actionsが自動でclasp pushを実行
+# → ただし本番デプロイメントは手動更新が必要
 ```
 
 ### デプロイが必要なタイミング
 
-| 変更内容 | デプロイ必要 |
-|---------|-------------|
-| .gsファイルの編集 | ✅ 必要 |
-| ui/*.htmlファイルの編集 | ✅ 必要 |
-| README.mdの編集 | ❌ 不要 |
-| .clasp.jsonの編集 | ✅ 必要 |
+| 変更内容 | clasp push | clasp deploy |
+|---------|------------|--------------|
+| .gsファイルの編集 | ✅ 必要 | ✅ 必要 |
+| ui/*.htmlファイルの編集 | ✅ 必要 | ✅ 必要 |
+| README.mdの編集 | ❌ 不要 | ❌ 不要 |
+| .clasp.jsonの編集 | ✅ 必要 | ❌ 不要 |
 
 ### トラブルシューティング
 
@@ -223,6 +243,9 @@ clasp logs
 
 # 強制プッシュ（競合時）
 clasp push --force
+
+# 本番デプロイメントを最新版に更新
+clasp deploy -i AKfycbzikwbNKNjuTMhAsyPyPOloSJDl6JmAtBToSZStdyxKRN3o5ip3FEEG3C9sBHgDrucI7A -d "説明"
 ```
 
 ## 更新履歴

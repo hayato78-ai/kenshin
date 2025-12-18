@@ -30,5 +30,8 @@ jobs:
       - name: Push to Google Apps Script
         run: clasp push
 
-      - name: Push complete
-        run: echo "Successfully pushed to GAS"
+      - name: Deploy to production
+        run: clasp deploy -i AKfycbzikwbNKNjuTMhAsyPyPOloSJDl6JmAtBToSZStdyxKRN3o5ip3FEEG3C9sBHgDrucI7A -d "Auto deploy from GitHub Actions"
+
+      - name: Deploy complete
+        run: echo "Successfully deployed to production"

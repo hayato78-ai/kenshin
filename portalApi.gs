@@ -14,33 +14,17 @@
  * @returns {Spreadsheet} スプレッドシート
  */
 function getPortalSpreadsheet() {
-  // 確実に動作するようにスプレッドシートIDを直接指定
-  const SPREADSHEET_ID = '16KtctyT2gd7oJZdcu84kUtuP-D9jB9KtLxxzxXx_wdk';
+  // DB_CONFIGが定義されている場合はそちらを使用（Config.gsで定義）
+  if (typeof DB_CONFIG !== 'undefined' && DB_CONFIG.SPREADSHEET_ID) {
+    return SpreadsheetApp.openById(DB_CONFIG.SPREADSHEET_ID);
+  }
 
-  // 方法1: 直接IDで取得（最も確実）
+  // フォールバック: 直接IDで取得
+  const SPREADSHEET_ID = '16KtctyT2gd7oJZdcu84kUtuP-D9jB9KtLxxzxXx_wdk';
   try {
     return SpreadsheetApp.openById(SPREADSHEET_ID);
   } catch (e) {
     console.error('直接ID取得失敗:', e);
-  }
-
-  // 方法2: スクリプトがバインドされているスプレッドシートを取得
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    if (ss) return ss;
-  } catch (e) {
-    // Webアプリではエラーになる場合がある
-  }
-
-  // 方法3: PropertiesServiceからIDを取得
-  try {
-    const props = PropertiesService.getScriptProperties();
-    const ssId = props.getProperty('SPREADSHEET_ID');
-    if (ssId) {
-      return SpreadsheetApp.openById(ssId);
-    }
-  } catch (e) {
-    // プロパティが設定されていない場合
   }
 
   throw new Error('スプレッドシートに接続できません。');
@@ -51,7 +35,7 @@ function getPortalSpreadsheet() {
  * GASエディタから手動で実行してください
  */
 function setupSpreadsheetId() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getPortalSpreadsheet();
   if (ss) {
     const props = PropertiesService.getScriptProperties();
     props.setProperty('SPREADSHEET_ID', ss.getId());
@@ -422,7 +406,7 @@ function portalUpdatePatientDetail(patientId, updateData) {
  */
 function portalGetBloodTestResults(patientId) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getPortalSpreadsheet();
     const sheet = ss.getSheetByName('検査結果');
     if (!sheet) {
       return { success: false, error: '検査結果シートが見つかりません', data: null };
@@ -458,7 +442,7 @@ function portalGetBloodTestResults(patientId) {
  */
 function portalSaveBodyMeasurements(patientId, measurements) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getPortalSpreadsheet();
     const sheet = ss.getSheetByName('検査結果');
     if (!sheet) {
       return { success: false, error: '検査結果シートが見つかりません' };
@@ -526,7 +510,7 @@ function portalSaveBodyMeasurements(patientId, measurements) {
  */
 function portalSaveBloodTestResults(patientId, bloodData) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getPortalSpreadsheet();
     const sheet = ss.getSheetByName('検査結果');
     if (!sheet) {
       return { success: false, error: '検査結果シートが見つかりません' };
@@ -579,7 +563,7 @@ function portalSaveBloodTestResults(patientId, bloodData) {
  */
 function portalSaveInputResults(patientId, inputData) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getPortalSpreadsheet();
     const sheet = ss.getSheetByName('検査結果');
     if (!sheet) {
       return { success: false, error: '検査結果シートが見つかりません' };
@@ -632,7 +616,7 @@ function portalSaveInputResults(patientId, inputData) {
  */
 function portalSaveFindings(patientId, findings) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getPortalSpreadsheet();
     const sheet = ss.getSheetByName('検査結果');
     if (!sheet) {
       return { success: false, error: '検査結果シートが見つかりません' };
@@ -703,7 +687,7 @@ function portalImportCsv(csvContent, options) {
       return { success: false, error: 'ID列が見つかりません' };
     }
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getPortalSpreadsheet();
     const sheet = ss.getSheetByName('検査結果');
     if (!sheet) {
       return { success: false, error: '検査結果シートが見つかりません' };
@@ -779,7 +763,7 @@ function portalImportCsv(csvContent, options) {
  */
 function portalGetPatientProgress(options) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getPortalSpreadsheet();
     const resultSheet = ss.getSheetByName('検査結果');
     const patientSheet = ss.getSheetByName('受診者マスタ');
 
@@ -977,7 +961,7 @@ function portalUpdateBillingStatus(patientId, newStatus) {
  */
 function portalGetSettings() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getPortalSpreadsheet();
     const sheet = ss.getSheetByName('設定');
 
     if (!sheet) {

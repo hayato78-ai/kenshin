@@ -248,10 +248,71 @@ clasp push --force
 clasp deploy -i AKfycbzikwbNKNjuTMhAsyPyPOloSJDl6JmAtBToSZStdyxKRN3o5ip3FEEG3C9sBHgDrucI7A -d "説明"
 ```
 
+## 主要関数一覧（ファイル別）
+
+### UI.gs - Webアプリ・UI関連
+
+| 関数名 | 説明 |
+|--------|------|
+| `include(filename)` | HTMLファイルをインクルード |
+| `doGet(e)` | Webアプリのメインエントリーポイント |
+| `testDoGet()` | テンプレート評価のテスト（デバッグ用） |
+| `testIncludeFiles()` | ファイル読み込みテスト（デバッグ用） |
+| `getCurrentUserEmail()` | 現在のユーザーメール取得 |
+| `getDashboardSummary()` | ダッシュボードサマリー取得 |
+| `getRecentVisits(limit)` | 最近の受診を取得 |
+| `searchPatientsWithVisits(criteria)` | 受診者検索 |
+| `registerPatientAndVisit(...)` | 受診者と受診を登録 |
+| `saveTestResults(...)` | 検査結果を一括保存 |
+
+### CRUD.gs - データ操作
+
+| 関数名 | 説明 |
+|--------|------|
+| `createPatient(data)` | 受診者作成 |
+| `getPatientById(patientId)` | 受診者取得 |
+| `searchPatients(criteria)` | 受診者検索 |
+| `updatePatient(patientId, data)` | 受診者更新 |
+| `createVisitRecord(data)` | 受診記録作成 |
+| `getVisitRecordById(visitId)` | 受診記録取得 |
+| `createTestResult(data)` | 検査結果作成 |
+| `getTestResultsByVisitId(visitId)` | 検査結果取得 |
+
+### Config.gs - 設定・定数
+
+| 関数名 | 説明 |
+|--------|------|
+| `DB_CONFIG` | データベース設定定数 |
+| `getSpreadsheetId()` | スプレッドシートID取得 |
+
+### SetupDB.gs - DB初期化
+
+| 関数名 | 説明 |
+|--------|------|
+| `setupDatabase()` | DB初期セットアップ |
+| `resetMasterData()` | マスタデータリセット |
+| `validateDatabase()` | DB整合性チェック |
+
+### judgmentEngine.gs - 判定エンジン
+
+| 関数名 | 説明 |
+|--------|------|
+| `calculateJudgment(itemId, value, gender)` | 個別判定 |
+| `calculateOverallJudgment(resultMap, gender)` | 総合判定 |
+| `getJudgmentLabel(judgment)` | 判定ラベル取得 |
+
+### portal.gs - ポータル関連
+
+| 関数名 | 説明 |
+|--------|------|
+| `doGetPortal(e)` | ポータルWebアプリエントリー |
+| `include(filename)` | HTMLインクルード（portal用） |
+
 ## 更新履歴
 
 | 日付 | バージョン | 内容 |
 |------|-----------|------|
+| 2025/12/18 | 2.2.0 | テスト関数追加、oauthScopes設定、関数一覧追加 |
 | 2025/12/18 | 2.1.0 | clasp開発フロー追加、ナビゲーション修正 |
 | 2025/12/14 | 2.0.0 | Phase 2 UI開発完了 |
 | 2025/12/14 | 1.0.0 | Phase 1 初版作成 |

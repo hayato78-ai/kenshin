@@ -190,16 +190,20 @@ const GENDER_CODE_TO_INTERNAL = {
 
 /**
  * マスタースプレッドシートを取得
+ * ※ Config.gsのgetSpreadsheet()と重複するため、utils用として別名定義
  * @returns {Spreadsheet}
  */
-function getSpreadsheet() {
-  // スプレッドシートに紐付けられている場合は自動取得
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (ss) {
-    return ss;
+function getSpreadsheet_utils() {
+  // DB_CONFIGが定義されている場合はそちらを優先
+  if (typeof DB_CONFIG !== 'undefined' && DB_CONFIG.SPREADSHEET_ID) {
+    return SpreadsheetApp.openById(DB_CONFIG.SPREADSHEET_ID);
   }
-  // 外部から実行する場合はIDで取得
-  return SpreadsheetApp.openById(CONFIG.MASTER_SPREADSHEET_ID);
+  // CONFIGが定義されている場合
+  if (typeof CONFIG !== 'undefined' && CONFIG.MASTER_SPREADSHEET_ID && CONFIG.MASTER_SPREADSHEET_ID !== 'YOUR_SPREADSHEET_ID') {
+    return SpreadsheetApp.openById(CONFIG.MASTER_SPREADSHEET_ID);
+  }
+  // フォールバック
+  return SpreadsheetApp.getActiveSpreadsheet();
 }
 
 /**

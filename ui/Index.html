@@ -14,8 +14,8 @@
     健診結果DB 統合システム - メインエントリーポイント
 
     @description UI設計書: 健診結果DB_UI設計書_v1.md
-    @version 1.0.0
-    @date 2025-12-14
+    @version 1.0.1
+    @date 2025-12-18
   -->
 
   <!-- アプリケーションコンテナ -->
@@ -23,24 +23,24 @@
     <!-- ヘッダー・ナビゲーション・フッターは共通コンポーネントから挿入 -->
 
     <!-- 画面コンテンツ -->
-    <?!= HtmlService.createHtmlOutputFromFile('ui/ScreenMenu').getContent(); ?>
-    <?!= HtmlService.createHtmlOutputFromFile('ui/ScreenSearch').getContent(); ?>
-    <?!= HtmlService.createHtmlOutputFromFile('ui/ScreenList').getContent(); ?>
-    <?!= HtmlService.createHtmlOutputFromFile('ui/ScreenDetail').getContent(); ?>
-    <?!= HtmlService.createHtmlOutputFromFile('ui/ScreenResult').getContent(); ?>
-    <?!= HtmlService.createHtmlOutputFromFile('ui/ScreenRegister').getContent(); ?>
-    <?!= HtmlService.createHtmlOutputFromFile('ui/ScreenInput').getContent(); ?>
-    <?!= HtmlService.createHtmlOutputFromFile('ui/ScreenImport').getContent(); ?>
+    <?!= include('ui/ScreenMenu'); ?>
+    <?!= include('ui/ScreenSearch'); ?>
+    <?!= include('ui/ScreenList'); ?>
+    <?!= include('ui/ScreenDetail'); ?>
+    <?!= include('ui/ScreenResult'); ?>
+    <?!= include('ui/ScreenRegister'); ?>
+    <?!= include('ui/ScreenInput'); ?>
+    <?!= include('ui/ScreenImport'); ?>
   </div>
 
   <!-- 共通スタイル -->
-  <?!= HtmlService.createHtmlOutputFromFile('ui/Styles').getContent(); ?>
+  <?!= include('ui/Styles'); ?>
 
   <!-- 共通コンポーネント -->
-  <?!= HtmlService.createHtmlOutputFromFile('ui/Common').getContent(); ?>
+  <?!= include('ui/Common'); ?>
 
   <!-- 共通JavaScript -->
-  <?!= HtmlService.createHtmlOutputFromFile('ui/JavaScript').getContent(); ?>
+  <?!= include('ui/JavaScript'); ?>
 
 </body>
 </html>

@@ -2,13 +2,23 @@
  * 健診結果DB 統合システム - UI用サーバー関数
  *
  * @description UI画面から呼び出されるサーバー関数
- * @version 1.0.0
- * @date 2025-12-14
+ * @version 1.0.1
+ * @date 2025-12-18
  */
 
 // ============================================
 // Webアプリ エントリーポイント
 // ============================================
+
+/**
+ * HTMLファイルをインクルードするヘルパー関数
+ * テンプレート内で <?!= include('filename') ?> として使用
+ * @param {string} filename - ファイル名（拡張子なし）
+ * @returns {string} HTMLコンテンツ
+ */
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
 
 /**
  * Webアプリのメインエントリーポイント
@@ -23,6 +33,74 @@ function doGet(e) {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 
   return html;
+}
+
+/**
+ * テスト用: doGetの動作を確認
+ * GASエディタで実行してログを確認
+ */
+function testDoGet() {
+  try {
+    Logger.log('=== testDoGet開始 ===');
+
+    // 1. テンプレート作成
+    Logger.log('1. テンプレート作成中...');
+    const template = HtmlService.createTemplateFromFile('ui/Index');
+    Logger.log('   テンプレート作成成功');
+
+    // 2. テンプレート評価
+    Logger.log('2. テンプレート評価中...');
+    const html = template.evaluate().getContent();
+    Logger.log('   テンプレート評価成功');
+
+    // 3. 結果確認
+    Logger.log('3. 結果確認:');
+    Logger.log('   Total length: ' + html.length);
+    Logger.log('   Has screen-menu: ' + html.includes('id="screen-menu"'));
+    Logger.log('   Has screen-search: ' + html.includes('id="screen-search"'));
+    Logger.log('   Has screen-list: ' + html.includes('id="screen-list"'));
+    Logger.log('   Has App.init: ' + html.includes('App.init'));
+
+    // 4. 最初の部分を表示
+    Logger.log('4. First 500 chars:');
+    Logger.log(html.substring(0, 500));
+
+    Logger.log('=== testDoGet完了 ===');
+    return { success: true, length: html.length };
+
+  } catch (e) {
+    Logger.log('=== エラー発生 ===');
+    Logger.log('Error: ' + e.message);
+    Logger.log('Stack: ' + e.stack);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * テスト用: 個別ファイルの読み込み確認
+ */
+function testIncludeFiles() {
+  const files = [
+    'ui/Index',
+    'ui/ScreenMenu',
+    'ui/ScreenSearch',
+    'ui/Styles',
+    'ui/Common',
+    'ui/JavaScript'
+  ];
+
+  Logger.log('=== ファイル読み込みテスト ===');
+
+  files.forEach(function(file) {
+    try {
+      const content = HtmlService.createHtmlOutputFromFile(file).getContent();
+      Logger.log(file + ': OK (' + content.length + ' chars)');
+    } catch (e) {
+      Logger.log(file + ': ERROR - ' + e.message);
+    }
+  });
+
+  Logger.log('=== テスト完了 ===');
 }
 
 /**
@@ -42,7 +120,7 @@ function getCurrentUserEmail() {
  * @returns {Object} {todayVisits, pendingInput, overdue}
  */
 function getDashboardSummary() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getSpreadsheet();
   const visitSheet = ss.getSheetByName(DB_CONFIG.SHEETS.VISIT_RECORD);
 
   if (!visitSheet || visitSheet.getLastRow() < 2) {
@@ -114,7 +192,7 @@ function getDashboardSummary() {
 function getRecentVisits(limit) {
   limit = limit || 5;
 
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getSpreadsheet();
   const visitSheet = ss.getSheetByName(DB_CONFIG.SHEETS.VISIT_RECORD);
   const patientSheet = ss.getSheetByName(DB_CONFIG.SHEETS.PATIENT_MASTER);
   const examTypeSheet = ss.getSheetByName(DB_CONFIG.SHEETS.EXAM_TYPE_MASTER);
@@ -193,7 +271,7 @@ function getRecentVisits(limit) {
 function searchPatientsWithVisits(criteria) {
   const patients = searchPatients(criteria);
 
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getSpreadsheet();
   const visitSheet = ss.getSheetByName(DB_CONFIG.SHEETS.VISIT_RECORD);
   const examTypeSheet = ss.getSheetByName(DB_CONFIG.SHEETS.EXAM_TYPE_MASTER);
 

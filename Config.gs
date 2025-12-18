@@ -12,7 +12,7 @@
 
 const DB_CONFIG = {
   // スプレッドシートID（デプロイ時に設定）
-  SPREADSHEET_ID: '',
+  SPREADSHEET_ID: '16KtctyT2gd7oJZdcu84kUtuP-D9jB9KtLxxzxXx_wdk',
 
   // シート名定義（設計書4章準拠 + マスタ拡張）
   SHEETS: {

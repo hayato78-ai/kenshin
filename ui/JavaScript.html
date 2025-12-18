@@ -129,32 +129,44 @@ const App = {
    * @param {Object} params - パラメータ
    */
   navigate: function(screenId, params) {
-    console.log('Navigating to:', screenId, params);
+    try {
+      console.log('[NAV] === navigate開始 ===', screenId, params);
+      console.log('[NAV] 現在のscreen:', this.currentScreen);
 
-    // すべての画面を非表示
-    document.querySelectorAll('.screen').forEach(function(screen) {
-      screen.classList.add('hidden');
-    });
+      // すべての画面を非表示
+      var screens = document.querySelectorAll('.screen');
+      console.log('[NAV] 画面数:', screens.length);
+      screens.forEach(function(screen) {
+        screen.classList.add('hidden');
+      });
 
-    // ナビゲーションのアクティブ状態を更新
-    document.querySelectorAll('.nav-item').forEach(function(item) {
-      item.classList.remove('active');
-      if (item.dataset.screen === screenId) {
-        item.classList.add('active');
+      // ナビゲーションのアクティブ状態を更新
+      document.querySelectorAll('.nav-item').forEach(function(item) {
+        item.classList.remove('active');
+        if (item.dataset.screen === screenId) {
+          item.classList.add('active');
+        }
+      });
+
+      // 対象画面を表示
+      var targetScreen = document.getElementById('screen-' + screenId);
+      console.log('[NAV] targetScreen:', targetScreen ? 'found' : 'NOT FOUND');
+
+      if (targetScreen) {
+        targetScreen.classList.remove('hidden');
+        this.currentScreen = screenId;
+        console.log('[NAV] 画面表示完了, onScreenLoad呼び出し前');
+
+        // 画面固有の初期化処理
+        this.onScreenLoad(screenId, params);
+        console.log('[NAV] onScreenLoad完了');
+      } else {
+        console.warn('[NAV] Screen not found:', screenId);
+        this.showMessage('エラー', '画面が見つかりません: ' + screenId, 'error');
       }
-    });
-
-    // 対象画面を表示
-    const targetScreen = document.getElementById('screen-' + screenId);
-    if (targetScreen) {
-      targetScreen.classList.remove('hidden');
-      this.currentScreen = screenId;
-
-      // 画面固有の初期化処理
-      this.onScreenLoad(screenId, params);
-    } else {
-      console.warn('Screen not found:', screenId);
-      this.showMessage('エラー', '画面が見つかりません: ' + screenId, 'error');
+      console.log('[NAV] === navigate終了 ===');
+    } catch (e) {
+      console.error('[NAV] navigate エラー:', e.message, e.stack);
     }
   },
 
@@ -164,17 +176,21 @@ const App = {
    * @param {Object} params - パラメータ
    */
   onScreenLoad: function(screenId, params) {
-    switch (screenId) {
-      case 'menu':
-        if (typeof Menu !== 'undefined' && Menu.init) {
-          Menu.init();
-        }
-        break;
-      case 'search':
-        if (typeof Search !== 'undefined' && Search.init) {
-          Search.init();
-        }
-        break;
+    console.log('[LOAD] onScreenLoad:', screenId);
+    try {
+      switch (screenId) {
+        case 'menu':
+          console.log('[LOAD] Menu defined:', typeof Menu !== 'undefined');
+          if (typeof Menu !== 'undefined' && Menu.init) {
+            Menu.init();
+          }
+          break;
+        case 'search':
+          console.log('[LOAD] Search defined:', typeof Search !== 'undefined');
+          if (typeof Search !== 'undefined' && Search.init) {
+            Search.init();
+          }
+          break;
       case 'list':
         if (typeof PatientList !== 'undefined' && PatientList.init) {
           PatientList.init(params);
@@ -205,6 +221,10 @@ const App = {
           Import.init(params);
         }
         break;
+      }
+      console.log('[LOAD] onScreenLoad完了:', screenId);
+    } catch (e) {
+      console.error('[LOAD] onScreenLoad エラー:', e.message, e.stack);
     }
   },
 

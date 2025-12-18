@@ -58,6 +58,10 @@ function getSheet_(sheetName) {
   if (typeof getSheet === 'function') {
     return getSheet(sheetName);
   }
+  // DB_CONFIGが定義されている場合はそちらを使用
+  if (typeof DB_CONFIG !== 'undefined' && DB_CONFIG.SPREADSHEET_ID) {
+    return SpreadsheetApp.openById(DB_CONFIG.SPREADSHEET_ID).getSheetByName(sheetName);
+  }
   return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
 }
 

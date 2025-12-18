@@ -92,22 +92,33 @@ const Search = {
    */
   loadExamTypes: function() {
     const select = document.getElementById('search-exam-type');
-    if (!select) return;
+    if (!select) {
+      console.warn('search-exam-type select not found');
+      return;
+    }
+
+    console.log('loadExamTypes: calling getExamTypeMaster');
 
     google.script.run
       .withSuccessHandler(function(types) {
-        // 既存のオプション（「全て」）を保持
-        const firstOption = select.options[0];
-        select.innerHTML = '';
-        select.appendChild(firstOption);
+        try {
+          console.log('loadExamTypes: received', types ? types.length : 0, 'types');
+          // 既存のオプション（「全て」）を保持
+          const firstOption = select.options[0];
+          select.innerHTML = '';
+          select.appendChild(firstOption);
 
-        if (types && types.length > 0) {
-          types.forEach(function(type) {
-            const option = document.createElement('option');
-            option.value = type.examTypeId;
-            option.textContent = type.name;
-            select.appendChild(option);
-          });
+          if (types && types.length > 0) {
+            types.forEach(function(type) {
+              const option = document.createElement('option');
+              option.value = type.examTypeId;
+              option.textContent = type.name;
+              select.appendChild(option);
+            });
+          }
+          console.log('loadExamTypes: completed successfully');
+        } catch (e) {
+          console.error('loadExamTypes callback error:', e);
         }
       })
       .withFailureHandler(function(error) {

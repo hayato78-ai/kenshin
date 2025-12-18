@@ -168,9 +168,67 @@ Google Driveで新しいスプレッドシートを作成し、名前を「健�
 | SCR-007 | 新規受診登録 | ステップ形式の登録 |
 | SCR-008 | 検査結果入力 | リアルタイム判定付き入力 |
 
+## clasp開発フロー
+
+### 前提条件
+
+- Node.js インストール済み
+- clasp インストール済み (`npm install -g @google/clasp`)
+- clasp ログイン済み (`clasp login`)
+
+### コード編集後のデプロイ
+
+**重要**: コードを編集したら必ずデプロイを実行してください。
+
+```bash
+# 1. プロジェクトディレクトリに移動
+cd /path/to/gas_integrated
+
+# 2. GASにプッシュ（デプロイ）
+clasp push
+
+# 3. 確認（任意）
+clasp open  # GASエディタを開く
+```
+
+### GitHub Actions自動デプロイ
+
+mainブランチへのpushで自動デプロイされます。
+
+```bash
+# コード編集後
+git add -A
+git commit -m "変更内容"
+git push origin main
+# → GitHub Actionsが自動でclasp pushを実行
+```
+
+### デプロイが必要なタイミング
+
+| 変更内容 | デプロイ必要 |
+|---------|-------------|
+| .gsファイルの編集 | ✅ 必要 |
+| ui/*.htmlファイルの編集 | ✅ 必要 |
+| README.mdの編集 | ❌ 不要 |
+| .clasp.jsonの編集 | ✅ 必要 |
+
+### トラブルシューティング
+
+```bash
+# デプロイ状況確認
+clasp deployments
+
+# ログ確認
+clasp logs
+
+# 強制プッシュ（競合時）
+clasp push --force
+```
+
 ## 更新履歴
 
 | 日付 | バージョン | 内容 |
 |------|-----------|------|
+| 2025/12/18 | 2.1.0 | clasp開発フロー追加、ナビゲーション修正 |
 | 2025/12/14 | 2.0.0 | Phase 2 UI開発完了 |
 | 2025/12/14 | 1.0.0 | Phase 1 初版作成 |

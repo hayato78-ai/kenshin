@@ -77,9 +77,14 @@ const Search = {
    * 初期化
    */
   init: function() {
-    console.log('Search.init');
-    this.loadExamTypes();
-    this.setupEnterKey();
+    try {
+      console.log('Search.init started');
+      this.loadExamTypes();
+      this.setupEnterKey();
+      console.log('Search.init completed');
+    } catch (e) {
+      console.error('Search.init error:', e);
+    }
   },
 
   /**

@@ -325,13 +325,12 @@ function getPatientList(status) {
 }
 
 /**
- * 患者詳細を取得
+ * 患者詳細を取得（collectPatientDataへの委譲）
  * @param {string} patientId - 受診ID
  * @returns {Object|null} 患者詳細
  */
 function getPatientDetail(patientId) {
-  const data = collectPatientData(patientId);
-  return data;
+  return collectPatientData(patientId);
 }
 
 // ============================================

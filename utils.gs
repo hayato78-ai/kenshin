@@ -432,3 +432,39 @@ function markFileAsProcessed(file) {
 function isFileProcessed(file) {
   return file.getName().startsWith('[済]');
 }
+
+// ============================================
+// 共通レスポンスヘルパー
+// ============================================
+
+/**
+ * 成功レスポンスを生成
+ * @param {*} data - レスポンスデータ
+ * @param {Object} extra - 追加情報
+ * @returns {Object}
+ */
+function createSuccessResponse(data, extra = {}) {
+  return {
+    success: true,
+    data: data,
+    timestamp: new Date().toISOString(),
+    ...extra
+  };
+}
+
+/**
+ * エラーレスポンスを生成
+ * @param {string|Error} error - エラー情報
+ * @param {Object} extra - 追加情報（デバッグ用）
+ * @returns {Object}
+ */
+function createErrorResponse(error, extra = {}) {
+  const message = error instanceof Error ? error.message : String(error);
+  return {
+    success: false,
+    error: message,
+    data: [],
+    timestamp: new Date().toISOString(),
+    ...extra
+  };
+}

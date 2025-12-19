@@ -1480,3 +1480,114 @@ function debugSearchFromWebApp(searchId) {
 
   return debug;
 }
+
+/**
+ * 受診者マスタシートを正しい構造で再構築
+ * 既存シートはバックアップとして保持
+ */
+function rebuildPatientMasterSheet() {
+  const SPREADSHEET_ID = '16KtctyT2gd7oJZdcu84kUtuP-D9jB9KtLxxzxXx_wdk';
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  
+  // 1. 既存シートをバックアップ
+  const oldSheet = ss.getSheetByName('受診者マスタ');
+  if (oldSheet) {
+    const timestamp = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMdd_HHmmss');
+    oldSheet.setName('受診者マスタ_backup_' + timestamp);
+    console.log('既存シートをバックアップしました: 受診者マスタ_backup_' + timestamp);
+  }
+  
+  // 2. 新しいシートを作成
+  const newSheet = ss.insertSheet('受診者マスタ');
+  
+  // 3. 正しいヘッダーを設定
+  const headers = [
+    '受診ID',        // A
+    'ステータス',     // B
+    '受診日',        // C
+    '氏名',          // D
+    'カナ',          // E
+    '性別',          // F
+    '生年月日',      // G
+    '年齢',          // H
+    '受診コース',    // I
+    '事業所名',      // J
+    '所属',          // K
+    '総合判定',      // L
+    'CSV取込日時',   // M
+    '最終更新日時',  // N
+    '出力日時'       // O
+  ];
+  
+  newSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  
+  // 4. ヘッダー行の書式設定
+  const headerRange = newSheet.getRange(1, 1, 1, headers.length);
+  headerRange.setBackground('#4285f4');
+  headerRange.setFontColor('#ffffff');
+  headerRange.setFontWeight('bold');
+  headerRange.setHorizontalAlignment('center');
+  
+  // 5. A列（受診ID）を書式なしテキストに設定
+  const idColumn = newSheet.getRange('A:A');
+  idColumn.setNumberFormat('@');  // テキスト形式
+  
+  // 6. 日付列の書式設定
+  newSheet.getRange('C:C').setNumberFormat('yyyy/mm/dd');  // 受診日
+  newSheet.getRange('G:G').setNumberFormat('yyyy/mm/dd');  // 生年月日
+  newSheet.getRange('M:M').setNumberFormat('yyyy/mm/dd hh:mm:ss');  // CSV取込日時
+  newSheet.getRange('N:N').setNumberFormat('yyyy/mm/dd hh:mm:ss');  // 最終更新日時
+  newSheet.getRange('O:O').setNumberFormat('yyyy/mm/dd hh:mm:ss');  // 出力日時
+  
+  // 7. 列幅を調整
+  newSheet.setColumnWidth(1, 120);   // 受診ID
+  newSheet.setColumnWidth(2, 80);    // ステータス
+  newSheet.setColumnWidth(3, 100);   // 受診日
+  newSheet.setColumnWidth(4, 120);   // 氏名
+  newSheet.setColumnWidth(5, 120);   // カナ
+  newSheet.setColumnWidth(6, 50);    // 性別
+  newSheet.setColumnWidth(7, 100);   // 生年月日
+  newSheet.setColumnWidth(8, 50);    // 年齢
+  newSheet.setColumnWidth(9, 150);   // 受診コース
+  newSheet.setColumnWidth(10, 150);  // 事業所名
+  newSheet.setColumnWidth(11, 100);  // 所属
+  newSheet.setColumnWidth(12, 80);   // 総合判定
+  
+  // 8. テストデータを1件追加
+  const testData = [
+    '20251219-0001',      // 受診ID（テキスト）
+    '入力中',             // ステータス
+    new Date(2025, 11, 19), // 受診日
+    'テスト 太郎',        // 氏名
+    'テスト タロウ',      // カナ
+    '男',                 // 性別
+    new Date(1980, 0, 15),  // 生年月日
+    44,                   // 年齢
+    '生活習慣病ドック',   // 受診コース
+    'テスト株式会社',     // 事業所名
+    '営業部',             // 所属
+    '',                   // 総合判定
+    '',                   // CSV取込日時
+    new Date(),           // 最終更新日時
+    ''                    // 出力日時
+  ];
+  
+  newSheet.getRange(2, 1, 1, testData.length).setValues([testData]);
+  
+  // 9. 行の固定（ヘッダー）
+  newSheet.setFrozenRows(1);
+  
+  // 10. シートを先頭に移動
+  ss.setActiveSheet(newSheet);
+  ss.moveActiveSheet(1);
+  
+  console.log('✅ 受診者マスタシートを再構築しました');
+  console.log('ヘッダー: ' + headers.join(', '));
+  console.log('テストデータ1件を追加しました');
+  
+  return {
+    success: true,
+    message: '受診者マスタシートを再構築しました',
+    backupSheet: oldSheet ? oldSheet.getName() : null
+  };
+}

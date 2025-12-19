@@ -182,11 +182,8 @@ function getPatientById(patientId) {
   const data = sheet.getRange(2, 1, lastRow - 1, COLUMN_DEFINITIONS.PATIENT_MASTER.headers.length).getValues();
   const cols = COLUMN_DEFINITIONS.PATIENT_MASTER.columns;
 
-  // 型を統一して比較（string/number両対応）
-  const searchId = String(patientId).trim();
-
   for (const row of data) {
-    if (String(row[cols.PATIENT_ID]).trim() === searchId) {
+    if (row[cols.PATIENT_ID] === patientId) {
       return {
         patientId: row[cols.PATIENT_ID],
         name: row[cols.NAME],
@@ -210,7 +207,7 @@ function getPatientById(patientId) {
 
 /**
  * 受診者を検索
- * @param {Object} criteria - 検索条件 {name, kana, company, patientId}
+ * @param {Object} criteria - 検索条件 {name, kana, company}
  * @returns {Array<Object>} 受診者リスト
  */
 function searchPatients(criteria) {
@@ -223,48 +220,16 @@ function searchPatients(criteria) {
   const cols = COLUMN_DEFINITIONS.PATIENT_MASTER.columns;
   const results = [];
 
-  // 検索条件を正規化（空白統一、小文字化）
-  const normalizeStr = (s) => {
-    if (s === null || s === undefined) return '';
-    return String(s).replace(/[\s　]+/g, ' ').trim().toLowerCase();
-  };
-
-  const searchName = criteria.name ? normalizeStr(criteria.name) : '';
-  const searchKana = criteria.kana ? normalizeStr(criteria.kana) : '';
-  const searchCompany = criteria.company ? normalizeStr(criteria.company) : '';
-  const searchPatientId = criteria.patientId ? normalizeStr(criteria.patientId) : '';
-
   for (const row of data) {
-    // 空行スキップ
-    if (!row[cols.PATIENT_ID]) continue;
-
-    const rowName = normalizeStr(row[cols.NAME]);
-    const rowKana = normalizeStr(row[cols.KANA]);
-    const rowCompany = normalizeStr(row[cols.COMPANY]);
-    const rowPatientId = normalizeStr(row[cols.PATIENT_ID]);
-
     let match = true;
 
-    // 受診者ID検索
-    if (searchPatientId && !rowPatientId.includes(searchPatientId)) {
+    if (criteria.name && !row[cols.NAME].includes(criteria.name)) {
       match = false;
     }
-
-    // 氏名検索（氏名またはカナにマッチ）
-    if (searchName && match) {
-      const nameMatch = rowName.includes(searchName) || rowKana.includes(searchName);
-      if (!nameMatch) {
-        match = false;
-      }
-    }
-
-    // カナ検索（明示的にカナ指定時）
-    if (searchKana && match && !rowKana.includes(searchKana)) {
+    if (criteria.kana && !row[cols.KANA].includes(criteria.kana)) {
       match = false;
     }
-
-    // 企業検索
-    if (searchCompany && match && !rowCompany.includes(searchCompany)) {
+    if (criteria.company && !row[cols.COMPANY].includes(criteria.company)) {
       match = false;
     }
 
@@ -441,11 +406,8 @@ function getVisitRecordsByPatientId(patientId) {
   const cols = COLUMN_DEFINITIONS.VISIT_RECORD.columns;
   const results = [];
 
-  // 型を統一して比較（string/number両対応）
-  const searchId = String(patientId).trim();
-
   for (const row of data) {
-    if (String(row[cols.PATIENT_ID]).trim() === searchId) {
+    if (row[cols.PATIENT_ID] === patientId) {
       results.push({
         visitId: row[cols.VISIT_ID],
         patientId: row[cols.PATIENT_ID],

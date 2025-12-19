@@ -97,19 +97,19 @@ function normalizeKana(str) {
 // ============================================================
 
 /**
- * 受診者を検索（修正版 v4 - 受診記録と結合）
+ * 受診者を検索（v5 - 新シート構造対応）
  *
  * 【機能】
- * 1. 受診者マスタと受診記録を結合して検索
- * 2. 受診者ID、氏名、カナで部分一致検索
- * 3. 最新の受診記録情報を付与して返却
+ * 1. 新しい受診者マスタ構造（rebuildPatientMasterSheet準拠）で検索
+ * 2. 受診ID、氏名、カナで部分一致検索
+ * 3. 受診記録シート不要（単一シート完結）
  *
  * @param {Object} criteria - 検索条件 {patientId, name, kana}
  * @returns {Object} 検索結果
  */
 function portalSearchPatients(criteria) {
   const debugInfo = {
-    version: '2025-12-19-v4-with-visits',
+    version: '2025-12-19-v5-new-structure',
     criteriaReceived: criteria ? JSON.stringify(criteria) : 'null',
     timestamp: new Date().toISOString()
   };
@@ -119,68 +119,30 @@ function portalSearchPatients(criteria) {
     debugInfo.spreadsheetId = ss.getId();
 
     // 受診者マスタ取得
-    const patientSheet = ss.getSheetByName('受診者マスタ');
-    if (!patientSheet) {
+    const sheet = ss.getSheetByName('受診者マスタ');
+    if (!sheet) {
       return { success: false, error: '受診者マスタシートが見つかりません', data: [], _debug: debugInfo };
     }
 
-    // 受診記録取得
-    const visitSheet = ss.getSheetByName('受診記録');
-    debugInfo.visitSheetFound = !!visitSheet;
-
-    // 受診者マスタ列定義（Config.gs準拠）
-    const PATIENT_COL = {
-      PATIENT_ID: 0,   // A: 受診者ID
-      NAME: 1,         // B: 氏名
-      KANA: 2,         // C: カナ
-      BIRTHDATE: 3,    // D: 生年月日
-      GENDER: 4,       // E: 性別
-      COMPANY: 9       // J: 所属企業
+    // 新しい列定義（rebuildPatientMasterSheet準拠）
+    const COL = {
+      PATIENT_ID: 0,   // A: 受診ID
+      STATUS: 1,       // B: ステータス
+      EXAM_DATE: 2,    // C: 受診日
+      NAME: 3,         // D: 氏名
+      KANA: 4,         // E: カナ
+      GENDER: 5,       // F: 性別
+      BIRTHDATE: 6,    // G: 生年月日
+      AGE: 7,          // H: 年齢
+      COURSE: 8,       // I: 受診コース
+      COMPANY: 9,      // J: 事業所名
+      DEPARTMENT: 10,  // K: 所属
+      JUDGMENT: 11     // L: 総合判定
     };
 
-    // 受診記録列定義（Config.gs準拠）
-    const VISIT_COL = {
-      VISIT_ID: 0,       // A: 受診ID
-      PATIENT_ID: 1,     // B: 受診者ID
-      EXAM_TYPE_ID: 2,   // C: 検診種別ID
-      COURSE_ID: 3,      // D: コースID
-      VISIT_DATE: 4,     // E: 受診日
-      AGE: 5,            // F: 年齢
-      JUDGMENT: 6,       // G: 総合判定
-      STATUS: 8          // I: ステータス
-    };
-
-    // 受診者データ取得
-    const patientData = patientSheet.getDataRange().getValues();
-    debugInfo.patientRows = patientData.length;
-
-    // 受診記録データ取得（マップ化）
-    const visitMap = {};  // patientId -> 最新の受診記録
-    if (visitSheet && visitSheet.getLastRow() >= 2) {
-      const visitData = visitSheet.getDataRange().getValues();
-      debugInfo.visitRows = visitData.length;
-
-      for (let i = 1; i < visitData.length; i++) {
-        const row = visitData[i];
-        const patientId = safeString(row[VISIT_COL.PATIENT_ID]);
-        const visitDate = row[VISIT_COL.VISIT_DATE];
-
-        if (!patientId) continue;
-
-        // 最新の受診記録を保持
-        if (!visitMap[patientId] ||
-            (visitDate && visitMap[patientId].visitDate < visitDate)) {
-          visitMap[patientId] = {
-            visitId: safeString(row[VISIT_COL.VISIT_ID]),
-            visitDate: visitDate,
-            examTypeId: safeString(row[VISIT_COL.EXAM_TYPE_ID]),
-            courseId: safeString(row[VISIT_COL.COURSE_ID]),
-            judgment: safeString(row[VISIT_COL.JUDGMENT]),
-            status: safeString(row[VISIT_COL.STATUS])
-          };
-        }
-      }
-    }
+    // データ取得
+    const data = sheet.getDataRange().getValues();
+    debugInfo.totalRows = data.length;
 
     // 検索条件を正規化
     const searchId = criteria && criteria.patientId ? normalizeString(criteria.patientId) : '';
@@ -191,15 +153,15 @@ function portalSearchPatients(criteria) {
 
     const results = [];
 
-    for (let i = 1; i < patientData.length; i++) {
-      const row = patientData[i];
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
 
       // 空行スキップ
-      if (!row[PATIENT_COL.PATIENT_ID]) continue;
+      if (!row[COL.PATIENT_ID]) continue;
 
-      const patientId = safeString(row[PATIENT_COL.PATIENT_ID]);
-      const name = safeString(row[PATIENT_COL.NAME]);
-      const kana = safeString(row[PATIENT_COL.KANA]);
+      const patientId = safeString(row[COL.PATIENT_ID]);
+      const name = safeString(row[COL.NAME]);
+      const kana = safeString(row[COL.KANA]);
 
       // 検索条件でフィルタ
       let match = true;
@@ -215,20 +177,20 @@ function portalSearchPatients(criteria) {
       }
 
       if (match) {
-        const visit = visitMap[patientId] || {};
-
         results.push({
-          '受診者ID': patientId,
-          '受診ID': visit.visitId || '',
+          '受診ID': patientId,
+          '受診者ID': patientId,  // 後方互換性のため両方を返す
+          'ステータス': safeString(row[COL.STATUS]),
+          '受診日': formatDateToString(row[COL.EXAM_DATE]),
           '氏名': name,
           'カナ': kana,
-          '生年月日': formatDateToString(row[PATIENT_COL.BIRTHDATE]),
-          '性別': safeString(row[PATIENT_COL.GENDER]),
-          '所属企業': safeString(row[PATIENT_COL.COMPANY]),
-          '受診日': formatDateToString(visit.visitDate),
-          '受診コース': visit.courseId || '',
-          'ステータス': visit.status || '',
-          '総合判定': visit.judgment || '',
+          '性別': safeString(row[COL.GENDER]),
+          '生年月日': formatDateToString(row[COL.BIRTHDATE]),
+          '年齢': safeNumber(row[COL.AGE]),
+          '受診コース': safeString(row[COL.COURSE]),
+          '事業所名': safeString(row[COL.COMPANY]),
+          '所属': safeString(row[COL.DEPARTMENT]),
+          '総合判定': safeString(row[COL.JUDGMENT]),
           _rowIndex: i + 1
         });
       }

@@ -110,6 +110,45 @@
   </div>
 </div>
 
+<!-- Excel出力モーダル -->
+<template id="export-excel-modal-template">
+  <div class="modal-overlay" id="export-excel-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">Excel出力</span>
+        <button class="modal-close" onclick="PatientDetail.closeExportModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">受診日</label>
+          <div id="export-visit-date" style="font-weight: bold;">-</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">検診種別</label>
+          <div id="export-exam-type" style="font-weight: bold;">-</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">テンプレート</label>
+          <select id="export-template" class="form-control">
+            <option value="">読み込み中...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">ファイル名</label>
+          <input type="text" id="export-filename" class="form-control" placeholder="患者名_受診日.xlsx">
+          <div class="form-hint">拡張子は自動で付与されます</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="PatientDetail.closeExportModal()">キャンセル</button>
+        <button class="btn btn-primary" onclick="PatientDetail.executeExport()">
+          <span id="export-btn-text">ダウンロード</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+
 <!-- 基本情報編集モーダル -->
 <template id="edit-patient-modal-template">
   <div class="modal-overlay" id="edit-patient-modal">
@@ -294,6 +333,7 @@ const PatientDetail = {
       if (hasInput) {
         html += ' <button class="btn btn-sm btn-primary" onclick="PatientDetail.inputResult(\'' + visit.visitId + '\')">入力</button>';
       }
+      html += ' <button class="btn btn-sm btn-outline" onclick="PatientDetail.showExportModal(\'' + visit.visitId + '\')" title="Excel出力">📥</button>';
       html += '</td>';
       html += '</tr>';
     });
@@ -418,10 +458,15 @@ const PatientDetail = {
   },
 
   /**
-   * 帳票出力モーダルを表示
+   * 帳票出力モーダルを表示（操作メニューから）
    */
   showReportModal: function() {
-    App.showMessage('未実装', 'この機能は Phase 4 で実装予定です', 'info');
+    // 最新の受診を選択
+    if (this.visits && this.visits.length > 0) {
+      this.showExportModal(this.visits[0].visitId);
+    } else {
+      App.showMessage('エラー', '出力する受診データがありません', 'error');
+    }
   },
 
   /**
@@ -429,6 +474,160 @@ const PatientDetail = {
    */
   exportCSV: function() {
     App.showMessage('未実装', 'この機能は Phase 3 で実装予定です', 'info');
+  },
+
+  // ============================================
+  // Excel出力機能
+  // ============================================
+
+  /** 出力対象の受診ID */
+  exportVisitId: null,
+
+  /** テンプレート一覧 */
+  templates: [],
+
+  /**
+   * Excel出力モーダルを表示
+   * @param {string} visitId - 受診ID
+   */
+  showExportModal: function(visitId) {
+    const self = this;
+
+    // モーダルを追加
+    if (!document.getElementById('export-excel-modal')) {
+      const template = document.getElementById('export-excel-modal-template');
+      if (template) {
+        const clone = template.content.cloneNode(true);
+        document.body.appendChild(clone);
+        document.getElementById('export-excel-modal').classList.add('hidden');
+      }
+    }
+
+    this.exportVisitId = visitId;
+
+    // 受診情報を取得
+    const visit = this.visits.find(function(v) { return v.visitId === visitId; });
+    if (!visit) {
+      App.showMessage('エラー', '受診情報が見つかりません', 'error');
+      return;
+    }
+
+    // モーダルに情報を設定
+    document.getElementById('export-visit-date').textContent = App.formatDate(visit.visitDate);
+    document.getElementById('export-exam-type').textContent = visit.examTypeName || visit.examTypeId || '-';
+
+    // デフォルトファイル名を設定
+    const dateStr = App.formatDate(visit.visitDate, 'yyyymmdd');
+    const defaultFileName = (this.patient?.name || '患者') + '_' + dateStr;
+    document.getElementById('export-filename').value = defaultFileName;
+
+    // テンプレート一覧を読み込み
+    this.loadTemplates();
+
+    // モーダルを表示
+    document.getElementById('export-excel-modal').classList.remove('hidden');
+  },
+
+  /**
+   * Excel出力モーダルを閉じる
+   */
+  closeExportModal: function() {
+    const modal = document.getElementById('export-excel-modal');
+    if (modal) {
+      modal.classList.add('hidden');
+    }
+    this.exportVisitId = null;
+  },
+
+  /**
+   * テンプレート一覧を読み込み
+   */
+  loadTemplates: function() {
+    const self = this;
+    const select = document.getElementById('export-template');
+
+    google.script.run
+      .withSuccessHandler(function(data) {
+        self.templates = data.templates || [];
+
+        select.innerHTML = '';
+
+        if (self.templates.length === 0) {
+          select.innerHTML = '<option value="">テンプレートがありません</option>';
+          return;
+        }
+
+        self.templates.forEach(function(t) {
+          const option = document.createElement('option');
+          option.value = t.templateId;
+          option.textContent = t.name + ' (' + t.examType + ')';
+          select.appendChild(option);
+        });
+      })
+      .withFailureHandler(function(error) {
+        console.error('Failed to load templates:', error);
+        select.innerHTML = '<option value="">読み込みエラー</option>';
+      })
+      .getTemplateManagementData();
+  },
+
+  /**
+   * Excel出力を実行
+   */
+  executeExport: function() {
+    const self = this;
+
+    const templateId = document.getElementById('export-template').value;
+    const fileName = document.getElementById('export-filename').value.trim();
+
+    if (!templateId) {
+      App.showMessage('エラー', 'テンプレートを選択してください', 'error');
+      return;
+    }
+
+    // ボタンを無効化
+    const btnText = document.getElementById('export-btn-text');
+    btnText.textContent = '処理中...';
+
+    App.showLoading();
+
+    google.script.run
+      .withSuccessHandler(function(result) {
+        App.hideLoading();
+        btnText.textContent = 'ダウンロード';
+
+        if (result.success) {
+          // ダウンロードを開始
+          self.closeExportModal();
+          self.downloadFile(result.downloadUrl, result.fileName);
+          App.showMessage('成功', 'ファイルを出力しました', 'success');
+        } else {
+          App.showMessage('エラー', result.error || '出力に失敗しました', 'error');
+        }
+      })
+      .withFailureHandler(function(error) {
+        App.hideLoading();
+        btnText.textContent = 'ダウンロード';
+        console.error('Export failed:', error);
+        App.showMessage('エラー', '出力に失敗しました: ' + error.message, 'error');
+      })
+      .apiExportExcel(self.exportVisitId, templateId, fileName);
+  },
+
+  /**
+   * ファイルをダウンロード
+   * @param {string} url - ダウンロードURL
+   * @param {string} fileName - ファイル名
+   */
+  downloadFile: function(url, fileName) {
+    // 新しいウィンドウでダウンロード
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }
 };
 </script>

@@ -221,6 +221,11 @@ const App = {
           Import.init(params);
         }
         break;
+      case 'template':
+        if (typeof TemplateManager !== 'undefined' && TemplateManager.init) {
+          TemplateManager.init(params);
+        }
+        break;
       }
       console.log('[LOAD] onScreenLoad完了:', screenId);
     } catch (e) {

@@ -36,6 +36,42 @@ function doGet(e) {
 }
 
 /**
+ * デバッグ用: doGetの詳細確認
+ * GASエディタで実行してログを確認
+ */
+function debugDoGet() {
+  try {
+    // Step 1: テンプレート作成
+    Logger.log('Step 1: Creating template...');
+    const template = HtmlService.createTemplateFromFile('ui/Index');
+    Logger.log('Template created: ' + (template ? 'OK' : 'FAILED'));
+
+    // Step 2: テンプレート評価
+    Logger.log('Step 2: Evaluating template...');
+    const htmlOutput = template.evaluate();
+    Logger.log('Evaluation: ' + (htmlOutput ? 'OK' : 'FAILED'));
+
+    // Step 3: コンテンツ取得
+    Logger.log('Step 3: Getting content...');
+    const content = htmlOutput.getContent();
+    Logger.log('Content length: ' + content.length);
+
+    // Step 4: 画面要素の確認
+    Logger.log('Step 4: Checking screen elements...');
+    Logger.log('Has screen-menu: ' + content.includes('id="screen-menu"'));
+    Logger.log('Has screen-search: ' + content.includes('id="screen-search"'));
+    Logger.log('Has app-container: ' + content.includes('id="app-container"'));
+
+    // Step 5: 最初の部分を出力
+    Logger.log('First 500 chars:\n' + content.substring(0, 500));
+
+  } catch (e) {
+    Logger.log('ERROR: ' + e.message);
+    Logger.log('Stack: ' + e.stack);
+  }
+}
+
+/**
  * テスト用: doGetの動作を確認
  * GASエディタで実行してログを確認
  */

@@ -97,19 +97,19 @@ function normalizeKana(str) {
 // ============================================================
 
 /**
- * 受診者を検索（修正版 v3 - シリアライズ対応）
+ * 受診者を検索（修正版 v4 - 受診記録と結合）
  *
- * 【修正ポイント】
- * 1. Dateオブジェクトを文字列に変換してからreturn
- * 2. 値をすべてプリミティブ型に変換
- * 3. undefinedをnullまたは空文字に変換
+ * 【機能】
+ * 1. 受診者マスタと受診記録を結合して検索
+ * 2. 受診者ID、氏名、カナで部分一致検索
+ * 3. 最新の受診記録情報を付与して返却
  *
- * @param {Object} criteria - 検索条件
+ * @param {Object} criteria - 検索条件 {patientId, name, kana}
  * @returns {Object} 検索結果
  */
 function portalSearchPatients(criteria) {
   const debugInfo = {
-    version: '2025-12-16-v3-serializable',
+    version: '2025-12-19-v4-with-visits',
     criteriaReceived: criteria ? JSON.stringify(criteria) : 'null',
     timestamp: new Date().toISOString()
   };
@@ -118,71 +118,117 @@ function portalSearchPatients(criteria) {
     const ss = getPortalSpreadsheet();
     debugInfo.spreadsheetId = ss.getId();
 
-    const sheet = ss.getSheetByName('受診者マスタ');
-    if (!sheet) {
+    // 受診者マスタ取得
+    const patientSheet = ss.getSheetByName('受診者マスタ');
+    if (!patientSheet) {
       return { success: false, error: '受診者マスタシートが見つかりません', data: [], _debug: debugInfo };
     }
-    debugInfo.sheetFound = true;
 
-    const data = sheet.getDataRange().getValues();
-    debugInfo.totalRows = data.length;
-    debugInfo.firstRowId = data.length > 1 ? String(data[1][0]) : 'NO_DATA';
+    // 受診記録取得
+    const visitSheet = ss.getSheetByName('受診記録');
+    debugInfo.visitSheetFound = !!visitSheet;
 
-    const results = [];
+    // 受診者マスタ列定義（Config.gs準拠）
+    const PATIENT_COL = {
+      PATIENT_ID: 0,   // A: 受診者ID
+      NAME: 1,         // B: 氏名
+      KANA: 2,         // C: カナ
+      BIRTHDATE: 3,    // D: 生年月日
+      GENDER: 4,       // E: 性別
+      COMPANY: 9       // J: 所属企業
+    };
 
-    // 検索条件を正規化（nullチェック追加）
+    // 受診記録列定義（Config.gs準拠）
+    const VISIT_COL = {
+      VISIT_ID: 0,       // A: 受診ID
+      PATIENT_ID: 1,     // B: 受診者ID
+      EXAM_TYPE_ID: 2,   // C: 検診種別ID
+      COURSE_ID: 3,      // D: コースID
+      VISIT_DATE: 4,     // E: 受診日
+      AGE: 5,            // F: 年齢
+      JUDGMENT: 6,       // G: 総合判定
+      STATUS: 8          // I: ステータス
+    };
+
+    // 受診者データ取得
+    const patientData = patientSheet.getDataRange().getValues();
+    debugInfo.patientRows = patientData.length;
+
+    // 受診記録データ取得（マップ化）
+    const visitMap = {};  // patientId -> 最新の受診記録
+    if (visitSheet && visitSheet.getLastRow() >= 2) {
+      const visitData = visitSheet.getDataRange().getValues();
+      debugInfo.visitRows = visitData.length;
+
+      for (let i = 1; i < visitData.length; i++) {
+        const row = visitData[i];
+        const patientId = safeString(row[VISIT_COL.PATIENT_ID]);
+        const visitDate = row[VISIT_COL.VISIT_DATE];
+
+        if (!patientId) continue;
+
+        // 最新の受診記録を保持
+        if (!visitMap[patientId] ||
+            (visitDate && visitMap[patientId].visitDate < visitDate)) {
+          visitMap[patientId] = {
+            visitId: safeString(row[VISIT_COL.VISIT_ID]),
+            visitDate: visitDate,
+            examTypeId: safeString(row[VISIT_COL.EXAM_TYPE_ID]),
+            courseId: safeString(row[VISIT_COL.COURSE_ID]),
+            judgment: safeString(row[VISIT_COL.JUDGMENT]),
+            status: safeString(row[VISIT_COL.STATUS])
+          };
+        }
+      }
+    }
+
+    // 検索条件を正規化
     const searchId = criteria && criteria.patientId ? normalizeString(criteria.patientId) : '';
     const searchName = criteria && criteria.name ? normalizeString(criteria.name) : '';
     const searchKana = criteria && criteria.kana ? normalizeKana(criteria.kana) : '';
 
-    debugInfo.normalizedCriteria = { searchId: searchId, searchName: searchName, searchKana: searchKana };
+    debugInfo.normalizedCriteria = { searchId, searchName, searchKana };
 
-    // 列インデックス:
-    // 0:受診ID, 1:ステータス, 2:受診日, 3:氏名, 4:カナ, 5:性別, 6:生年月日, 7:年齢,
-    // 8:受診コース, 9:事業所名, 10:所属, 11:総合判定
-    for (let i = 1; i < data.length; i++) {
-      const row = data[i];
+    const results = [];
+
+    for (let i = 1; i < patientData.length; i++) {
+      const row = patientData[i];
 
       // 空行スキップ
-      if (!row[0]) continue;
+      if (!row[PATIENT_COL.PATIENT_ID]) continue;
+
+      const patientId = safeString(row[PATIENT_COL.PATIENT_ID]);
+      const name = safeString(row[PATIENT_COL.NAME]);
+      const kana = safeString(row[PATIENT_COL.KANA]);
 
       // 検索条件でフィルタ
       let match = true;
 
-      if (searchId) {
-        const rowId = normalizeString(row[0]);
-        if (!rowId.includes(searchId)) {
-          match = false;
-        }
+      if (searchId && !normalizeString(patientId).includes(searchId)) {
+        match = false;
       }
-      if (searchName && match) {
-        const rowName = normalizeString(row[3]);
-        if (!rowName.includes(searchName)) {
-          match = false;
-        }
+      if (searchName && match && !normalizeString(name).includes(searchName)) {
+        match = false;
       }
-      if (searchKana && match) {
-        const rowKana = normalizeKana(row[4]);
-        if (!rowKana.includes(searchKana)) {
-          match = false;
-        }
+      if (searchKana && match && !normalizeKana(kana).includes(searchKana)) {
+        match = false;
       }
 
       if (match) {
-        // ★★★ 重要: すべての値をシリアライズ可能な形式に変換 ★★★
+        const visit = visitMap[patientId] || {};
+
         results.push({
-          '受診ID': safeString(row[0]),
-          'ステータス': safeString(row[1]),
-          '受診日': formatDateToString(row[2]),
-          '氏名': safeString(row[3]),
-          'カナ': safeString(row[4]),
-          '性別': safeString(row[5]),
-          '生年月日': formatDateToString(row[6]),
-          '年齢': safeNumber(row[7]),
-          '受診コース': safeString(row[8]),
-          '事業所名': safeString(row[9]),
-          '所属': safeString(row[10]),
-          '総合判定': safeString(row[11]),
+          '受診者ID': patientId,
+          '受診ID': visit.visitId || '',
+          '氏名': name,
+          'カナ': kana,
+          '生年月日': formatDateToString(row[PATIENT_COL.BIRTHDATE]),
+          '性別': safeString(row[PATIENT_COL.GENDER]),
+          '所属企業': safeString(row[PATIENT_COL.COMPANY]),
+          '受診日': formatDateToString(visit.visitDate),
+          '受診コース': visit.courseId || '',
+          'ステータス': visit.status || '',
+          '総合判定': visit.judgment || '',
           _rowIndex: i + 1
         });
       }
@@ -209,6 +255,104 @@ function portalSearchPatients(criteria) {
       data: [],
       _debug: debugInfo
     };
+  }
+}
+
+// ============================================================
+// 診断用関数
+// ============================================================
+
+/**
+ * 検索診断 - 受診者マスタの構造と検索ロジックをテスト
+ * GASエディタから実行してログを確認
+ */
+function diagnosePatientSearch() {
+  const ss = getPortalSpreadsheet();
+  const sheet = ss.getSheetByName('受診者マスタ');
+
+  if (!sheet) {
+    console.log('ERROR: 受診者マスタシートが見つかりません');
+    return;
+  }
+
+  const data = sheet.getDataRange().getValues();
+  console.log('=== 受診者マスタ診断 ===');
+  console.log('総行数: ' + data.length);
+
+  // ヘッダー行を表示
+  console.log('ヘッダー: ' + JSON.stringify(data[0]));
+
+  // 最初の5件のデータを詳細表示
+  console.log('\n=== 最初の5件のデータ ===');
+  for (let i = 1; i < Math.min(6, data.length); i++) {
+    const row = data[i];
+    console.log('--- Row ' + i + ' ---');
+    console.log('  Col 0 (ID?): [' + row[0] + '] type=' + typeof row[0]);
+    console.log('  Col 1 (氏名?): [' + row[1] + '] type=' + typeof row[1]);
+    console.log('  Col 2 (カナ?): [' + row[2] + '] type=' + typeof row[2]);
+    console.log('  Col 3: [' + row[3] + ']');
+    console.log('  Col 4: [' + row[4] + ']');
+
+    // 氏名の文字コードを詳細表示
+    if (row[1]) {
+      const nameStr = String(row[1]);
+      const charCodes = [];
+      for (let j = 0; j < nameStr.length; j++) {
+        charCodes.push(nameStr.charCodeAt(j).toString(16));
+      }
+      console.log('  氏名の文字コード: ' + charCodes.join(' '));
+    }
+  }
+
+  // 検索テスト
+  console.log('\n=== 検索テスト ===');
+  const testSearchTerm = '遠藤';
+  const normalizedSearch = normalizeString(testSearchTerm);
+  console.log('検索文字列: [' + testSearchTerm + ']');
+  console.log('正規化後: [' + normalizedSearch + ']');
+
+  let foundCount = 0;
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const name = safeString(row[1]);
+    const normalizedName = normalizeString(name);
+
+    if (normalizedName.includes(normalizedSearch)) {
+      console.log('マッチ！ Row ' + i + ': [' + name + '] → [' + normalizedName + ']');
+      foundCount++;
+    }
+  }
+  console.log('マッチ件数: ' + foundCount);
+
+  // 「遠藤」を含む可能性のある行を探す（文字コード比較なし）
+  console.log('\n=== 部分一致検索（正規化なし）===');
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const name = String(row[1] || '');
+    if (name.indexOf('遠') >= 0 || name.indexOf('藤') >= 0) {
+      console.log('部分マッチ Row ' + i + ': [' + name + ']');
+    }
+  }
+}
+
+/**
+ * 全受診者をリスト（検索なし）
+ */
+function listAllPatients() {
+  const ss = getPortalSpreadsheet();
+  const sheet = ss.getSheetByName('受診者マスタ');
+
+  if (!sheet) {
+    console.log('ERROR: シートなし');
+    return;
+  }
+
+  const data = sheet.getDataRange().getValues();
+  console.log('ヘッダー: ' + JSON.stringify(data[0]));
+  console.log('データ件数: ' + (data.length - 1));
+
+  for (let i = 1; i < Math.min(20, data.length); i++) {
+    console.log(i + ': ID=[' + data[i][0] + '] 氏名=[' + data[i][1] + '] カナ=[' + data[i][2] + ']');
   }
 }
 

@@ -40,6 +40,10 @@
       <span class="nav-icon">💰</span>
       <span class="nav-label">請求管理</span>
     </button>
+    <button class="nav-btn" data-section="master" onclick="showSection('master')">
+      <span class="nav-icon">⚙️</span>
+      <span class="nav-label">マスタ管理</span>
+    </button>
   </nav>
 
   <!-- メインコンテンツ -->
@@ -59,9 +63,9 @@
         <h2>受診者登録・検索</h2>
       </div>
 
-      <!-- 検索フォーム -->
+      <!-- 検索フォーム（v6: 受診者IDと受診ID両対応） -->
       <div class="search-box">
-        <input type="text" id="patientSearchId" placeholder="受診ID" class="input-sm">
+        <input type="text" id="patientSearchId" placeholder="受診者ID (P-00001)" class="input-sm">
         <input type="text" id="patientSearchName" placeholder="氏名" class="input-md">
         <input type="text" id="patientSearchKana" placeholder="カナ" class="input-md">
         <button class="btn btn-primary" onclick="searchPatients()">検索</button>
@@ -156,60 +160,105 @@
           <button class="btn btn-secondary" onclick="cancelPatientEdit()">キャンセル</button>
           <button class="btn btn-primary" onclick="goToResultInput()">結果入力へ</button>
         </div>
+
+        <!-- 受診履歴セクション（v6: 正規化構造対応） -->
+        <div class="visit-history-section">
+          <h4>受診履歴</h4>
+          <div id="visitHistoryContainer" class="visit-history-container">
+            <!-- 受診履歴がここに表示される -->
+          </div>
+        </div>
       </div>
 
-      <!-- 新規登録フォーム -->
+      <!-- 新規登録フォーム（v6: 正規化構造対応） -->
       <div id="newPatientForm" class="form-panel" style="display:none;">
-        <h3>新規受診者登録</h3>
+        <h3 id="newPatientFormTitle">新規受診者登録</h3>
+
+        <!-- 既存患者モード（受診のみ追加時に表示） -->
+        <input type="hidden" id="existingPatientId" value="">
+        <div id="existingPatientMode" class="existing-patient-info" style="display:none;">
+          <div class="info-badge">
+            <span class="label">既存患者:</span>
+            <span id="existingPatientInfo" class="value">-</span>
+          </div>
+          <p class="hint">この患者に新しい受診記録を追加します</p>
+        </div>
+
         <div class="form-grid" autocomplete="off">
-          <div class="form-group">
-            <label>受診ID <span class="required">*</span></label>
-            <input type="text" id="newPatientId" class="input-md auto-next" data-next="newPatientLastName" autocomplete="off" required>
+          <!-- 個人情報セクション（新規患者のみ表示） -->
+          <div id="newPatientPersonalInfo" class="personal-info-section">
+            <div class="form-group">
+              <label>カルテNo. <span class="required">*</span></label>
+              <input type="text" id="newPatientKarteNo" class="input-sm auto-next" data-next="newPatientLastName" placeholder="999991" maxlength="6" pattern="[0-9]{6}" autocomplete="off" required>
+              <small class="hint">数字6桁</small>
+            </div>
+            <div class="form-group">
+              <label>姓 <span class="required">*</span></label>
+              <input type="text" id="newPatientLastName" class="input-sm auto-next" data-next="newPatientFirstName" placeholder="山田" autocomplete="off" required>
+            </div>
+            <div class="form-group">
+              <label>名 <span class="required">*</span></label>
+              <input type="text" id="newPatientFirstName" class="input-sm auto-next" data-next="newPatientLastNameKana" placeholder="太郎" autocomplete="off" required>
+            </div>
+            <div class="form-group">
+              <label>セイ <span class="required">*</span></label>
+              <input type="text" id="newPatientLastNameKana" class="input-sm auto-next" data-next="newPatientFirstNameKana" inputmode="latin" placeholder="yamada → ヤマダ" autocomplete="off" required>
+            </div>
+            <div class="form-group">
+              <label>メイ <span class="required">*</span></label>
+              <input type="text" id="newPatientFirstNameKana" class="input-sm auto-next" data-next="newPatientBirthYear" inputmode="latin" placeholder="tarou → タロウ" autocomplete="off" required>
+            </div>
+            <div class="form-group birth-date-group">
+              <label>生年月日</label>
+              <div class="birth-date-inputs">
+                <input type="text" id="newPatientBirthYear" class="input-sm birth-year" placeholder="1980" maxlength="4" pattern="[0-9]{4}" autocomplete="off">
+                <span class="date-separator">年</span>
+                <input type="text" id="newPatientBirthMonth" class="input-xs birth-month" placeholder="01" maxlength="2" pattern="[0-9]{1,2}" autocomplete="off">
+                <span class="date-separator">月</span>
+                <input type="text" id="newPatientBirthDay" class="input-xs birth-day auto-next" data-next="newPatientGender" placeholder="15" maxlength="2" pattern="[0-9]{1,2}" autocomplete="off">
+                <span class="date-separator">日</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>性別</label>
+              <select id="newPatientGender" class="input-sm auto-next" data-next="newPatientExamType">
+                <option value="">選択</option>
+                <option value="男">男</option>
+                <option value="女">女</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>事業所名</label>
+              <input type="text" id="newPatientCompany" class="input-md">
+            </div>
           </div>
-          <div class="form-group">
-            <label>姓 <span class="required">*</span></label>
-            <input type="text" id="newPatientLastName" class="input-sm auto-next" data-next="newPatientFirstName" placeholder="山田" autocomplete="off" required>
-          </div>
-          <div class="form-group">
-            <label>名 <span class="required">*</span></label>
-            <input type="text" id="newPatientFirstName" class="input-sm auto-next" data-next="newPatientLastNameKana" placeholder="太郎" autocomplete="off" required>
-          </div>
-          <div class="form-group">
-            <label>セイ <span class="required">*</span></label>
-            <input type="text" id="newPatientLastNameKana" class="input-sm auto-next" data-next="newPatientFirstNameKana" placeholder="ヤマダ" autocomplete="off" required>
-          </div>
-          <div class="form-group">
-            <label>メイ <span class="required">*</span></label>
-            <input type="text" id="newPatientFirstNameKana" class="input-sm auto-next" data-next="newPatientBirthDate" placeholder="タロウ" autocomplete="off" required>
-          </div>
-          <div class="form-group">
-            <label>生年月日</label>
-            <input type="date" id="newPatientBirthDate" class="input-md auto-next" data-next="newPatientGender">
-          </div>
-          <div class="form-group">
-            <label>性別</label>
-            <select id="newPatientGender" class="input-sm auto-next" data-next="newPatientCourse">
-              <option value="">選択</option>
-              <option value="男">男</option>
-              <option value="女">女</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>受診コース</label>
-            <select id="newPatientCourse" class="input-md auto-next" data-next="newPatientExamDate">
-              <option value="人間ドック">人間ドック</option>
-              <option value="定期健診">定期健診</option>
-              <option value="労災二次検診">労災二次検診</option>
-              <option value="生活習慣病予防健診">生活習慣病予防健診</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>受診日</label>
-            <input type="date" id="newPatientExamDate" class="input-md auto-next" data-next="newPatientCompany">
-          </div>
-          <div class="form-group">
-            <label>事業所名</label>
-            <input type="text" id="newPatientCompany" class="input-md">
+
+          <!-- 受診情報セクション（常に表示） -->
+          <div class="visit-info-section">
+            <div class="form-group">
+              <label>検診種別 <span class="required">*</span></label>
+              <select id="newPatientExamType" class="input-md auto-next" data-next="newPatientCourse">
+                <option value="人間ドック">人間ドック</option>
+                <option value="定期健診">定期健診</option>
+                <option value="労災二次検診">労災二次検診</option>
+                <option value="雇入健診">雇入健診</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>コース</label>
+              <select id="newPatientCourse" class="input-md auto-next" data-next="newPatientExamDate">
+                <option value="">選択</option>
+                <option value="生活習慣病ドック">生活習慣病ドック</option>
+                <option value="消化器ドック">消化器ドック</option>
+                <option value="レディースドック">レディースドック</option>
+                <option value="定期健康診断A">定期健康診断A</option>
+                <option value="定期健康診断B">定期健康診断B</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>受診日 <span class="required">*</span></label>
+              <input type="date" id="newPatientExamDate" class="input-md">
+            </div>
           </div>
         </div>
         <div class="form-actions">
@@ -299,10 +348,89 @@
 
       <!-- 血液検査タブ -->
       <div id="tab-blood" class="tab-content active">
-        <div class="info-box">
-          <p>血液検査結果はCSV取込で自動登録されます。</p>
+        <!-- PrismCheckup風 縦並び入力レイアウト -->
+        <div class="input-columns">
+          <!-- 身体計測 -->
+          <div class="input-section">
+            <div class="section-title">身体計測</div>
+            <div class="input-row"><span class="item-label">身長</span><input type="number" id="btHeight" step="0.1" class="item-input"><span class="item-unit">cm</span></div>
+            <div class="input-row"><span class="item-label">体重</span><input type="number" id="btWeight" step="0.1" class="item-input"><span class="item-unit">kg</span></div>
+            <div class="input-row"><span class="item-label">BMI</span><input type="text" id="btBMI" class="item-input" readonly><span class="item-unit"></span></div>
+            <div class="input-row"><span class="item-label">腹囲</span><input type="number" id="btWaist" step="0.1" class="item-input"><span class="item-unit">cm</span></div>
+          </div>
+
+          <!-- 血圧 -->
+          <div class="input-section">
+            <div class="section-title">血圧</div>
+            <div class="input-row"><span class="item-label">収縮期</span><input type="number" id="btSBP" class="item-input"><span class="item-unit">mmHg</span></div>
+            <div class="input-row"><span class="item-label">拡張期</span><input type="number" id="btDBP" class="item-input"><span class="item-unit">mmHg</span></div>
+            <div class="input-row"><span class="item-label">脈拍</span><input type="number" id="btPulse" class="item-input"><span class="item-unit">/分</span></div>
+          </div>
+
+          <!-- 尿検査 -->
+          <div class="input-section">
+            <div class="section-title">尿検査</div>
+            <div class="input-row"><span class="item-label">尿蛋白</span><div class="qual-btns" data-field="btUrineProtein"><button type="button" class="q-btn" data-val="(-)">-</button><button type="button" class="q-btn" data-val="(±)">±</button><button type="button" class="q-btn" data-val="(+)">+</button><button type="button" class="q-btn" data-val="(++)">2+</button><button type="button" class="q-btn" data-val="(+++)">3+</button></div><input type="hidden" id="btUrineProtein"></div>
+            <div class="input-row"><span class="item-label">尿糖</span><div class="qual-btns" data-field="btUrineSugar"><button type="button" class="q-btn" data-val="(-)">-</button><button type="button" class="q-btn" data-val="(±)">±</button><button type="button" class="q-btn" data-val="(+)">+</button><button type="button" class="q-btn" data-val="(++)">2+</button><button type="button" class="q-btn" data-val="(+++)">3+</button></div><input type="hidden" id="btUrineSugar"></div>
+            <div class="input-row"><span class="item-label">尿潜血</span><div class="qual-btns" data-field="btUrineBlood"><button type="button" class="q-btn" data-val="(-)">-</button><button type="button" class="q-btn" data-val="(±)">±</button><button type="button" class="q-btn" data-val="(+)">+</button><button type="button" class="q-btn" data-val="(++)">2+</button><button type="button" class="q-btn" data-val="(+++)">3+</button></div><input type="hidden" id="btUrineBlood"></div>
+          </div>
+
+          <!-- 血球系 -->
+          <div class="input-section">
+            <div class="section-title">血球系</div>
+            <div class="input-row"><span class="item-label">白血球</span><input type="number" id="btWBC" step="0.1" class="item-input"><span class="item-unit">×10²</span></div>
+            <div class="input-row"><span class="item-label">赤血球</span><input type="number" id="btRBC" step="1" class="item-input"><span class="item-unit">×10⁴</span></div>
+            <div class="input-row"><span class="item-label">Hb</span><input type="number" id="btHb" step="0.1" class="item-input"><span class="item-unit">g/dL</span></div>
+            <div class="input-row"><span class="item-label">Ht</span><input type="number" id="btHt" step="0.1" class="item-input"><span class="item-unit">%</span></div>
+          </div>
+
+          <!-- 肝機能 -->
+          <div class="input-section">
+            <div class="section-title">肝機能</div>
+            <div class="input-row"><span class="item-label">GOT</span><input type="number" id="btGOT" step="1" class="item-input"><span class="item-unit">U/L</span></div>
+            <div class="input-row"><span class="item-label">GPT</span><input type="number" id="btGPT" step="1" class="item-input"><span class="item-unit">U/L</span></div>
+            <div class="input-row"><span class="item-label">γ-GTP</span><input type="number" id="btGGTP" step="1" class="item-input"><span class="item-unit">U/L</span></div>
+            <div class="input-row"><span class="item-label">ALP</span><input type="number" id="btALP" step="1" class="item-input"><span class="item-unit">U/L</span></div>
+          </div>
+
+          <!-- 脂質 -->
+          <div class="input-section">
+            <div class="section-title">脂質</div>
+            <div class="input-row"><span class="item-label">総コレ</span><input type="number" id="btTC" step="1" class="item-input"><span class="item-unit">mg/dL</span></div>
+            <div class="input-row"><span class="item-label">HDL</span><input type="number" id="btHDL" step="1" class="item-input"><span class="item-unit">mg/dL</span></div>
+            <div class="input-row"><span class="item-label">LDL</span><input type="number" id="btLDL" step="1" class="item-input"><span class="item-unit">mg/dL</span></div>
+            <div class="input-row"><span class="item-label">中性脂肪</span><input type="number" id="btTG" step="1" class="item-input"><span class="item-unit">mg/dL</span></div>
+          </div>
+
+          <!-- 糖代謝 -->
+          <div class="input-section">
+            <div class="section-title">糖代謝</div>
+            <div class="input-row"><span class="item-label">血糖</span><input type="number" id="btGlu" step="1" class="item-input"><span class="item-unit">mg/dL</span></div>
+            <div class="input-row"><span class="item-label">HbA1c</span><input type="number" id="btHbA1c" step="0.1" class="item-input"><span class="item-unit">%</span></div>
+          </div>
+
+          <!-- 腎機能 -->
+          <div class="input-section">
+            <div class="section-title">腎機能</div>
+            <div class="input-row"><span class="item-label">尿酸</span><input type="number" id="btUA" step="0.1" class="item-input"><span class="item-unit">mg/dL</span></div>
+            <div class="input-row"><span class="item-label">Cr</span><input type="number" id="btCr" step="0.01" class="item-input"><span class="item-unit">mg/dL</span></div>
+            <div class="input-row"><span class="item-label">BUN</span><input type="number" id="btBUN" step="0.1" class="item-input"><span class="item-unit">mg/dL</span></div>
+            <div class="input-row"><span class="item-label">eGFR</span><input type="number" id="btEGFR" step="0.1" class="item-input"><span class="item-unit">mL/min</span></div>
+          </div>
+
+          <!-- 蛋白 -->
+          <div class="input-section">
+            <div class="section-title">蛋白</div>
+            <div class="input-row"><span class="item-label">総蛋白</span><input type="number" id="btTP" step="0.1" class="item-input"><span class="item-unit">g/dL</span></div>
+            <div class="input-row"><span class="item-label">Alb</span><input type="number" id="btAlb" step="0.1" class="item-input"><span class="item-unit">g/dL</span></div>
+          </div>
         </div>
-        <div id="bloodTestDisplay" class="blood-test-grid"></div>
+
+        <div class="input-actions">
+          <button class="btn btn-secondary btn-sm" onclick="clearBloodTestForm()">クリア</button>
+          <button class="btn btn-primary" onclick="saveBloodTestResults()">保存</button>
+          <button class="btn btn-success" onclick="saveBloodTestResultsAndNext()">保存して次へ →</button>
+        </div>
       </div>
 
       <!-- 身体計測タブ -->
@@ -563,6 +691,136 @@
 
       <div id="billingStats" class="billing-stats"></div>
       <div id="billingList" class="results-table-container"></div>
+    </section>
+
+    <!-- ========== マスタ管理セクション ========== -->
+    <section id="section-master" class="section">
+      <div class="section-header">
+        <h2>マスタ管理</h2>
+      </div>
+
+      <!-- マスタ管理タブ -->
+      <div class="tabs master-tabs">
+        <button class="tab-btn active" data-tab="master-kenpo" onclick="showMasterTab('kenpo')">けんぽ</button>
+        <button class="tab-btn" data-tab="master-company" onclick="showMasterTab('company')">事業所</button>
+      </div>
+
+      <!-- けんぽマスタタブ -->
+      <div id="tab-master-kenpo" class="tab-content active">
+        <div class="master-section">
+          <div class="section-header">
+            <h3>けんぽ（健康保険組合）一覧</h3>
+            <button class="btn btn-success btn-sm" onclick="showKenpoForm()">+ 新規登録</button>
+          </div>
+
+          <!-- けんぽ登録フォーム -->
+          <div id="kenpoForm" class="form-panel" style="display:none;">
+            <h4 id="kenpoFormTitle">けんぽ新規登録</h4>
+            <input type="hidden" id="kenpoId">
+            <div class="form-grid">
+              <div class="form-group">
+                <label>けんぽコード <span class="required">*</span></label>
+                <input type="text" id="kenpoCode" class="input-sm" placeholder="K001" maxlength="10" required>
+              </div>
+              <div class="form-group">
+                <label>けんぽ名称 <span class="required">*</span></label>
+                <input type="text" id="kenpoName" class="input-lg" placeholder="○○健康保険組合" required>
+              </div>
+              <div class="form-group">
+                <label>略称</label>
+                <input type="text" id="kenpoShortName" class="input-md" placeholder="○○けんぽ">
+              </div>
+              <div class="form-group">
+                <label>住所</label>
+                <input type="text" id="kenpoAddress" class="input-lg" placeholder="東京都○○区...">
+              </div>
+              <div class="form-group">
+                <label>電話番号</label>
+                <input type="text" id="kenpoPhone" class="input-md" placeholder="03-0000-0000">
+              </div>
+              <div class="form-group">
+                <label>担当者</label>
+                <input type="text" id="kenpoContact" class="input-md" placeholder="山田太郎">
+              </div>
+              <div class="form-group full-width">
+                <label>備考</label>
+                <textarea id="kenpoNote" rows="2" class="input-full"></textarea>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="saveKenpo()">保存</button>
+              <button class="btn btn-secondary" onclick="hideKenpoForm()">キャンセル</button>
+            </div>
+          </div>
+
+          <!-- けんぽ一覧 -->
+          <div id="kenpoList" class="results-table-container">
+            <p>読み込み中...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 事業所マスタタブ -->
+      <div id="tab-master-company" class="tab-content">
+        <div class="master-section">
+          <div class="section-header">
+            <h3>事業所一覧</h3>
+            <button class="btn btn-success btn-sm" onclick="showCompanyForm()">+ 新規登録</button>
+          </div>
+
+          <!-- 事業所登録フォーム -->
+          <div id="companyForm" class="form-panel" style="display:none;">
+            <h4 id="companyFormTitle">事業所新規登録</h4>
+            <input type="hidden" id="companyId">
+            <div class="form-grid">
+              <div class="form-group">
+                <label>事業所コード <span class="required">*</span></label>
+                <input type="text" id="companyCode" class="input-sm" placeholder="C001" maxlength="10" required>
+              </div>
+              <div class="form-group">
+                <label>事業所名 <span class="required">*</span></label>
+                <input type="text" id="companyName" class="input-lg" placeholder="株式会社○○" required>
+              </div>
+              <div class="form-group">
+                <label>所属けんぽ</label>
+                <select id="companyKenpo" class="input-md">
+                  <option value="">選択</option>
+                  <!-- JSで動的に追加 -->
+                </select>
+              </div>
+              <div class="form-group">
+                <label>住所</label>
+                <input type="text" id="companyAddress" class="input-lg" placeholder="東京都○○区...">
+              </div>
+              <div class="form-group">
+                <label>電話番号</label>
+                <input type="text" id="companyPhone" class="input-md" placeholder="03-0000-0000">
+              </div>
+              <div class="form-group">
+                <label>担当者</label>
+                <input type="text" id="companyContact" class="input-md" placeholder="山田太郎">
+              </div>
+              <div class="form-group">
+                <label>従業員数</label>
+                <input type="number" id="companyEmployeeCount" class="input-sm" placeholder="100">
+              </div>
+              <div class="form-group full-width">
+                <label>備考</label>
+                <textarea id="companyNote" rows="2" class="input-full"></textarea>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="saveCompany()">保存</button>
+              <button class="btn btn-secondary" onclick="hideCompanyForm()">キャンセル</button>
+            </div>
+          </div>
+
+          <!-- 事業所一覧 -->
+          <div id="companyList" class="results-table-container">
+            <p>読み込み中...</p>
+          </div>
+        </div>
+      </div>
     </section>
   </main>
 

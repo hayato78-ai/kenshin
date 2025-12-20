@@ -1,0 +1,1124 @@
+<!--
+  健診結果DB 統合システム - CSVインポート画面 (SCR-012)
+
+  @description Phase 3: データ移行・CSVインポート機能
+  @version 1.0.0
+  @date 2025-12-16
+-->
+
+<div id="screen-import" class="screen hidden">
+  <div class="main-content">
+    <!-- ページヘッダー -->
+    <div class="flex-between mb-lg">
+      <h1 style="font-size: var(--font-size-xl);">CSVインポート</h1>
+      <a href="javascript:void(0)" class="btn btn-outline" onclick="App.navigate('menu')">
+        メニューに戻る
+      </a>
+    </div>
+
+    <!-- タブ切り替え -->
+    <div class="tabs mb-lg">
+      <button class="tab active" id="tab-patient" onclick="Import.switchTab('patient')">
+        受診者インポート
+      </button>
+      <button class="tab" id="tab-result" onclick="Import.switchTab('result')">
+        検査結果インポート
+      </button>
+    </div>
+
+    <!-- ステップインジケーター -->
+    <div class="steps mb-lg">
+      <div class="step active" id="import-step-indicator-1">
+        <div class="step-number">1</div>
+        <div class="step-label">ファイル選択</div>
+      </div>
+      <div class="step-connector" id="import-step-connector-1"></div>
+      <div class="step" id="import-step-indicator-2">
+        <div class="step-number">2</div>
+        <div class="step-label">プレビュー</div>
+      </div>
+      <div class="step-connector" id="import-step-connector-2"></div>
+      <div class="step" id="import-step-indicator-3">
+        <div class="step-number">3</div>
+        <div class="step-label">マッピング</div>
+      </div>
+      <div class="step-connector" id="import-step-connector-3"></div>
+      <div class="step" id="import-step-indicator-4">
+        <div class="step-number">4</div>
+        <div class="step-label">実行</div>
+      </div>
+    </div>
+
+    <!-- ============================================
+         Step 1: ファイル選択
+         ============================================ -->
+    <div id="import-step-1" class="card">
+      <div class="card-header">
+        <span class="card-title">Step 1: CSVファイルを選択</span>
+      </div>
+      <div class="card-body">
+        <div class="dropzone" id="import-dropzone"
+             ondrop="Import.handleDrop(event)"
+             ondragover="Import.handleDragOver(event)"
+             ondragleave="Import.handleDragLeave(event)">
+          <div class="dropzone-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+          </div>
+          <div class="dropzone-text">
+            CSVファイルをドラッグ＆ドロップ<br>
+            <span style="color: var(--color-text-secondary); font-size: var(--font-size-sm);">
+              または
+            </span>
+          </div>
+          <input type="file" id="import-file-input" accept=".csv,.txt" onchange="Import.handleFileSelect(event)" style="display:none;">
+          <button class="btn btn-primary" onclick="document.getElementById('import-file-input').click()">
+            ファイルを選択
+          </button>
+        </div>
+
+        <div id="import-file-info" class="mt-md hidden">
+          <div class="alert alert-info">
+            <strong>選択ファイル:</strong> <span id="import-file-name">-</span>
+            <span id="import-file-size" style="margin-left: var(--spacing-md); color: var(--color-text-secondary);">-</span>
+            <button class="btn btn-sm btn-outline" style="float: right;" onclick="Import.clearFile()">取り消し</button>
+          </div>
+        </div>
+
+        <div class="form-group mt-md">
+          <label class="form-label">エンコーディング</label>
+          <select id="import-encoding" class="form-control" style="max-width: 200px;">
+            <option value="UTF-8">UTF-8</option>
+            <option value="Shift_JIS">Shift_JIS</option>
+          </select>
+        </div>
+
+        <div class="text-right mt-lg">
+          <button class="btn btn-primary" id="btn-to-step-2" onclick="Import.goToStep2()" disabled>
+            次へ：プレビュー
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================
+         Step 2: プレビュー
+         ============================================ -->
+    <div id="import-step-2" class="card hidden">
+      <div class="card-header">
+        <span class="card-title">Step 2: データプレビュー</span>
+        <span id="import-preview-count" style="float: right; color: var(--color-text-secondary);">-</span>
+      </div>
+      <div class="card-body">
+        <div class="table-container" style="max-height: 300px; overflow: auto;">
+          <table class="table table-striped" id="import-preview-table">
+            <thead id="import-preview-header">
+              <!-- 動的に生成 -->
+            </thead>
+            <tbody id="import-preview-body">
+              <!-- 動的に生成 -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="flex-between mt-lg">
+          <button class="btn btn-outline" onclick="Import.goToStep1()">戻る</button>
+          <button class="btn btn-primary" onclick="Import.goToStep3()">次へ：マッピング確認</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================
+         Step 3: マッピング確認
+         ============================================ -->
+    <div id="import-step-3" class="card hidden">
+      <div class="card-header">
+        <span class="card-title">Step 3: カラムマッピング</span>
+        <span id="import-mapping-source" style="float: right; color: var(--color-text-secondary);">-</span>
+      </div>
+      <div class="card-body">
+        <!-- マッピング信頼度 -->
+        <div id="import-mapping-confidence" class="mb-md">
+          <div class="flex gap-sm" style="align-items: center;">
+            <span>マッピング信頼度:</span>
+            <div class="progress-bar" style="flex: 1; max-width: 200px;">
+              <div class="progress-bar-fill" id="import-confidence-bar" style="width: 0%;"></div>
+            </div>
+            <span id="import-confidence-value">-</span>
+          </div>
+        </div>
+
+        <!-- マッピングテーブル -->
+        <div class="table-container" style="max-height: 400px; overflow: auto;">
+          <table class="table" id="import-mapping-table">
+            <thead>
+              <tr>
+                <th style="width: 30%;">CSVカラム</th>
+                <th style="width: 30%;">サンプル値</th>
+                <th style="width: 30%;">マッピング先</th>
+                <th style="width: 10%;">信頼度</th>
+              </tr>
+            </thead>
+            <tbody id="import-mapping-body">
+              <!-- 動的に生成 -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- AIからのメモ -->
+        <div id="import-ai-notes" class="mt-md hidden">
+          <div class="alert alert-info">
+            <strong>AI分析メモ:</strong>
+            <p id="import-ai-notes-content"></p>
+          </div>
+        </div>
+
+        <div class="flex-between mt-lg">
+          <button class="btn btn-outline" onclick="Import.goToStep2()">戻る</button>
+          <button class="btn btn-primary" onclick="Import.goToStep4()">次へ：オプション設定</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================
+         Step 4: オプション設定 & 実行
+         ============================================ -->
+    <div id="import-step-4" class="card hidden">
+      <div class="card-header">
+        <span class="card-title">Step 4: インポートオプション</span>
+      </div>
+      <div class="card-body">
+        <!-- 検査結果の場合のみ表示 -->
+        <div id="import-format-option" class="form-group hidden">
+          <label class="form-label">データ形式</label>
+          <div class="radio-group">
+            <label class="radio-label">
+              <input type="radio" name="import-format" value="horizontal" checked>
+              横持ち形式（1行に全項目）→ 縦持ちに変換
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="import-format" value="vertical">
+              縦持ち形式（そのまま）
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">インポートオプション</label>
+          <div class="checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="import-option-skip-errors" checked>
+              エラー行をスキップして続行
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="import-option-allow-duplicates">
+              重複を許可（同一氏名+生年月日）
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="import-option-save-pattern" checked>
+              マッピングパターンを保存（次回自動適用）
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group" id="import-pattern-name-group">
+          <label class="form-label">パターン名（任意）</label>
+          <input type="text" id="import-pattern-name" class="form-control" placeholder="例: BML形式、◯◯病院形式" style="max-width: 300px;">
+          <div class="form-help">マッピングパターンに名前を付けておくと管理しやすくなります</div>
+        </div>
+
+        <!-- インポート対象のサマリー -->
+        <div class="summary-box mt-lg">
+          <h4>インポート内容</h4>
+          <table class="summary-table">
+            <tr>
+              <th>インポート種別:</th>
+              <td id="import-summary-type">-</td>
+            </tr>
+            <tr>
+              <th>対象行数:</th>
+              <td id="import-summary-rows">-</td>
+            </tr>
+            <tr>
+              <th>マッピング済み項目:</th>
+              <td id="import-summary-mapped">-</td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="flex-between mt-lg">
+          <button class="btn btn-outline" onclick="Import.goToStep3()">戻る</button>
+          <button class="btn btn-success btn-lg" onclick="Import.executeImport()">
+            インポート実行
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================
+     インポート結果モーダル
+     ============================================ -->
+<template id="import-result-modal-template">
+  <div class="modal-overlay" id="import-result-modal">
+    <div class="modal" style="max-width: 600px;">
+      <div class="modal-header">
+        <span class="modal-title">インポート結果</span>
+        <button class="modal-close" onclick="Import.closeResultModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="import-result-summary">
+          <div class="result-icon" id="import-result-icon">
+            <!-- 成功/エラーアイコン -->
+          </div>
+          <div class="result-stats">
+            <div class="stat-item stat-success">
+              <span class="stat-value" id="import-result-success">0</span>
+              <span class="stat-label">成功</span>
+            </div>
+            <div class="stat-item stat-warning">
+              <span class="stat-value" id="import-result-skipped">0</span>
+              <span class="stat-label">スキップ</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- エラー詳細 -->
+        <div id="import-result-errors" class="mt-md hidden">
+          <h4>スキップされた行</h4>
+          <div class="table-container" style="max-height: 200px; overflow: auto;">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>行</th>
+                  <th>理由</th>
+                </tr>
+              </thead>
+              <tbody id="import-result-errors-body">
+                <!-- 動的に生成 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="Import.downloadErrorReport()">
+          エラーレポートDL
+        </button>
+        <button class="btn btn-primary" onclick="Import.closeResultModal()">
+          閉じる
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<!-- ============================================
+     追加スタイル
+     ============================================ -->
+<style>
+/* タブスタイル */
+.tabs {
+  display: flex;
+  gap: var(--spacing-xs);
+  border-bottom: 2px solid var(--color-border);
+  padding-bottom: 0;
+}
+
+.tab {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-size: var(--font-size-md);
+  color: var(--color-text-secondary);
+  transition: all 0.2s;
+  margin-bottom: -2px;
+}
+
+.tab:hover {
+  color: var(--color-primary);
+}
+
+.tab.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* ドロップゾーン */
+.dropzone {
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  text-align: center;
+  background: var(--color-bg-secondary);
+  transition: all 0.2s;
+}
+
+.dropzone:hover,
+.dropzone.dragover {
+  border-color: var(--color-primary);
+  background: rgba(66, 133, 244, 0.05);
+}
+
+.dropzone-icon {
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-md);
+}
+
+.dropzone-text {
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-md);
+  font-size: var(--font-size-md);
+}
+
+/* プログレスバー */
+.progress-bar {
+  height: 8px;
+  background: var(--color-bg-secondary);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--color-success);
+  transition: width 0.3s;
+}
+
+/* 信頼度インジケーター */
+.confidence-indicator {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.confidence-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-border);
+}
+
+.confidence-dot.filled {
+  background: var(--color-success);
+}
+
+.confidence-dot.filled.medium {
+  background: var(--color-warning);
+}
+
+.confidence-dot.filled.low {
+  background: var(--color-error);
+}
+
+/* サマリーボックス */
+.summary-box {
+  background: var(--color-bg-secondary);
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-md);
+}
+
+.summary-box h4 {
+  margin-top: 0;
+  margin-bottom: var(--spacing-md);
+  color: var(--color-text-primary);
+}
+
+.summary-table {
+  width: 100%;
+}
+
+.summary-table th {
+  text-align: left;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  color: var(--color-text-secondary);
+  font-weight: normal;
+  width: 40%;
+}
+
+.summary-table td {
+  padding: var(--spacing-xs) var(--spacing-sm);
+}
+
+/* 結果モーダル */
+.result-icon {
+  text-align: center;
+  font-size: 48px;
+  margin-bottom: var(--spacing-md);
+}
+
+.result-icon.success::before {
+  content: "✅";
+}
+
+.result-icon.warning::before {
+  content: "⚠️";
+}
+
+.result-icon.error::before {
+  content: "❌";
+}
+
+.result-stats {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-xl);
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-value {
+  display: block;
+  font-size: 36px;
+  font-weight: bold;
+}
+
+.stat-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.stat-success .stat-value {
+  color: var(--color-success);
+}
+
+.stat-warning .stat-value {
+  color: var(--color-warning);
+}
+
+/* ラジオ・チェックボックス */
+.radio-group,
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.radio-label,
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  cursor: pointer;
+}
+
+.radio-label input,
+.checkbox-label input {
+  width: 18px;
+  height: 18px;
+}
+
+/* マッピング行のハイライト */
+.mapping-row.required td:first-child::after {
+  content: " *";
+  color: var(--color-error);
+}
+
+.mapping-row.unmapped {
+  background: rgba(234, 67, 53, 0.1);
+}
+
+.mapping-row.test-item {
+  background: rgba(52, 168, 83, 0.1);
+}
+</style>
+
+<!-- ============================================
+     JavaScript
+     ============================================ -->
+<script>
+/**
+ * CSVインポート画面コントローラー
+ */
+const Import = {
+  // 現在のタブ
+  currentTab: 'patient',
+
+  // 現在のステップ
+  currentStep: 1,
+
+  // CSVデータ
+  csvData: {
+    content: null,
+    fileName: null,
+    headers: [],
+    rows: [],
+    totalRows: 0
+  },
+
+  // マッピング結果
+  mappingResult: null,
+
+  // インポート結果
+  importResult: null,
+
+  /**
+   * 初期化
+   */
+  init: function() {
+    console.log('Import screen initialized');
+    this.currentStep = 1;
+    this.currentTab = 'patient';
+    this.csvData = { content: null, fileName: null, headers: [], rows: [], totalRows: 0 };
+    this.mappingResult = null;
+    this.importResult = null;
+
+    // 結果モーダルを挿入
+    this.insertResultModal();
+  },
+
+  /**
+   * 結果モーダルを挿入
+   */
+  insertResultModal: function() {
+    const template = document.getElementById('import-result-modal-template');
+    if (template && !document.getElementById('import-result-modal')) {
+      const clone = template.content.cloneNode(true);
+      document.body.appendChild(clone);
+      document.getElementById('import-result-modal').classList.add('hidden');
+    }
+  },
+
+  /**
+   * タブ切り替え
+   */
+  switchTab: function(tab) {
+    this.currentTab = tab;
+
+    // タブのアクティブ状態を更新
+    document.querySelectorAll('.tab').forEach(function(t) {
+      t.classList.remove('active');
+    });
+    document.getElementById('tab-' + tab).classList.add('active');
+
+    // 形式オプションの表示切り替え
+    const formatOption = document.getElementById('import-format-option');
+    if (tab === 'result') {
+      formatOption.classList.remove('hidden');
+    } else {
+      formatOption.classList.add('hidden');
+    }
+
+    // サマリー更新
+    this.updateSummary();
+  },
+
+  /**
+   * ステップインジケーター更新
+   */
+  updateStepIndicator: function() {
+    for (let i = 1; i <= 4; i++) {
+      const stepEl = document.getElementById('import-step-indicator-' + i);
+      const connectorEl = document.getElementById('import-step-connector-' + (i - 1));
+
+      if (stepEl) {
+        stepEl.classList.remove('active', 'completed');
+        if (i < this.currentStep) {
+          stepEl.classList.add('completed');
+        } else if (i === this.currentStep) {
+          stepEl.classList.add('active');
+        }
+      }
+      if (connectorEl && i > 1) {
+        connectorEl.classList.toggle('completed', i <= this.currentStep);
+      }
+    }
+  },
+
+  /**
+   * ステップ表示切り替え
+   */
+  showStep: function(step) {
+    this.currentStep = step;
+
+    for (let i = 1; i <= 4; i++) {
+      const stepCard = document.getElementById('import-step-' + i);
+      if (stepCard) {
+        stepCard.classList.toggle('hidden', i !== step);
+      }
+    }
+
+    this.updateStepIndicator();
+  },
+
+  // ============================================
+  // ファイル選択（Step 1）
+  // ============================================
+
+  /**
+   * ドラッグオーバー
+   */
+  handleDragOver: function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('import-dropzone').classList.add('dragover');
+  },
+
+  /**
+   * ドラッグリーブ
+   */
+  handleDragLeave: function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('import-dropzone').classList.remove('dragover');
+  },
+
+  /**
+   * ドロップ
+   */
+  handleDrop: function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('import-dropzone').classList.remove('dragover');
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      this.loadFile(files[0]);
+    }
+  },
+
+  /**
+   * ファイル選択
+   */
+  handleFileSelect: function(e) {
+    const files = e.target.files;
+    if (files.length > 0) {
+      this.loadFile(files[0]);
+    }
+  },
+
+  /**
+   * ファイル読み込み
+   */
+  loadFile: function(file) {
+    const self = this;
+
+    // ファイル情報表示
+    document.getElementById('import-file-name').textContent = file.name;
+    document.getElementById('import-file-size').textContent = this.formatFileSize(file.size);
+    document.getElementById('import-file-info').classList.remove('hidden');
+
+    // ファイル読み込み
+    const reader = new FileReader();
+    const encoding = document.getElementById('import-encoding').value;
+
+    reader.onload = function(e) {
+      self.csvData.content = e.target.result;
+      self.csvData.fileName = file.name;
+      document.getElementById('btn-to-step-2').disabled = false;
+    };
+
+    reader.onerror = function() {
+      App.showMessage('エラー', 'ファイルの読み込みに失敗しました', 'error');
+    };
+
+    reader.readAsText(file, encoding);
+  },
+
+  /**
+   * ファイルサイズフォーマット
+   */
+  formatFileSize: function(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  },
+
+  /**
+   * ファイルクリア
+   */
+  clearFile: function() {
+    document.getElementById('import-file-input').value = '';
+    document.getElementById('import-file-info').classList.add('hidden');
+    document.getElementById('btn-to-step-2').disabled = true;
+    this.csvData = { content: null, fileName: null, headers: [], rows: [], totalRows: 0 };
+  },
+
+  // ============================================
+  // ステップ遷移
+  // ============================================
+
+  goToStep1: function() {
+    this.showStep(1);
+  },
+
+  goToStep2: function() {
+    if (!this.csvData.content) {
+      App.showMessage('エラー', 'CSVファイルを選択してください', 'error');
+      return;
+    }
+
+    App.showLoading();
+
+    const self = this;
+    google.script.run
+      .withSuccessHandler(function(result) {
+        App.hideLoading();
+        if (result.error) {
+          App.showMessage('エラー', result.error, 'error');
+          return;
+        }
+
+        self.csvData.headers = result.headers;
+        self.csvData.rows = result.rows;
+        self.csvData.totalRows = result.totalRows;
+
+        self.renderPreview();
+        self.showStep(2);
+      })
+      .withFailureHandler(function(error) {
+        App.hideLoading();
+        App.showMessage('エラー', error.message, 'error');
+      })
+      .apiPreviewCsv(this.csvData.content);
+  },
+
+  goToStep3: function() {
+    App.showLoading();
+
+    const self = this;
+    const dataType = this.currentTab === 'patient' ? 'PATIENT' : 'TEST_RESULT';
+
+    google.script.run
+      .withSuccessHandler(function(result) {
+        App.hideLoading();
+        if (!result.success) {
+          App.showMessage('エラー', result.error, 'error');
+          return;
+        }
+
+        self.mappingResult = result;
+        self.renderMapping();
+        self.showStep(3);
+      })
+      .withFailureHandler(function(error) {
+        App.hideLoading();
+        App.showMessage('エラー', error.message, 'error');
+      })
+      .apiInferMapping(this.csvData.headers, this.csvData.rows.slice(0, 3), dataType);
+  },
+
+  goToStep4: function() {
+    this.updateSummary();
+    this.showStep(4);
+  },
+
+  // ============================================
+  // プレビュー（Step 2）
+  // ============================================
+
+  renderPreview: function() {
+    const headerEl = document.getElementById('import-preview-header');
+    const bodyEl = document.getElementById('import-preview-body');
+
+    // ヘッダー
+    let headerHtml = '<tr>';
+    this.csvData.headers.forEach(function(h) {
+      headerHtml += '<th>' + self.escapeHtml(h) + '</th>';
+    });
+    headerHtml += '</tr>';
+    headerEl.innerHTML = headerHtml;
+
+    // ボディ（最大10行）
+    const self = this;
+    let bodyHtml = '';
+    this.csvData.rows.slice(0, 10).forEach(function(row) {
+      bodyHtml += '<tr>';
+      row.forEach(function(cell) {
+        bodyHtml += '<td>' + self.escapeHtml(cell) + '</td>';
+      });
+      bodyHtml += '</tr>';
+    });
+    bodyEl.innerHTML = bodyHtml;
+
+    // 件数表示
+    document.getElementById('import-preview-count').textContent =
+      '表示: 10件 / 全' + this.csvData.totalRows + '件';
+  },
+
+  // ============================================
+  // マッピング確認（Step 3）
+  // ============================================
+
+  renderMapping: function() {
+    const bodyEl = document.getElementById('import-mapping-body');
+    const self = this;
+
+    // マッピングソース表示
+    const sourceLabel = this.mappingResult.source === 'pattern'
+      ? '既存パターン適用'
+      : 'AI推論';
+    document.getElementById('import-mapping-source').textContent = sourceLabel;
+
+    // 信頼度バー
+    const confidence = Math.round((this.mappingResult.overallConfidence || 0) * 100);
+    document.getElementById('import-confidence-bar').style.width = confidence + '%';
+    document.getElementById('import-confidence-value').textContent = confidence + '%';
+
+    // マッピングテーブル
+    let html = '';
+    const mappings = this.mappingResult.mappings || [];
+
+    this.csvData.headers.forEach(function(header, index) {
+      const mapping = mappings.find(function(m) { return m.csv_index === index; });
+      const target = mapping ? mapping.target : null;
+      const confidence = mapping ? (mapping.confidence || 0) : 0;
+      const isTestItem = mapping ? mapping.is_test_item : false;
+
+      // サンプル値
+      const samples = self.csvData.rows.slice(0, 3).map(function(r) { return r[index] || ''; }).filter(function(v) { return v; });
+      const sampleText = samples.slice(0, 2).join(', ') || '(空)';
+
+      // 行クラス
+      let rowClass = 'mapping-row';
+      if (isTestItem) rowClass += ' test-item';
+      else if (!target) rowClass += ' unmapped';
+
+      html += '<tr class="' + rowClass + '">';
+      html += '<td>' + self.escapeHtml(header) + '</td>';
+      html += '<td style="color: var(--color-text-secondary); font-size: var(--font-size-sm);">' + self.escapeHtml(sampleText) + '</td>';
+      html += '<td>' + self.renderMappingSelect(index, target, isTestItem, mapping ? mapping.test_item_name : null) + '</td>';
+      html += '<td>' + self.renderConfidenceIndicator(confidence) + '</td>';
+      html += '</tr>';
+    });
+
+    bodyEl.innerHTML = html;
+
+    // AIノート表示
+    const notesEl = document.getElementById('import-ai-notes');
+    const notesContent = document.getElementById('import-ai-notes-content');
+    if (this.mappingResult.notes) {
+      notesContent.textContent = this.mappingResult.notes;
+      notesEl.classList.remove('hidden');
+    } else {
+      notesEl.classList.add('hidden');
+    }
+  },
+
+  renderMappingSelect: function(index, currentTarget, isTestItem, testItemName) {
+    if (isTestItem) {
+      return '<span class="badge badge-success">検査項目: ' + this.escapeHtml(testItemName || '自動検出') + '</span>';
+    }
+
+    const schema = this.currentTab === 'patient'
+      ? [
+          { id: 'name', name: '氏名' },
+          { id: 'kana', name: 'カナ' },
+          { id: 'birthdate', name: '生年月日' },
+          { id: 'gender', name: '性別' },
+          { id: 'phone', name: '電話番号' },
+          { id: 'postalCode', name: '郵便番号' },
+          { id: 'address', name: '住所' },
+          { id: 'email', name: 'メール' },
+          { id: 'company', name: '所属企業' }
+        ]
+      : [
+          { id: 'visitDate', name: '受診日' },
+          { id: 'name', name: '氏名' },
+          { id: 'kana', name: 'カナ' },
+          { id: 'birthdate', name: '生年月日' },
+          { id: 'gender', name: '性別' },
+          { id: 'company', name: '企業名' }
+        ];
+
+    let html = '<select class="form-control form-control-sm" data-index="' + index + '" onchange="Import.updateMapping(this)">';
+    html += '<option value="">（マッピングなし）</option>';
+
+    schema.forEach(function(s) {
+      const selected = currentTarget === s.id ? ' selected' : '';
+      html += '<option value="' + s.id + '"' + selected + '>' + s.name + '</option>';
+    });
+
+    html += '</select>';
+    return html;
+  },
+
+  renderConfidenceIndicator: function(confidence) {
+    const filled = Math.round(confidence * 5);
+    let levelClass = '';
+    if (confidence < 0.5) levelClass = 'low';
+    else if (confidence < 0.8) levelClass = 'medium';
+
+    let html = '<div class="confidence-indicator">';
+    for (let i = 0; i < 5; i++) {
+      const filledClass = i < filled ? 'filled ' + levelClass : '';
+      html += '<div class="confidence-dot ' + filledClass + '"></div>';
+    }
+    html += '</div>';
+    return html;
+  },
+
+  updateMapping: function(selectEl) {
+    const index = parseInt(selectEl.dataset.index);
+    const value = selectEl.value;
+
+    // マッピング結果を更新
+    const mapping = this.mappingResult.mappings.find(function(m) { return m.csv_index === index; });
+    if (mapping) {
+      mapping.target = value || null;
+      mapping.confidence = value ? 1.0 : 0;
+    } else if (value) {
+      this.mappingResult.mappings.push({
+        csv_column: this.csvData.headers[index],
+        csv_index: index,
+        target: value,
+        confidence: 1.0
+      });
+    }
+  },
+
+  // ============================================
+  // サマリー更新（Step 4）
+  // ============================================
+
+  updateSummary: function() {
+    const typeText = this.currentTab === 'patient' ? '受診者データ' : '検査結果データ';
+    document.getElementById('import-summary-type').textContent = typeText;
+    document.getElementById('import-summary-rows').textContent = this.csvData.totalRows + '行';
+
+    const mappedCount = (this.mappingResult?.mappings || []).filter(function(m) {
+      return m.target || m.is_test_item;
+    }).length;
+    document.getElementById('import-summary-mapped').textContent =
+      mappedCount + ' / ' + this.csvData.headers.length + ' カラム';
+  },
+
+  // ============================================
+  // インポート実行
+  // ============================================
+
+  executeImport: function() {
+    const self = this;
+
+    App.showConfirm('確認', 'インポートを実行しますか？', function(result) {
+      if (!result) return;
+
+      App.showLoading();
+
+      const dataType = self.currentTab === 'patient' ? 'PATIENT' : 'TEST_RESULT';
+      const params = {
+        dataType: dataType,
+        csvContent: self.csvData.content,
+        mappings: {
+          headersHash: self.mappingResult.headersHash,
+          mappings: self.mappingResult.mappings,
+          valueTransforms: self.mappingResult.valueTransforms || {}
+        },
+        options: {
+          skipErrors: document.getElementById('import-option-skip-errors').checked,
+          allowDuplicates: document.getElementById('import-option-allow-duplicates').checked,
+          savePattern: document.getElementById('import-option-save-pattern').checked,
+          sourceName: document.getElementById('import-pattern-name').value
+        }
+      };
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          App.hideLoading();
+          if (!result.success) {
+            App.showMessage('エラー', result.error, 'error');
+            return;
+          }
+
+          self.importResult = result;
+          self.showResultModal();
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          App.showMessage('エラー', error.message, 'error');
+        })
+        .apiExecuteImport(params);
+    });
+  },
+
+  // ============================================
+  // 結果モーダル
+  // ============================================
+
+  showResultModal: function() {
+    const modal = document.getElementById('import-result-modal');
+    const report = this.importResult.report;
+
+    // 統計表示
+    document.getElementById('import-result-success').textContent = report.summary.success;
+    document.getElementById('import-result-skipped').textContent = report.summary.skipped;
+
+    // アイコン
+    const iconEl = document.getElementById('import-result-icon');
+    iconEl.className = 'result-icon';
+    if (report.summary.skipped === 0) {
+      iconEl.classList.add('success');
+    } else if (report.summary.success > 0) {
+      iconEl.classList.add('warning');
+    } else {
+      iconEl.classList.add('error');
+    }
+
+    // エラー詳細
+    const errorsContainer = document.getElementById('import-result-errors');
+    const errorsBody = document.getElementById('import-result-errors-body');
+
+    if (report.details.errors && report.details.errors.length > 0) {
+      let html = '';
+      report.details.errors.forEach(function(err) {
+        const rowText = Array.isArray(err.row) ? err.row.join('-') : err.row;
+        html += '<tr><td>' + rowText + '</td><td>' + err.message + '</td></tr>';
+      });
+      errorsBody.innerHTML = html;
+      errorsContainer.classList.remove('hidden');
+    } else {
+      errorsContainer.classList.add('hidden');
+    }
+
+    modal.classList.remove('hidden');
+  },
+
+  closeResultModal: function() {
+    document.getElementById('import-result-modal').classList.add('hidden');
+
+    // 完了後はStep 1に戻る
+    this.clearFile();
+    this.showStep(1);
+  },
+
+  downloadErrorReport: function() {
+    if (!this.importResult || !this.importResult.report) return;
+
+    // CSVレポートを生成（サーバー側で実装済み）
+    google.script.run
+      .withSuccessHandler(function(csv) {
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'import_report_' + new Date().toISOString().slice(0, 10) + '.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+      })
+      .exportReportToCsv(this.importResult.report);
+  },
+
+  // ============================================
+  // ユーティリティ
+  // ============================================
+
+  escapeHtml: function(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+};
+
+// 画面読み込み時の初期化（App.onScreenLoadから呼ばれる）
+</script>

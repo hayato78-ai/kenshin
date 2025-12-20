@@ -10,11 +10,12 @@
  */
 
 /**
- * Webアプリのエントリーポイント
+ * ポータル用エントリーポイント（別デプロイ用）
+ * ※ メインのdoGetはUI.gsで定義
  * @param {Object} e - リクエストパラメータ
  * @returns {HtmlOutput} HTMLページ
  */
-function doGet(e) {
+function doGetPortal(e) {
   try {
     const template = HtmlService.createTemplateFromFile('templates/portal');
 
@@ -53,6 +54,10 @@ function include(filename) {
  * @returns {string} スプレッドシートID
  */
 function getSpreadsheetId() {
+  // DB_CONFIGが定義されている場合はそちらを使用
+  if (typeof DB_CONFIG !== 'undefined' && DB_CONFIG.SPREADSHEET_ID) {
+    return DB_CONFIG.SPREADSHEET_ID;
+  }
   return SpreadsheetApp.getActiveSpreadsheet().getId();
 }
 

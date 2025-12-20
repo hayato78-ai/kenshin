@@ -1,0 +1,446 @@
+<!--
+  健診結果DB 統合システム - テンプレート管理画面
+
+  @description テンプレートのアップロード・管理
+  @version 1.0.0
+  @date 2025-12-18
+-->
+
+<div id="screen-template" class="screen hidden">
+  <div class="main-content">
+    <!-- ページヘッダー -->
+    <div class="flex-between mb-lg">
+      <h1 style="font-size: var(--font-size-xl);">テンプレート管理</h1>
+      <button class="btn btn-primary" onclick="TemplateManager.showUploadModal()">
+        新規アップロード
+      </button>
+    </div>
+
+    <!-- 説明 -->
+    <div class="card mb-lg">
+      <div class="card-body">
+        <p>Excel出力に使用するテンプレートファイル(.xlsm, .xlsx)を管理します。</p>
+        <p>検診種別ごとに異なるテンプレートを設定できます。</p>
+      </div>
+    </div>
+
+    <!-- テンプレート一覧 -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">登録済みテンプレート</span>
+        <button class="btn btn-sm btn-outline" onclick="TemplateManager.refresh()">更新</button>
+      </div>
+      <div class="card-body" style="padding: 0;">
+        <div class="table-container">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>テンプレート名</th>
+                <th>検診種別</th>
+                <th>バージョン</th>
+                <th>更新日時</th>
+                <th>更新者</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="template-list-body">
+              <tr>
+                <td colspan="6" class="text-center text-secondary">読み込み中...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- アップロードモーダル -->
+<template id="upload-template-modal-template">
+  <div class="modal-overlay" id="upload-template-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">テンプレートアップロード</span>
+        <button class="modal-close" onclick="TemplateManager.closeUploadModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label required">テンプレート名</label>
+          <input type="text" id="upload-name" class="form-control" placeholder="例: 人間ドック標準テンプレート">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">検診種別</label>
+          <select id="upload-exam-type" class="form-control">
+            <option value="">選択してください</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label required">ファイル</label>
+          <input type="file" id="upload-file" class="form-control" accept=".xlsx,.xlsm">
+          <div class="form-hint">Excel形式（.xlsx, .xlsm）のみ対応</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">備考</label>
+          <textarea id="upload-memo" class="form-control" rows="3" placeholder="テンプレートの説明など"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="TemplateManager.closeUploadModal()">キャンセル</button>
+        <button class="btn btn-primary" onclick="TemplateManager.uploadTemplate()">
+          <span id="upload-btn-text">アップロード</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<!-- 更新モーダル -->
+<template id="update-template-modal-template">
+  <div class="modal-overlay" id="update-template-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">テンプレート更新</span>
+        <button class="modal-close" onclick="TemplateManager.closeUpdateModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">テンプレート名</label>
+          <div id="update-name" style="font-weight: bold;">-</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">現在のバージョン</label>
+          <div id="update-version" style="font-weight: bold;">-</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label required">新しいファイル</label>
+          <input type="file" id="update-file" class="form-control" accept=".xlsx,.xlsm">
+          <div class="form-hint">アップロードするとバージョンが更新されます</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="TemplateManager.closeUpdateModal()">キャンセル</button>
+        <button class="btn btn-primary" onclick="TemplateManager.executeUpdate()">
+          <span id="update-btn-text">更新</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+/**
+ * テンプレート管理画面の処理
+ */
+const TemplateManager = {
+  /** テンプレート一覧 */
+  templates: [],
+
+  /** 検診種別一覧 */
+  examTypes: [],
+
+  /** 更新対象テンプレートID */
+  updateTargetId: null,
+
+  /**
+   * 初期化
+   */
+  init: function() {
+    console.log('TemplateManager.init');
+    this.setupModals();
+    this.loadData();
+  },
+
+  /**
+   * モーダルをセットアップ
+   */
+  setupModals: function() {
+    // アップロードモーダル
+    if (!document.getElementById('upload-template-modal')) {
+      const template = document.getElementById('upload-template-modal-template');
+      if (template) {
+        const clone = template.content.cloneNode(true);
+        document.body.appendChild(clone);
+        document.getElementById('upload-template-modal').classList.add('hidden');
+      }
+    }
+
+    // 更新モーダル
+    if (!document.getElementById('update-template-modal')) {
+      const template = document.getElementById('update-template-modal-template');
+      if (template) {
+        const clone = template.content.cloneNode(true);
+        document.body.appendChild(clone);
+        document.getElementById('update-template-modal').classList.add('hidden');
+      }
+    }
+  },
+
+  /**
+   * データを読み込み
+   */
+  loadData: function() {
+    const self = this;
+    const tbody = document.getElementById('template-list-body');
+
+    google.script.run
+      .withSuccessHandler(function(data) {
+        console.log('Template data loaded:', data);
+        self.templates = data.templates || [];
+        self.examTypes = data.examTypes || [];
+
+        if (data.error) {
+          console.warn('Template load warning:', data.error);
+        }
+
+        self.renderTemplateList();
+        self.renderExamTypeSelect();
+      })
+      .withFailureHandler(function(error) {
+        console.error('Failed to load template data:', error);
+        self.templates = [];
+        self.examTypes = [];
+        if (tbody) {
+          tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="color: var(--color-error);">読み込みエラー: ' + (error.message || error) + '</td></tr>';
+        }
+      })
+      .getTemplateManagementData();
+  },
+
+  /**
+   * 更新
+   */
+  refresh: function() {
+    this.loadData();
+  },
+
+  /**
+   * テンプレート一覧を描画
+   */
+  renderTemplateList: function() {
+    const tbody = document.getElementById('template-list-body');
+    if (!tbody) return;
+
+    if (this.templates.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-secondary">テンプレートがありません</td></tr>';
+      return;
+    }
+
+    let html = '';
+    this.templates.forEach(function(t) {
+      const updatedAt = t.updatedAt ? new Date(t.updatedAt).toLocaleString('ja-JP') : '-';
+
+      html += '<tr>';
+      html += '<td><strong>' + (t.name || '-') + '</strong></td>';
+      html += '<td>' + (t.examType || '-') + '</td>';
+      html += '<td>' + (t.version || '1.0') + '</td>';
+      html += '<td>' + updatedAt + '</td>';
+      html += '<td>' + (t.updatedBy ? t.updatedBy.split('@')[0] : '-') + '</td>';
+      html += '<td>';
+      html += '<button class="btn btn-sm btn-outline" onclick="TemplateManager.showUpdateModal(\'' + t.templateId + '\')">更新</button>';
+      html += ' <button class="btn btn-sm btn-outline" onclick="TemplateManager.deleteTemplate(\'' + t.templateId + '\')" style="color: var(--color-error);">削除</button>';
+      html += '</td>';
+      html += '</tr>';
+    });
+
+    tbody.innerHTML = html;
+  },
+
+  /**
+   * 検診種別セレクトを描画
+   */
+  renderExamTypeSelect: function() {
+    const select = document.getElementById('upload-exam-type');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">選択してください</option>';
+
+    this.examTypes.forEach(function(type) {
+      const option = document.createElement('option');
+      option.value = type.name;
+      option.textContent = type.name;
+      select.appendChild(option);
+    });
+  },
+
+  /**
+   * アップロードモーダルを表示
+   */
+  showUploadModal: function() {
+    // フォームをリセット
+    document.getElementById('upload-name').value = '';
+    document.getElementById('upload-exam-type').value = '';
+    document.getElementById('upload-file').value = '';
+    document.getElementById('upload-memo').value = '';
+
+    document.getElementById('upload-template-modal').classList.remove('hidden');
+  },
+
+  /**
+   * アップロードモーダルを閉じる
+   */
+  closeUploadModal: function() {
+    document.getElementById('upload-template-modal').classList.add('hidden');
+  },
+
+  /**
+   * テンプレートをアップロード
+   */
+  uploadTemplate: function() {
+    const self = this;
+
+    const name = document.getElementById('upload-name').value.trim();
+    const examType = document.getElementById('upload-exam-type').value;
+    const fileInput = document.getElementById('upload-file');
+    const memo = document.getElementById('upload-memo').value.trim();
+
+    // バリデーション
+    if (!name) {
+      App.showMessage('エラー', 'テンプレート名を入力してください', 'error');
+      return;
+    }
+    if (!examType) {
+      App.showMessage('エラー', '検診種別を選択してください', 'error');
+      return;
+    }
+    if (!fileInput.files || fileInput.files.length === 0) {
+      App.showMessage('エラー', 'ファイルを選択してください', 'error');
+      return;
+    }
+
+    const file = fileInput.files[0];
+    const fileName = file.name;
+
+    // ファイルをBase64に変換
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const base64 = e.target.result.split(',')[1];
+
+      // ボタンを無効化
+      const btnText = document.getElementById('upload-btn-text');
+      btnText.textContent = 'アップロード中...';
+
+      App.showLoading();
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          App.hideLoading();
+          btnText.textContent = 'アップロード';
+
+          if (result.success) {
+            self.closeUploadModal();
+            App.showMessage('成功', 'テンプレートを登録しました', 'success');
+            self.loadData();
+          } else {
+            App.showMessage('エラー', result.error || '登録に失敗しました', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          btnText.textContent = 'アップロード';
+          console.error('Upload failed:', error);
+          App.showMessage('エラー', 'アップロードに失敗しました: ' + error.message, 'error');
+        })
+        .registerTemplate(name, examType, base64, fileName, memo);
+    };
+
+    reader.readAsDataURL(file);
+  },
+
+  /**
+   * 更新モーダルを表示
+   * @param {string} templateId - テンプレートID
+   */
+  showUpdateModal: function(templateId) {
+    const template = this.templates.find(function(t) { return t.templateId === templateId; });
+    if (!template) {
+      App.showMessage('エラー', 'テンプレートが見つかりません', 'error');
+      return;
+    }
+
+    this.updateTargetId = templateId;
+
+    document.getElementById('update-name').textContent = template.name || '-';
+    document.getElementById('update-version').textContent = template.version || '1.0';
+    document.getElementById('update-file').value = '';
+
+    document.getElementById('update-template-modal').classList.remove('hidden');
+  },
+
+  /**
+   * 更新モーダルを閉じる
+   */
+  closeUpdateModal: function() {
+    document.getElementById('update-template-modal').classList.add('hidden');
+    this.updateTargetId = null;
+  },
+
+  /**
+   * テンプレートを更新
+   */
+  executeUpdate: function() {
+    const self = this;
+
+    if (!this.updateTargetId) {
+      App.showMessage('エラー', '更新対象が指定されていません', 'error');
+      return;
+    }
+
+    const fileInput = document.getElementById('update-file');
+    if (!fileInput.files || fileInput.files.length === 0) {
+      App.showMessage('エラー', 'ファイルを選択してください', 'error');
+      return;
+    }
+
+    const file = fileInput.files[0];
+    const fileName = file.name;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const base64 = e.target.result.split(',')[1];
+
+      const btnText = document.getElementById('update-btn-text');
+      btnText.textContent = '更新中...';
+
+      App.showLoading();
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          App.hideLoading();
+          btnText.textContent = '更新';
+
+          if (result.success) {
+            self.closeUpdateModal();
+            App.showMessage('成功', 'テンプレートを更新しました（v' + result.version + '）', 'success');
+            self.loadData();
+          } else {
+            App.showMessage('エラー', result.error || '更新に失敗しました', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          btnText.textContent = '更新';
+          console.error('Update failed:', error);
+          App.showMessage('エラー', '更新に失敗しました: ' + error.message, 'error');
+        })
+        .updateTemplate(self.updateTargetId, base64, fileName);
+    };
+
+    reader.readAsDataURL(file);
+  },
+
+  /**
+   * テンプレートを削除
+   * @param {string} templateId - テンプレートID
+   */
+  deleteTemplate: function(templateId) {
+    const template = this.templates.find(function(t) { return t.templateId === templateId; });
+    if (!template) return;
+
+    App.showConfirm('確認', '「' + template.name + '」を削除しますか？', function(result) {
+      if (result) {
+        App.showMessage('未実装', '削除機能は今後実装予定です', 'info');
+      }
+    });
+  }
+};
+</script>

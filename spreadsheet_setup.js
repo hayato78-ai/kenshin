@@ -335,27 +335,29 @@ const SHEET_DEFINITIONS = {
 // ============================================
 
 /**
- * すべてのシートを作成
+ * すべてのシートを作成（旧版 - 使用しない）
+ * @deprecated createAllSheets_v2 in SetupDB.gs を使用
  */
-function createAllSheets() {
-  logInfo('===== シート作成開始 =====');
+function createAllSheets_legacy() {
+  logInfo('===== シート作成開始（旧版） =====');
 
   const ss = getSpreadsheet();
 
   for (const [sheetName, definition] of Object.entries(SHEET_DEFINITIONS)) {
-    createSheet(ss, sheetName, definition);
+    createSheet_legacy(ss, sheetName, definition);
   }
 
-  logInfo('===== シート作成完了 =====');
+  logInfo('===== シート作成完了（旧版） =====');
 }
 
 /**
- * シートを作成
+ * シートを作成（旧版 - 使用しない）
+ * @deprecated SetupDB.gs の createSheet を使用
  * @param {Spreadsheet} ss - スプレッドシート
  * @param {string} sheetName - シート名
  * @param {Object} definition - シート定義
  */
-function createSheet(ss, sheetName, definition) {
+function createSheet_legacy(ss, sheetName, definition) {
   let sheet = ss.getSheetByName(sheetName);
 
   if (!sheet) {

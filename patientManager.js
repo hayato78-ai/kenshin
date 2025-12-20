@@ -42,11 +42,12 @@ const PATIENT_MANAGER_CONFIG = {
 // ============================================
 
 /**
- * 受診者を検索
+ * 受診者を検索（旧版 - 使用しない）
+ * @deprecated CRUD.gs の searchPatients を使用
  * @param {Object} criteria - 検索条件
  * @returns {Array} 検索結果
  */
-function searchPatients(criteria) {
+function searchPatients_legacy(criteria) {
   logInfo('受診者検索開始: ' + JSON.stringify(criteria));
 
   try {

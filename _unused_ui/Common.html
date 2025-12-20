@@ -1,0 +1,101 @@
+<!--
+  健診結果DB 統合システム - 共通コンポーネント
+
+  @description UI設計書: 健診結果DB_UI設計書_v1.md 1.2章
+  @version 1.0.0
+  @date 2025-12-14
+-->
+
+<!-- ============================================
+     ヘッダーコンポーネント
+     ============================================ -->
+<template id="header-template">
+  <header class="header">
+    <div class="header-logo">
+      <svg class="header-logo-icon" viewBox="0 0 32 32" fill="currentColor">
+        <path d="M16 2C8.268 2 2 8.268 2 16s6.268 14 14 14 14-6.268 14-14S23.732 2 16 2zm0 4c1.657 0 3 1.343 3 3s-1.343 3-3 3-3-1.343-3-3 1.343-3 3-3zm0 20c-3.314 0-6-2.686-6-6v-2c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2v2c0 3.314-2.686 6-6 6z"/>
+      </svg>
+      <span>健診結果管理システム</span>
+    </div>
+    <div class="header-user">
+      <span class="header-user-name" id="current-user-name">ユーザー</span>
+      <button class="btn btn-outline" onclick="App.logout()" style="color: white; border-color: white;">
+        ログアウト
+      </button>
+    </div>
+  </header>
+</template>
+
+<!-- ============================================
+     ナビゲーションコンポーネント
+     ============================================ -->
+<template id="nav-template">
+  <nav class="nav">
+    <a href="javascript:void(0)" class="nav-item" data-screen="menu" onclick="App.navigate('menu')">メニュー</a>
+    <a href="javascript:void(0)" class="nav-item" data-screen="search" onclick="App.navigate('search')">受診者検索</a>
+    <a href="javascript:void(0)" class="nav-item" data-screen="register" onclick="App.navigate('register')">新規登録</a>
+    <a href="javascript:void(0)" class="nav-item" data-screen="import" onclick="App.navigate('import')">インポート</a>
+    <a href="javascript:void(0)" class="nav-item" data-screen="report" onclick="App.navigate('report')">レポート</a>
+    <a href="javascript:void(0)" class="nav-item" data-screen="master" onclick="App.navigate('master')">マスタ管理</a>
+  </nav>
+</template>
+
+<!-- ============================================
+     フッターコンポーネント
+     ============================================ -->
+<template id="footer-template">
+  <footer class="footer">
+    <span>&copy; CDmedical 健診結果管理システム v1.0</span>
+  </footer>
+</template>
+
+<!-- ============================================
+     ローディングオーバーレイ
+     ============================================ -->
+<template id="loading-template">
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">処理中...</div>
+  </div>
+</template>
+
+<!-- ============================================
+     メッセージモーダル
+     ============================================ -->
+<template id="message-modal-template">
+  <div class="modal-overlay" id="message-modal">
+    <div class="modal" style="max-width: 400px;">
+      <div class="modal-header">
+        <span class="modal-title" id="message-modal-title">メッセージ</span>
+        <button class="modal-close" onclick="App.closeMessage()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="message-modal-content"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="App.closeMessage()">OK</button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<!-- ============================================
+     確認モーダル
+     ============================================ -->
+<template id="confirm-modal-template">
+  <div class="modal-overlay" id="confirm-modal">
+    <div class="modal" style="max-width: 400px;">
+      <div class="modal-header">
+        <span class="modal-title" id="confirm-modal-title">確認</span>
+        <button class="modal-close" onclick="App.closeConfirm(false)">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-modal-content"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="App.closeConfirm(false)">キャンセル</button>
+        <button class="btn btn-primary" onclick="App.closeConfirm(true)">OK</button>
+      </div>
+    </div>
+  </div>
+</template>

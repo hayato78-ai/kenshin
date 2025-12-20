@@ -165,71 +165,10 @@ const CONFIG = {
 };
 
 // ============================================
-// BMLコード → 判定基準キー マッピング
+// BMLコード関連マッピング
+// ※ CODE_TO_CRITERIA, CODE_TO_CATEGORY, GENDER_DEPENDENT_CODES は
+//   judgmentEngine.gs に統合済み
 // ============================================
-const CODE_TO_CRITERIA = {
-  '0000481': 'AST_GOT',
-  '0000482': 'ALT_GPT',
-  '0000484': 'GAMMA_GTP',
-  '0000460': 'HDL_CHOLESTEROL',
-  '0000410': 'LDL_CHOLESTEROL',
-  '0000454': 'TRIGLYCERIDES',
-  '0000503': 'FASTING_GLUCOSE',
-  '0003317': 'HBA1C',
-  '0000658': 'CRP',
-  '0002696': 'EGFR',
-  '0000401': 'TOTAL_PROTEIN',
-  '0000407': 'URIC_ACID',
-  '0000303': 'HEMOGLOBIN',
-  '0000413': 'CREATININE',
-  '0000301': 'WBC',
-  '0000302': 'RBC',
-  '0000304': 'HT',
-  '0000308': 'PLT'
-};
-
-// 性別依存の検査コード
-const GENDER_DEPENDENT_CODES = ['0000303', '0000413'];
-
-// BMLコード → カテゴリ マッピング
-const CODE_TO_CATEGORY = {
-  // 循環器系
-  'BLOOD_PRESSURE_SYS': '循環器系',
-  'BLOOD_PRESSURE_DIA': '循環器系',
-
-  // 消化器系
-  '0000481': '消化器系', // AST
-  '0000482': '消化器系', // ALT
-  '0000484': '消化器系', // γ-GTP
-  '0000401': '消化器系', // TP
-  '0000472': '消化器系', // T-Bil
-
-  // 代謝系（糖）
-  '0000503': '代謝系（糖）', // FBS
-  '0003317': '代謝系（糖）', // HbA1c
-
-  // 代謝系（脂質）
-  '0000460': '代謝系（脂質）', // HDL
-  '0000410': '代謝系（脂質）', // LDL
-  '0000454': '代謝系（脂質）', // TG
-
-  // 腎機能
-  '0000413': '腎機能', // Cr
-  '0002696': '腎機能', // eGFR
-
-  // 血液系
-  '0000301': '血液系', // WBC
-  '0000302': '血液系', // RBC
-  '0000303': '血液系', // Hb
-  '0000304': '血液系', // Ht
-  '0000308': '血液系', // PLT
-
-  // その他
-  '0000407': 'その他', // UA
-  '0000658': 'その他', // CRP
-  'BMI': 'その他',
-  'WAIST': 'その他'
-};
 
 // 性別変換
 const GENDER_TRANSFORMS = {
@@ -251,16 +190,20 @@ const GENDER_CODE_TO_INTERNAL = {
 
 /**
  * マスタースプレッドシートを取得
+ * ※ Config.gsのgetSpreadsheet()と重複するため、utils用として別名定義
  * @returns {Spreadsheet}
  */
-function getSpreadsheet() {
-  // スプレッドシートに紐付けられている場合は自動取得
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (ss) {
-    return ss;
+function getSpreadsheet_utils() {
+  // DB_CONFIGが定義されている場合はそちらを優先
+  if (typeof DB_CONFIG !== 'undefined' && DB_CONFIG.SPREADSHEET_ID) {
+    return SpreadsheetApp.openById(DB_CONFIG.SPREADSHEET_ID);
   }
-  // 外部から実行する場合はIDで取得
-  return SpreadsheetApp.openById(CONFIG.MASTER_SPREADSHEET_ID);
+  // CONFIGが定義されている場合
+  if (typeof CONFIG !== 'undefined' && CONFIG.MASTER_SPREADSHEET_ID && CONFIG.MASTER_SPREADSHEET_ID !== 'YOUR_SPREADSHEET_ID') {
+    return SpreadsheetApp.openById(CONFIG.MASTER_SPREADSHEET_ID);
+  }
+  // フォールバック
+  return SpreadsheetApp.getActiveSpreadsheet();
 }
 
 /**
@@ -488,4 +431,40 @@ function markFileAsProcessed(file) {
  */
 function isFileProcessed(file) {
   return file.getName().startsWith('[済]');
+}
+
+// ============================================
+// 共通レスポンスヘルパー
+// ============================================
+
+/**
+ * 成功レスポンスを生成
+ * @param {*} data - レスポンスデータ
+ * @param {Object} extra - 追加情報
+ * @returns {Object}
+ */
+function createSuccessResponse(data, extra = {}) {
+  return {
+    success: true,
+    data: data,
+    timestamp: new Date().toISOString(),
+    ...extra
+  };
+}
+
+/**
+ * エラーレスポンスを生成
+ * @param {string|Error} error - エラー情報
+ * @param {Object} extra - 追加情報（デバッグ用）
+ * @returns {Object}
+ */
+function createErrorResponse(error, extra = {}) {
+  const message = error instanceof Error ? error.message : String(error);
+  return {
+    success: false,
+    error: message,
+    data: [],
+    timestamp: new Date().toISOString(),
+    ...extra
+  };
 }

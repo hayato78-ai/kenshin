@@ -14,33 +14,17 @@
  * @returns {Spreadsheet} スプレッドシート
  */
 function getPortalSpreadsheet() {
-  // 確実に動作するようにスプレッドシートIDを直接指定
-  const SPREADSHEET_ID = '16KtctyT2gd7oJZdcu84kUtuP-D9jB9KtLxxzxXx_wdk';
+  // DB_CONFIGが定義されている場合はそちらを使用（Config.gsで定義）
+  if (typeof DB_CONFIG !== 'undefined' && DB_CONFIG.SPREADSHEET_ID) {
+    return SpreadsheetApp.openById(DB_CONFIG.SPREADSHEET_ID);
+  }
 
-  // 方法1: 直接IDで取得（最も確実）
+  // フォールバック: 直接IDで取得
+  const SPREADSHEET_ID = '16KtctyT2gd7oJZdcu84kUtuP-D9jB9KtLxxzxXx_wdk';
   try {
     return SpreadsheetApp.openById(SPREADSHEET_ID);
   } catch (e) {
     console.error('直接ID取得失敗:', e);
-  }
-
-  // 方法2: スクリプトがバインドされているスプレッドシートを取得
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    if (ss) return ss;
-  } catch (e) {
-    // Webアプリではエラーになる場合がある
-  }
-
-  // 方法3: PropertiesServiceからIDを取得
-  try {
-    const props = PropertiesService.getScriptProperties();
-    const ssId = props.getProperty('SPREADSHEET_ID');
-    if (ssId) {
-      return SpreadsheetApp.openById(ssId);
-    }
-  } catch (e) {
-    // プロパティが設定されていない場合
   }
 
   throw new Error('スプレッドシートに接続できません。');
@@ -51,7 +35,7 @@ function getPortalSpreadsheet() {
  * GASエディタから手動で実行してください
  */
 function setupSpreadsheetId() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getPortalSpreadsheet();
   if (ss) {
     const props = PropertiesService.getScriptProperties();
     props.setProperty('SPREADSHEET_ID', ss.getId());
@@ -109,23 +93,56 @@ function normalizeKana(str) {
 }
 
 // ============================================================
-// 受診者管理 API
+// 受診者管理 API（v6 - 正規化構造対応）
 // ============================================================
 
+// 列定義（Config.gs COLUMN_DEFINITIONS 準拠）
+const PATIENT_COL = {
+  PATIENT_ID: 0,   // A: 受診者ID (P-00001形式)
+  NAME: 1,         // B: 氏名
+  KANA: 2,         // C: カナ
+  BIRTHDATE: 3,    // D: 生年月日
+  GENDER: 4,       // E: 性別
+  POSTAL_CODE: 5,  // F: 郵便番号
+  ADDRESS: 6,      // G: 住所
+  PHONE: 7,        // H: 電話番号
+  EMAIL: 8,        // I: メール
+  COMPANY: 9,      // J: 所属企業
+  NOTES: 10,       // K: 備考
+  CREATED_AT: 11,  // L: 作成日時
+  UPDATED_AT: 12   // M: 更新日時
+};
+
+const VISIT_COL = {
+  VISIT_ID: 0,      // A: 受診ID (YYYYMMDD-NNN形式)
+  PATIENT_ID: 1,    // B: 受診者ID (FK)
+  EXAM_TYPE: 2,     // C: 検診種別
+  COURSE: 3,        // D: コース
+  VISIT_DATE: 4,    // E: 受診日
+  AGE: 5,           // F: 年齢
+  JUDGMENT: 6,      // G: 総合判定
+  DOCTOR_NOTES: 7,  // H: 医師所見
+  STATUS: 8,        // I: ステータス
+  CSV_IMPORTED: 9,  // J: CSV取込日時
+  CREATED_AT: 10,   // K: 作成日時
+  UPDATED_AT: 11,   // L: 更新日時
+  OUTPUT_AT: 12     // M: 出力日時
+};
+
 /**
- * 受診者を検索（修正版 v3 - シリアライズ対応）
+ * 受診者を検索（v6 - 正規化構造対応）
  *
- * 【修正ポイント】
- * 1. Dateオブジェクトを文字列に変換してからreturn
- * 2. 値をすべてプリミティブ型に変換
- * 3. undefinedをnullまたは空文字に変換
+ * 【機能】
+ * 1. 受診者マスタと受診記録を結合して検索
+ * 2. 受診者ID、氏名、カナで部分一致検索
+ * 3. 最新の受診記録情報を付与して返却
  *
- * @param {Object} criteria - 検索条件
+ * @param {Object} criteria - 検索条件 {patientId, name, kana}
  * @returns {Object} 検索結果
  */
 function portalSearchPatients(criteria) {
   const debugInfo = {
-    version: '2025-12-16-v3-serializable',
+    version: '2025-12-19-v6-normalized',
     criteriaReceived: criteria ? JSON.stringify(criteria) : 'null',
     timestamp: new Date().toISOString()
   };
@@ -134,72 +151,102 @@ function portalSearchPatients(criteria) {
     const ss = getPortalSpreadsheet();
     debugInfo.spreadsheetId = ss.getId();
 
-    const sheet = ss.getSheetByName('受診者マスタ');
-    if (!sheet) {
+    // 受診者マスタ取得
+    const patientSheet = ss.getSheetByName('受診者マスタ');
+    if (!patientSheet) {
       return { success: false, error: '受診者マスタシートが見つかりません', data: [], _debug: debugInfo };
     }
-    debugInfo.sheetFound = true;
 
-    const data = sheet.getDataRange().getValues();
-    debugInfo.totalRows = data.length;
-    debugInfo.firstRowId = data.length > 1 ? String(data[1][0]) : 'NO_DATA';
+    // 受診記録取得
+    const visitSheet = ss.getSheetByName('受診記録');
+    debugInfo.visitSheetFound = !!visitSheet;
 
-    const results = [];
+    // 受診者データ取得
+    const patientData = patientSheet.getDataRange().getValues();
+    debugInfo.patientRows = patientData.length;
 
-    // 検索条件を正規化（nullチェック追加）
+    // 受診記録データ取得（マップ化 - 最新の受診記録を保持）
+    const visitMap = {};  // patientId -> 最新の受診記録
+    if (visitSheet && visitSheet.getLastRow() >= 2) {
+      const visitData = visitSheet.getDataRange().getValues();
+      debugInfo.visitRows = visitData.length;
+
+      for (let i = 1; i < visitData.length; i++) {
+        const row = visitData[i];
+        const patientId = safeString(row[VISIT_COL.PATIENT_ID]);
+        const visitDate = row[VISIT_COL.VISIT_DATE];
+
+        if (!patientId) continue;
+
+        // 最新の受診記録を保持
+        if (!visitMap[patientId] ||
+            (visitDate && visitMap[patientId].visitDate < visitDate)) {
+          visitMap[patientId] = {
+            visitId: safeString(row[VISIT_COL.VISIT_ID]),
+            visitDate: visitDate,
+            examType: safeString(row[VISIT_COL.EXAM_TYPE]),
+            course: safeString(row[VISIT_COL.COURSE]),
+            age: safeNumber(row[VISIT_COL.AGE]),
+            judgment: safeString(row[VISIT_COL.JUDGMENT]),
+            status: safeString(row[VISIT_COL.STATUS]),
+            _visitRowIndex: i + 1
+          };
+        }
+      }
+    }
+
+    // 検索条件を正規化
     const searchId = criteria && criteria.patientId ? normalizeString(criteria.patientId) : '';
     const searchName = criteria && criteria.name ? normalizeString(criteria.name) : '';
     const searchKana = criteria && criteria.kana ? normalizeKana(criteria.kana) : '';
 
-    debugInfo.normalizedCriteria = { searchId: searchId, searchName: searchName, searchKana: searchKana };
+    debugInfo.normalizedCriteria = { searchId, searchName, searchKana };
 
-    // 列インデックス:
-    // 0:受診ID, 1:ステータス, 2:受診日, 3:氏名, 4:カナ, 5:性別, 6:生年月日, 7:年齢,
-    // 8:受診コース, 9:事業所名, 10:所属, 11:総合判定
-    for (let i = 1; i < data.length; i++) {
-      const row = data[i];
+    const results = [];
+
+    for (let i = 1; i < patientData.length; i++) {
+      const row = patientData[i];
 
       // 空行スキップ
-      if (!row[0]) continue;
+      if (!row[PATIENT_COL.PATIENT_ID]) continue;
+
+      const patientId = safeString(row[PATIENT_COL.PATIENT_ID]);
+      const name = safeString(row[PATIENT_COL.NAME]);
+      const kana = safeString(row[PATIENT_COL.KANA]);
 
       // 検索条件でフィルタ
       let match = true;
 
-      if (searchId) {
-        const rowId = normalizeString(row[0]);
-        if (!rowId.includes(searchId)) {
-          match = false;
-        }
+      if (searchId && !normalizeString(patientId).includes(searchId)) {
+        match = false;
       }
-      if (searchName && match) {
-        const rowName = normalizeString(row[3]);
-        if (!rowName.includes(searchName)) {
-          match = false;
-        }
+      if (searchName && match && !normalizeString(name).includes(searchName)) {
+        match = false;
       }
-      if (searchKana && match) {
-        const rowKana = normalizeKana(row[4]);
-        if (!rowKana.includes(searchKana)) {
-          match = false;
-        }
+      if (searchKana && match && !normalizeKana(kana).includes(searchKana)) {
+        match = false;
       }
 
       if (match) {
-        // ★★★ 重要: すべての値をシリアライズ可能な形式に変換 ★★★
+        const visit = visitMap[patientId] || {};
+
         results.push({
-          '受診ID': safeString(row[0]),
-          'ステータス': safeString(row[1]),
-          '受診日': formatDateToString(row[2]),
-          '氏名': safeString(row[3]),
-          'カナ': safeString(row[4]),
-          '性別': safeString(row[5]),
-          '生年月日': formatDateToString(row[6]),
-          '年齢': safeNumber(row[7]),
-          '受診コース': safeString(row[8]),
-          '事業所名': safeString(row[9]),
-          '所属': safeString(row[10]),
-          '総合判定': safeString(row[11]),
-          _rowIndex: i + 1
+          '受診者ID': patientId,
+          '氏名': name,
+          'カナ': kana,
+          '生年月日': formatDateToString(row[PATIENT_COL.BIRTHDATE]),
+          '性別': safeString(row[PATIENT_COL.GENDER]),
+          '所属企業': safeString(row[PATIENT_COL.COMPANY]),
+          // 最新の受診記録情報
+          '受診ID': visit.visitId || '',
+          '受診日': formatDateToString(visit.visitDate),
+          '検診種別': visit.examType || '',
+          'コース': visit.course || '',
+          '年齢': visit.age || '',
+          'ステータス': visit.status || '',
+          '総合判定': visit.judgment || '',
+          _rowIndex: i + 1,
+          _visitRowIndex: visit._visitRowIndex || null
         });
       }
 
@@ -225,6 +272,104 @@ function portalSearchPatients(criteria) {
       data: [],
       _debug: debugInfo
     };
+  }
+}
+
+// ============================================================
+// 診断用関数
+// ============================================================
+
+/**
+ * 検索診断 - 受診者マスタの構造と検索ロジックをテスト
+ * GASエディタから実行してログを確認
+ */
+function diagnosePatientSearch() {
+  const ss = getPortalSpreadsheet();
+  const sheet = ss.getSheetByName('受診者マスタ');
+
+  if (!sheet) {
+    console.log('ERROR: 受診者マスタシートが見つかりません');
+    return;
+  }
+
+  const data = sheet.getDataRange().getValues();
+  console.log('=== 受診者マスタ診断 ===');
+  console.log('総行数: ' + data.length);
+
+  // ヘッダー行を表示
+  console.log('ヘッダー: ' + JSON.stringify(data[0]));
+
+  // 最初の5件のデータを詳細表示
+  console.log('\n=== 最初の5件のデータ ===');
+  for (let i = 1; i < Math.min(6, data.length); i++) {
+    const row = data[i];
+    console.log('--- Row ' + i + ' ---');
+    console.log('  Col 0 (ID?): [' + row[0] + '] type=' + typeof row[0]);
+    console.log('  Col 1 (氏名?): [' + row[1] + '] type=' + typeof row[1]);
+    console.log('  Col 2 (カナ?): [' + row[2] + '] type=' + typeof row[2]);
+    console.log('  Col 3: [' + row[3] + ']');
+    console.log('  Col 4: [' + row[4] + ']');
+
+    // 氏名の文字コードを詳細表示
+    if (row[1]) {
+      const nameStr = String(row[1]);
+      const charCodes = [];
+      for (let j = 0; j < nameStr.length; j++) {
+        charCodes.push(nameStr.charCodeAt(j).toString(16));
+      }
+      console.log('  氏名の文字コード: ' + charCodes.join(' '));
+    }
+  }
+
+  // 検索テスト
+  console.log('\n=== 検索テスト ===');
+  const testSearchTerm = '遠藤';
+  const normalizedSearch = normalizeString(testSearchTerm);
+  console.log('検索文字列: [' + testSearchTerm + ']');
+  console.log('正規化後: [' + normalizedSearch + ']');
+
+  let foundCount = 0;
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const name = safeString(row[1]);
+    const normalizedName = normalizeString(name);
+
+    if (normalizedName.includes(normalizedSearch)) {
+      console.log('マッチ！ Row ' + i + ': [' + name + '] → [' + normalizedName + ']');
+      foundCount++;
+    }
+  }
+  console.log('マッチ件数: ' + foundCount);
+
+  // 「遠藤」を含む可能性のある行を探す（文字コード比較なし）
+  console.log('\n=== 部分一致検索（正規化なし）===');
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const name = String(row[1] || '');
+    if (name.indexOf('遠') >= 0 || name.indexOf('藤') >= 0) {
+      console.log('部分マッチ Row ' + i + ': [' + name + ']');
+    }
+  }
+}
+
+/**
+ * 全受診者をリスト（検索なし）
+ */
+function listAllPatients() {
+  const ss = getPortalSpreadsheet();
+  const sheet = ss.getSheetByName('受診者マスタ');
+
+  if (!sheet) {
+    console.log('ERROR: シートなし');
+    return;
+  }
+
+  const data = sheet.getDataRange().getValues();
+  console.log('ヘッダー: ' + JSON.stringify(data[0]));
+  console.log('データ件数: ' + (data.length - 1));
+
+  for (let i = 1; i < Math.min(20, data.length); i++) {
+    console.log(i + ': ID=[' + data[i][0] + '] 氏名=[' + data[i][1] + '] カナ=[' + data[i][2] + ']');
   }
 }
 
@@ -284,50 +429,117 @@ function formatDateToString(value) {
 }
 
 /**
- * 受診者を新規登録
+ * 受診者を新規登録（v6 - 正規化構造対応）
+ * 受診者マスタ + 受診記録に登録
+ *
  * @param {Object} patientData - 受診者データ
+ *   - 個人情報: name, nameKana, birthDate, gender, company, etc.
+ *   - 受診情報: examType, course, examDate, status
+ *   - existingPatientId: 既存患者の場合（受診記録のみ追加）
  * @returns {Object} 登録結果
  */
 function portalRegisterPatient(patientData) {
   try {
     const ss = getPortalSpreadsheet();
-    const sheet = ss.getSheetByName('受診者マスタ');
-    if (!sheet) {
+    const patientSheet = ss.getSheetByName('受診者マスタ');
+    const visitSheet = ss.getSheetByName('受診記録');
+
+    if (!patientSheet) {
       return { success: false, error: '受診者マスタシートが見つかりません' };
     }
+    if (!visitSheet) {
+      return { success: false, error: '受診記録シートが見つかりません' };
+    }
 
-    // 重複チェック
-    const existingData = sheet.getDataRange().getValues();
-    for (let i = 1; i < existingData.length; i++) {
-      if (String(existingData[i][0]) === String(patientData.patientId)) {
-        return { success: false, error: '受診ID「' + patientData.patientId + '」は既に登録されています' };
+    const now = new Date();
+    let patientId = patientData.existingPatientId || null;
+    let isNewPatient = false;
+
+    // 既存患者の指定がない場合
+    if (!patientId) {
+      // 重複チェック（氏名 + 生年月日）
+      const patientDataRows = patientSheet.getDataRange().getValues();
+      const inputName = normalizeString(patientData.name || '');
+      const inputBirth = patientData.birthDate ? formatDateToString(new Date(patientData.birthDate)) : '';
+
+      for (let i = 1; i < patientDataRows.length; i++) {
+        const existingName = normalizeString(patientDataRows[i][PATIENT_COL.NAME]);
+        const existingBirth = formatDateToString(patientDataRows[i][PATIENT_COL.BIRTHDATE]);
+
+        if (inputName && existingName === inputName && existingBirth === inputBirth) {
+          // 既存患者が見つかった
+          patientId = safeString(patientDataRows[i][PATIENT_COL.PATIENT_ID]);
+          break;
+        }
+      }
+
+      // 新規患者として登録
+      if (!patientId) {
+        patientId = generateNextPatientIdForPortal(patientSheet);
+        isNewPatient = true;
+
+        const newPatientRow = [
+          patientId,                          // 受診者ID
+          patientData.name || '',             // 氏名
+          patientData.nameKana || '',         // カナ
+          patientData.birthDate ? new Date(patientData.birthDate) : '', // 生年月日
+          patientData.gender || '',           // 性別
+          patientData.postalCode || '',       // 郵便番号
+          patientData.address || '',          // 住所
+          patientData.phone || '',            // 電話番号
+          patientData.email || '',            // メール
+          patientData.company || '',          // 所属企業
+          patientData.notes || '',            // 備考
+          now,                                 // 作成日時
+          now                                  // 更新日時
+        ];
+
+        patientSheet.appendRow(newPatientRow);
       }
     }
 
-    // 列順序（実際のスプレッドシート構造）:
-    // 受診ID, ステータス, 受診日, 氏名, カナ, 性別, 生年月日, 年齢, 受診コース, 事業所名, 所属, 総合判定, CSV取込日時, 最終更新日時, 出力日時
-    const now = new Date();
-    const newRow = [
-      patientData.patientId || '',        // 受診ID
-      patientData.status || '入力中',      // ステータス
-      patientData.examDate || '',          // 受診日
-      patientData.name || '',              // 氏名
-      patientData.nameKana || '',          // カナ
-      patientData.gender || '',            // 性別
-      patientData.birthDate || '',         // 生年月日
-      patientData.age || '',               // 年齢
-      patientData.course || '',            // 受診コース
-      patientData.company || '',           // 事業所名
-      patientData.department || '',        // 所属
-      patientData.overallJudgment || '',   // 総合判定
-      '',                                   // CSV取込日時
-      now,                                  // 最終更新日時
-      ''                                    // 出力日時
+    // 受診記録を追加
+    const visitDate = patientData.examDate ? new Date(patientData.examDate) : new Date();
+    const visitId = generateNextVisitIdForPortal(visitSheet, visitDate);
+
+    // 年齢を計算
+    let age = '';
+    if (patientData.birthDate && patientData.examDate) {
+      const birth = new Date(patientData.birthDate);
+      const exam = new Date(patientData.examDate);
+      age = exam.getFullYear() - birth.getFullYear();
+      const m = exam.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && exam.getDate() < birth.getDate())) {
+        age--;
+      }
+    }
+
+    const newVisitRow = [
+      visitId,                              // 受診ID
+      patientId,                            // 受診者ID (FK)
+      patientData.examType || '人間ドック', // 検診種別
+      patientData.course || '',             // コース
+      visitDate,                            // 受診日
+      age,                                   // 年齢
+      patientData.overallJudgment || '',    // 総合判定
+      patientData.doctorNotes || '',        // 医師所見
+      patientData.status || '入力中',       // ステータス
+      '',                                    // CSV取込日時
+      now,                                   // 作成日時
+      now,                                   // 更新日時
+      ''                                     // 出力日時
     ];
 
-    sheet.appendRow(newRow);
+    visitSheet.appendRow(newVisitRow);
 
-    return { success: true, message: '受診者を登録しました', patientId: patientData.patientId };
+    return {
+      success: true,
+      message: isNewPatient ? '新規患者と受診記録を登録しました' : '既存患者に受診記録を追加しました',
+      patientId: patientId,
+      visitId: visitId,
+      isNewPatient: isNewPatient
+    };
+
   } catch (error) {
     console.error('portalRegisterPatient error:', error);
     return { success: false, error: error.message };
@@ -335,17 +547,153 @@ function portalRegisterPatient(patientData) {
 }
 
 /**
- * 受診者情報を取得（ID指定）
- * @param {string} patientId - 患者ID
- * @returns {Object} 受診者情報
+ * 次の受診者IDを生成
+ * @param {Sheet} sheet - 受診者マスタシート
+ * @returns {string} P-NNNNN形式のID
+ */
+function generateNextPatientIdForPortal(sheet) {
+  if (!sheet || sheet.getLastRow() < 2) {
+    return 'P-00001';
+  }
+
+  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+  let maxNum = 0;
+
+  for (const row of data) {
+    const id = String(row[0]);
+    if (id.startsWith('P-')) {
+      const num = parseInt(id.replace('P-', ''), 10);
+      if (!isNaN(num) && num > maxNum) {
+        maxNum = num;
+      }
+    }
+  }
+
+  return `P-${String(maxNum + 1).padStart(5, '0')}`;
+}
+
+/**
+ * 次の受診IDを生成
+ * @param {Sheet} sheet - 受診記録シート
+ * @param {Date} visitDate - 受診日
+ * @returns {string} YYYYMMDD-NNN形式のID
+ */
+function generateNextVisitIdForPortal(sheet, visitDate) {
+  const date = visitDate || new Date();
+  const dateStr = Utilities.formatDate(date, 'Asia/Tokyo', 'yyyyMMdd');
+  const prefix = `${dateStr}-`;
+
+  if (!sheet || sheet.getLastRow() < 2) {
+    return `${prefix}001`;
+  }
+
+  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+  let maxNum = 0;
+
+  for (const row of data) {
+    const id = String(row[0]);
+    if (id.startsWith(prefix)) {
+      const num = parseInt(id.replace(prefix, ''), 10);
+      if (!isNaN(num) && num > maxNum) {
+        maxNum = num;
+      }
+    }
+  }
+
+  return `${prefix}${String(maxNum + 1).padStart(3, '0')}`;
+}
+
+/**
+ * 受診者情報を取得（ID指定 - v6 正規化構造対応）
+ * 受診者情報と全受診履歴を取得
+ * @param {string} patientId - 受診者ID (P-00001形式)
+ * @returns {Object} 受診者情報と受診履歴
  */
 function portalGetPatient(patientId) {
   try {
-    const result = portalSearchPatients({ patientId: patientId });
-    if (result.success && result.data.length > 0) {
-      return { success: true, data: result.data[0] };
+    const ss = getPortalSpreadsheet();
+
+    // 受診者マスタから検索
+    const patientSheet = ss.getSheetByName('受診者マスタ');
+    if (!patientSheet) {
+      return { success: false, error: '受診者マスタシートが見つかりません' };
     }
-    return { success: false, error: '受診者が見つかりません' };
+
+    const patientData = patientSheet.getDataRange().getValues();
+    let patientInfo = null;
+    let patientRowIndex = null;
+
+    for (let i = 1; i < patientData.length; i++) {
+      if (safeString(patientData[i][PATIENT_COL.PATIENT_ID]) === String(patientId)) {
+        const row = patientData[i];
+        patientInfo = {
+          '受診者ID': safeString(row[PATIENT_COL.PATIENT_ID]),
+          '氏名': safeString(row[PATIENT_COL.NAME]),
+          'カナ': safeString(row[PATIENT_COL.KANA]),
+          '生年月日': formatDateToString(row[PATIENT_COL.BIRTHDATE]),
+          '性別': safeString(row[PATIENT_COL.GENDER]),
+          '郵便番号': safeString(row[PATIENT_COL.POSTAL_CODE]),
+          '住所': safeString(row[PATIENT_COL.ADDRESS]),
+          '電話番号': safeString(row[PATIENT_COL.PHONE]),
+          'メール': safeString(row[PATIENT_COL.EMAIL]),
+          '所属企業': safeString(row[PATIENT_COL.COMPANY]),
+          '備考': safeString(row[PATIENT_COL.NOTES]),
+          '作成日時': formatDateToString(row[PATIENT_COL.CREATED_AT]),
+          '更新日時': formatDateToString(row[PATIENT_COL.UPDATED_AT])
+        };
+        patientRowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (!patientInfo) {
+      return { success: false, error: '受診者が見つかりません' };
+    }
+
+    // 受診記録から該当患者の全受診履歴を取得
+    const visits = [];
+    const visitSheet = ss.getSheetByName('受診記録');
+
+    if (visitSheet && visitSheet.getLastRow() >= 2) {
+      const visitData = visitSheet.getDataRange().getValues();
+
+      for (let i = 1; i < visitData.length; i++) {
+        if (safeString(visitData[i][VISIT_COL.PATIENT_ID]) === String(patientId)) {
+          const row = visitData[i];
+          visits.push({
+            '受診ID': safeString(row[VISIT_COL.VISIT_ID]),
+            '検診種別': safeString(row[VISIT_COL.EXAM_TYPE]),
+            'コース': safeString(row[VISIT_COL.COURSE]),
+            '受診日': formatDateToString(row[VISIT_COL.VISIT_DATE]),
+            '年齢': safeNumber(row[VISIT_COL.AGE]),
+            '総合判定': safeString(row[VISIT_COL.JUDGMENT]),
+            '医師所見': safeString(row[VISIT_COL.DOCTOR_NOTES]),
+            'ステータス': safeString(row[VISIT_COL.STATUS]),
+            'CSV取込日時': formatDateToString(row[VISIT_COL.CSV_IMPORTED]),
+            '出力日時': formatDateToString(row[VISIT_COL.OUTPUT_AT]),
+            _visitRowIndex: i + 1
+          });
+        }
+      }
+
+      // 受診日で降順ソート（新しい順）
+      visits.sort((a, b) => {
+        const dateA = a['受診日'] ? new Date(a['受診日']) : new Date(0);
+        const dateB = b['受診日'] ? new Date(b['受診日']) : new Date(0);
+        return dateB - dateA;
+      });
+    }
+
+    return {
+      success: true,
+      data: {
+        ...patientInfo,
+        visits: visits,
+        visitCount: visits.length,
+        _rowIndex: patientRowIndex
+      }
+    };
+
   } catch (error) {
     console.error('portalGetPatient error:', error);
     return { success: false, error: error.message };
@@ -353,9 +701,9 @@ function portalGetPatient(patientId) {
 }
 
 /**
- * 受診者情報を更新
- * @param {string} patientId - 患者ID
- * @param {Object} updateData - 更新データ
+ * 受診者情報を更新（v6 - 正規化構造対応）
+ * @param {string} patientId - 受診者ID (P-00001形式)
+ * @param {Object} updateData - 更新データ（受診者マスタ用）
  * @returns {Object} 更新結果
  */
 function portalUpdatePatient(patientId, updateData) {
@@ -368,28 +716,24 @@ function portalUpdatePatient(patientId, updateData) {
 
     const data = sheet.getDataRange().getValues();
 
-    // 列インデックス（実際のスプレッドシート構造）:
-    // 0:受診ID, 1:ステータス, 2:受診日, 3:氏名, 4:カナ, 5:性別, 6:生年月日, 7:年齢,
-    // 8:受診コース, 9:事業所名, 10:所属, 11:総合判定, 12:CSV取込日時, 13:最終更新日時, 14:出力日時
     for (let i = 1; i < data.length; i++) {
-      if (String(data[i][0]) === String(patientId)) {
+      if (safeString(data[i][PATIENT_COL.PATIENT_ID]) === String(patientId)) {
         // 該当行を更新
-        if (updateData['ステータス'] !== undefined) sheet.getRange(i + 1, 2).setValue(updateData['ステータス']);
-        if (updateData['受診日'] !== undefined) sheet.getRange(i + 1, 3).setValue(updateData['受診日'] ? new Date(updateData['受診日']) : '');
-        if (updateData['氏名'] !== undefined) sheet.getRange(i + 1, 4).setValue(updateData['氏名']);
-        if (updateData['カナ'] !== undefined) sheet.getRange(i + 1, 5).setValue(updateData['カナ']);
-        if (updateData['性別'] !== undefined) sheet.getRange(i + 1, 6).setValue(updateData['性別']);
-        if (updateData['生年月日'] !== undefined) sheet.getRange(i + 1, 7).setValue(updateData['生年月日'] ? new Date(updateData['生年月日']) : '');
-        if (updateData['年齢'] !== undefined) sheet.getRange(i + 1, 8).setValue(updateData['年齢']);
-        if (updateData['受診コース'] !== undefined) sheet.getRange(i + 1, 9).setValue(updateData['受診コース']);
-        if (updateData['事業所名'] !== undefined) sheet.getRange(i + 1, 10).setValue(updateData['事業所名']);
-        if (updateData['所属'] !== undefined) sheet.getRange(i + 1, 11).setValue(updateData['所属']);
-        if (updateData['総合判定'] !== undefined) sheet.getRange(i + 1, 12).setValue(updateData['総合判定']);
+        if (updateData['氏名'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.NAME + 1).setValue(updateData['氏名']);
+        if (updateData['カナ'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.KANA + 1).setValue(updateData['カナ']);
+        if (updateData['生年月日'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.BIRTHDATE + 1).setValue(updateData['生年月日'] ? new Date(updateData['生年月日']) : '');
+        if (updateData['性別'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.GENDER + 1).setValue(updateData['性別']);
+        if (updateData['郵便番号'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.POSTAL_CODE + 1).setValue(updateData['郵便番号']);
+        if (updateData['住所'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.ADDRESS + 1).setValue(updateData['住所']);
+        if (updateData['電話番号'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.PHONE + 1).setValue(updateData['電話番号']);
+        if (updateData['メール'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.EMAIL + 1).setValue(updateData['メール']);
+        if (updateData['所属企業'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.COMPANY + 1).setValue(updateData['所属企業']);
+        if (updateData['備考'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.NOTES + 1).setValue(updateData['備考']);
 
-        // 最終更新日時を更新
-        sheet.getRange(i + 1, 14).setValue(new Date());
+        // 更新日時を更新
+        sheet.getRange(i + 1, PATIENT_COL.UPDATED_AT + 1).setValue(new Date());
 
-        return { success: true, message: '更新しました' };
+        return { success: true, message: '受診者情報を更新しました' };
       }
     }
 
@@ -401,14 +745,61 @@ function portalUpdatePatient(patientId, updateData) {
 }
 
 /**
- * 受診者詳細を更新（ポータルUI用）
+ * 受診記録を更新（v6 - 正規化構造対応）
+ * @param {string} visitId - 受診ID (YYYYMMDD-NNN形式)
+ * @param {Object} updateData - 更新データ（受診記録用）
+ * @returns {Object} 更新結果
+ */
+function portalUpdateVisit(visitId, updateData) {
+  try {
+    const ss = getPortalSpreadsheet();
+    const sheet = ss.getSheetByName('受診記録');
+    if (!sheet) {
+      return { success: false, error: '受診記録シートが見つかりません' };
+    }
+
+    const data = sheet.getDataRange().getValues();
+
+    for (let i = 1; i < data.length; i++) {
+      if (safeString(data[i][VISIT_COL.VISIT_ID]) === String(visitId)) {
+        // 該当行を更新
+        if (updateData['検診種別'] !== undefined) sheet.getRange(i + 1, VISIT_COL.EXAM_TYPE + 1).setValue(updateData['検診種別']);
+        if (updateData['コース'] !== undefined) sheet.getRange(i + 1, VISIT_COL.COURSE + 1).setValue(updateData['コース']);
+        if (updateData['受診日'] !== undefined) sheet.getRange(i + 1, VISIT_COL.VISIT_DATE + 1).setValue(updateData['受診日'] ? new Date(updateData['受診日']) : '');
+        if (updateData['年齢'] !== undefined) sheet.getRange(i + 1, VISIT_COL.AGE + 1).setValue(updateData['年齢']);
+        if (updateData['総合判定'] !== undefined) sheet.getRange(i + 1, VISIT_COL.JUDGMENT + 1).setValue(updateData['総合判定']);
+        if (updateData['医師所見'] !== undefined) sheet.getRange(i + 1, VISIT_COL.DOCTOR_NOTES + 1).setValue(updateData['医師所見']);
+        if (updateData['ステータス'] !== undefined) sheet.getRange(i + 1, VISIT_COL.STATUS + 1).setValue(updateData['ステータス']);
+
+        // 更新日時を更新
+        sheet.getRange(i + 1, VISIT_COL.UPDATED_AT + 1).setValue(new Date());
+
+        return { success: true, message: '受診記録を更新しました' };
+      }
+    }
+
+    return { success: false, error: '受診記録が見つかりません' };
+  } catch (error) {
+    console.error('portalUpdateVisit error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * 受診者詳細を更新（ポータルUI用 - 互換性維持）
  * js.html から呼び出される
- * @param {string} patientId - 受診ID
+ * IDの形式で受診者マスタか受診記録かを判別
+ * @param {string} id - 受診者ID (P-00001) または 受診ID (YYYYMMDD-NNN)
  * @param {Object} updateData - 更新データ
  * @returns {Object} 更新結果
  */
-function portalUpdatePatientDetail(patientId, updateData) {
-  return portalUpdatePatient(patientId, updateData);
+function portalUpdatePatientDetail(id, updateData) {
+  // P-で始まる場合は受診者マスタ
+  if (String(id).startsWith('P-')) {
+    return portalUpdatePatient(id, updateData);
+  }
+  // それ以外は受診記録
+  return portalUpdateVisit(id, updateData);
 }
 
 // ============================================================
@@ -422,7 +813,7 @@ function portalUpdatePatientDetail(patientId, updateData) {
  */
 function portalGetBloodTestResults(patientId) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getPortalSpreadsheet();
     const sheet = ss.getSheetByName('検査結果');
     if (!sheet) {
       return { success: false, error: '検査結果シートが見つかりません', data: null };
@@ -458,7 +849,7 @@ function portalGetBloodTestResults(patientId) {
  */
 function portalSaveBodyMeasurements(patientId, measurements) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getPortalSpreadsheet();
     const sheet = ss.getSheetByName('検査結果');
     if (!sheet) {
       return { success: false, error: '検査結果シートが見つかりません' };
@@ -519,6 +910,112 @@ function portalSaveBodyMeasurements(patientId, measurements) {
 }
 
 /**
+ * 血液検査結果を保存
+ * @param {string} patientId - 患者ID
+ * @param {Object} bloodData - 血液検査データ（キー: 項目名, 値: 検査値）
+ * @returns {Object} 保存結果
+ */
+function portalSaveBloodTestResults(patientId, bloodData) {
+  try {
+    const ss = getPortalSpreadsheet();
+    const sheet = ss.getSheetByName('検査結果');
+    if (!sheet) {
+      return { success: false, error: '検査結果シートが見つかりません' };
+    }
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idColIndex = headers.indexOf('患者ID');
+
+    // 血液検査項目のマッピング（bloodDataのキーはそのまま列名として使用）
+    const bloodFields = {
+      ...bloodData,
+      '血液検査入力日': new Date(),
+      '更新日時': new Date()
+    };
+
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][idColIndex]) === String(patientId)) {
+        // 該当行を更新
+        Object.keys(bloodFields).forEach(fieldName => {
+          const colIdx = headers.indexOf(fieldName);
+          if (colIdx >= 0 && bloodFields[fieldName] !== undefined) {
+            sheet.getRange(i + 1, colIdx + 1).setValue(bloodFields[fieldName]);
+          }
+        });
+        return { success: true, message: '血液検査結果を保存しました' };
+      }
+    }
+
+    // 該当行がない場合は新規行を追加
+    const newRow = headers.map(header => {
+      if (header === '患者ID') return patientId;
+      if (bloodFields.hasOwnProperty(header)) return bloodFields[header];
+      return '';
+    });
+    sheet.appendRow(newRow);
+
+    return { success: true, message: '血液検査結果を新規登録しました' };
+  } catch (error) {
+    console.error('portalSaveBloodTestResults error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * 検査結果を保存（設計書準拠版）
+ * @param {string} patientId - 患者ID
+ * @param {Object} inputData - 検査データ（キー: 項目名, 値: 検査値）
+ * @returns {Object} 保存結果
+ */
+function portalSaveInputResults(patientId, inputData) {
+  try {
+    const ss = getPortalSpreadsheet();
+    const sheet = ss.getSheetByName('検査結果');
+    if (!sheet) {
+      return { success: false, error: '検査結果シートが見つかりません' };
+    }
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idColIndex = headers.indexOf('患者ID');
+
+    // 入力項目のマッピング（inputDataのキーはそのまま列名として使用）
+    const inputFields = {
+      ...inputData,
+      '結果入力日': new Date(),
+      '更新日時': new Date()
+    };
+
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][idColIndex]) === String(patientId)) {
+        // 該当行を更新
+        Object.keys(inputFields).forEach(fieldName => {
+          const colIdx = headers.indexOf(fieldName);
+          if (colIdx >= 0 && inputFields[fieldName] !== undefined) {
+            sheet.getRange(i + 1, colIdx + 1).setValue(inputFields[fieldName]);
+          }
+        });
+        return { success: true, message: '検査結果を保存しました' };
+      }
+    }
+
+    // 該当行がない場合は新規行を追加
+    const newRow = headers.map(header => {
+      if (header === '患者ID') return patientId;
+      if (inputFields.hasOwnProperty(header)) return inputFields[header];
+      return '';
+    });
+    sheet.appendRow(newRow);
+
+    return { success: true, message: '検査結果を新規登録しました' };
+  } catch (error) {
+    console.error('portalSaveInputResults error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * 所見を保存
  * @param {string} patientId - 患者ID
  * @param {Object} findings - 所見データ
@@ -526,7 +1023,7 @@ function portalSaveBodyMeasurements(patientId, measurements) {
  */
 function portalSaveFindings(patientId, findings) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getPortalSpreadsheet();
     const sheet = ss.getSheetByName('検査結果');
     if (!sheet) {
       return { success: false, error: '検査結果シートが見つかりません' };
@@ -597,7 +1094,7 @@ function portalImportCsv(csvContent, options) {
       return { success: false, error: 'ID列が見つかりません' };
     }
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getPortalSpreadsheet();
     const sheet = ss.getSheetByName('検査結果');
     if (!sheet) {
       return { success: false, error: '検査結果シートが見つかりません' };
@@ -673,7 +1170,7 @@ function portalImportCsv(csvContent, options) {
  */
 function portalGetPatientProgress(options) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getPortalSpreadsheet();
     const resultSheet = ss.getSheetByName('検査結果');
     const patientSheet = ss.getSheetByName('受診者マスタ');
 
@@ -871,7 +1368,7 @@ function portalUpdateBillingStatus(patientId, newStatus) {
  */
 function portalGetSettings() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getPortalSpreadsheet();
     const sheet = ss.getSheetByName('設定');
 
     if (!sheet) {
@@ -1245,4 +1742,115 @@ function debugSearchFromWebApp(searchId) {
   }
 
   return debug;
+}
+
+/**
+ * 受診者マスタシートを正しい構造で再構築
+ * 既存シートはバックアップとして保持
+ */
+function rebuildPatientMasterSheet() {
+  const SPREADSHEET_ID = '16KtctyT2gd7oJZdcu84kUtuP-D9jB9KtLxxzxXx_wdk';
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  
+  // 1. 既存シートをバックアップ
+  const oldSheet = ss.getSheetByName('受診者マスタ');
+  if (oldSheet) {
+    const timestamp = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMdd_HHmmss');
+    oldSheet.setName('受診者マスタ_backup_' + timestamp);
+    console.log('既存シートをバックアップしました: 受診者マスタ_backup_' + timestamp);
+  }
+  
+  // 2. 新しいシートを作成
+  const newSheet = ss.insertSheet('受診者マスタ');
+  
+  // 3. 正しいヘッダーを設定
+  const headers = [
+    '受診ID',        // A
+    'ステータス',     // B
+    '受診日',        // C
+    '氏名',          // D
+    'カナ',          // E
+    '性別',          // F
+    '生年月日',      // G
+    '年齢',          // H
+    '受診コース',    // I
+    '事業所名',      // J
+    '所属',          // K
+    '総合判定',      // L
+    'CSV取込日時',   // M
+    '最終更新日時',  // N
+    '出力日時'       // O
+  ];
+  
+  newSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  
+  // 4. ヘッダー行の書式設定
+  const headerRange = newSheet.getRange(1, 1, 1, headers.length);
+  headerRange.setBackground('#4285f4');
+  headerRange.setFontColor('#ffffff');
+  headerRange.setFontWeight('bold');
+  headerRange.setHorizontalAlignment('center');
+  
+  // 5. A列（受診ID）を書式なしテキストに設定
+  const idColumn = newSheet.getRange('A:A');
+  idColumn.setNumberFormat('@');  // テキスト形式
+  
+  // 6. 日付列の書式設定
+  newSheet.getRange('C:C').setNumberFormat('yyyy/mm/dd');  // 受診日
+  newSheet.getRange('G:G').setNumberFormat('yyyy/mm/dd');  // 生年月日
+  newSheet.getRange('M:M').setNumberFormat('yyyy/mm/dd hh:mm:ss');  // CSV取込日時
+  newSheet.getRange('N:N').setNumberFormat('yyyy/mm/dd hh:mm:ss');  // 最終更新日時
+  newSheet.getRange('O:O').setNumberFormat('yyyy/mm/dd hh:mm:ss');  // 出力日時
+  
+  // 7. 列幅を調整
+  newSheet.setColumnWidth(1, 120);   // 受診ID
+  newSheet.setColumnWidth(2, 80);    // ステータス
+  newSheet.setColumnWidth(3, 100);   // 受診日
+  newSheet.setColumnWidth(4, 120);   // 氏名
+  newSheet.setColumnWidth(5, 120);   // カナ
+  newSheet.setColumnWidth(6, 50);    // 性別
+  newSheet.setColumnWidth(7, 100);   // 生年月日
+  newSheet.setColumnWidth(8, 50);    // 年齢
+  newSheet.setColumnWidth(9, 150);   // 受診コース
+  newSheet.setColumnWidth(10, 150);  // 事業所名
+  newSheet.setColumnWidth(11, 100);  // 所属
+  newSheet.setColumnWidth(12, 80);   // 総合判定
+  
+  // 8. テストデータを1件追加
+  const testData = [
+    '20251219-0001',      // 受診ID（テキスト）
+    '入力中',             // ステータス
+    new Date(2025, 11, 19), // 受診日
+    'テスト 太郎',        // 氏名
+    'テスト タロウ',      // カナ
+    '男',                 // 性別
+    new Date(1980, 0, 15),  // 生年月日
+    44,                   // 年齢
+    '生活習慣病ドック',   // 受診コース
+    'テスト株式会社',     // 事業所名
+    '営業部',             // 所属
+    '',                   // 総合判定
+    '',                   // CSV取込日時
+    new Date(),           // 最終更新日時
+    ''                    // 出力日時
+  ];
+  
+  newSheet.getRange(2, 1, 1, testData.length).setValues([testData]);
+  
+  // 9. 行の固定（ヘッダー）
+  newSheet.setFrozenRows(1);
+  
+  // 10. シートを先頭に移動
+  ss.setActiveSheet(newSheet);
+  ss.moveActiveSheet(1);
+  
+  console.log('✅ 受診者マスタシートを再構築しました');
+  console.log('ヘッダー: ' + headers.join(', '));
+  console.log('テストデータ1件を追加しました');
+  
+  return {
+    success: true,
+    message: '受診者マスタシートを再構築しました',
+    backupSheet: oldSheet ? oldSheet.getName() : null
+  };
 }

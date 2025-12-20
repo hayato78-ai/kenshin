@@ -1847,10 +1847,654 @@ function rebuildPatientMasterSheet() {
   console.log('✅ 受診者マスタシートを再構築しました');
   console.log('ヘッダー: ' + headers.join(', '));
   console.log('テストデータ1件を追加しました');
-  
+
   return {
     success: true,
     message: '受診者マスタシートを再構築しました',
     backupSheet: oldSheet ? oldSheet.getName() : null
   };
+}
+
+// ============================================================
+// Phase 2: 結果入力画面 API（iD-Heart準拠）
+// ============================================================
+
+/**
+ * 結果入力画面のデータを一括取得
+ * @param {string} visitId - 受診ID (YYYYMMDD-NNN形式)
+ * @returns {Object} 入力画面に必要な全データ
+ */
+function getInputScreenData(visitId) {
+  try {
+    const ss = getPortalSpreadsheet();
+    const result = {
+      visit: null,
+      patient: null,
+      items: [],
+      existingResults: [],
+      previousResults: [],
+      selectOptions: {},
+      judgmentCriteria: []
+    };
+
+    // 1. 受診記録を取得
+    const visitSheet = ss.getSheetByName('受診記録');
+    if (!visitSheet) {
+      return { success: false, error: '受診記録シートが見つかりません' };
+    }
+
+    const visitData = visitSheet.getDataRange().getValues();
+    let patientId = null;
+    let visitDate = null;
+
+    for (let i = 1; i < visitData.length; i++) {
+      if (safeString(visitData[i][VISIT_COL.VISIT_ID]) === String(visitId)) {
+        const row = visitData[i];
+        result.visit = {
+          visitId: safeString(row[VISIT_COL.VISIT_ID]),
+          patientId: safeString(row[VISIT_COL.PATIENT_ID]),
+          examType: safeString(row[VISIT_COL.EXAM_TYPE]),
+          course: safeString(row[VISIT_COL.COURSE]),
+          visitDate: formatDateToString(row[VISIT_COL.VISIT_DATE]),
+          age: safeNumber(row[VISIT_COL.AGE]),
+          judgment: safeString(row[VISIT_COL.JUDGMENT]),
+          status: safeString(row[VISIT_COL.STATUS])
+        };
+        patientId = safeString(row[VISIT_COL.PATIENT_ID]);
+        visitDate = row[VISIT_COL.VISIT_DATE];
+        break;
+      }
+    }
+
+    if (!result.visit) {
+      return { success: false, error: '受診記録が見つかりません: ' + visitId };
+    }
+
+    // 2. 受診者情報を取得
+    const patientSheet = ss.getSheetByName('受診者マスタ');
+    if (patientSheet && patientId) {
+      const patientData = patientSheet.getDataRange().getValues();
+      for (let i = 1; i < patientData.length; i++) {
+        if (safeString(patientData[i][PATIENT_COL.PATIENT_ID]) === patientId) {
+          const row = patientData[i];
+          result.patient = {
+            patientId: safeString(row[PATIENT_COL.PATIENT_ID]),
+            name: safeString(row[PATIENT_COL.NAME]),
+            kana: safeString(row[PATIENT_COL.KANA]),
+            birthDate: formatDateToString(row[PATIENT_COL.BIRTHDATE]),
+            gender: safeString(row[PATIENT_COL.GENDER]),
+            company: safeString(row[PATIENT_COL.COMPANY])
+          };
+          break;
+        }
+      }
+    }
+
+    // 3. 検査項目マスタを取得
+    const itemSheet = ss.getSheetByName('検査項目マスタ');
+    if (itemSheet && itemSheet.getLastRow() > 1) {
+      const itemData = itemSheet.getDataRange().getValues();
+      const itemHeaders = itemData[0];
+
+      for (let i = 1; i < itemData.length; i++) {
+        const row = itemData[i];
+        if (!row[0]) continue;  // 空行スキップ
+
+        result.items.push({
+          itemId: safeString(row[0]),
+          itemCode: safeString(row[1]),
+          itemName: safeString(row[2]),
+          category: safeString(row[3]),
+          subCategory: safeString(row[4]),
+          dataType: safeString(row[5]),
+          unit: safeString(row[6]),
+          displayOrder: safeNumber(row[7]) || i,
+          isActive: row[8] !== false
+        });
+      }
+
+      // 表示順でソート
+      result.items.sort((a, b) => a.displayOrder - b.displayOrder);
+    }
+
+    // 4. 今回の検査結果を取得（縦持ち形式）
+    const resultSheet = ss.getSheetByName('検査結果');
+    if (resultSheet && resultSheet.getLastRow() > 1) {
+      const resultData = resultSheet.getDataRange().getValues();
+
+      for (let i = 1; i < resultData.length; i++) {
+        const row = resultData[i];
+        if (safeString(row[1]) === String(visitId)) {  // 受診ID列
+          result.existingResults.push({
+            resultId: safeString(row[0]),
+            visitId: safeString(row[1]),
+            itemId: safeString(row[2]),
+            value: safeString(row[3]),
+            numericValue: safeNumber(row[4]),
+            judgment: safeString(row[5]),
+            notes: safeString(row[6])
+          });
+        }
+      }
+    }
+
+    // 5. 前回の検査結果を取得
+    if (patientId && visitDate) {
+      // 同一患者の前回受診を検索
+      let previousVisitId = null;
+      let previousVisitDate = null;
+
+      for (let i = 1; i < visitData.length; i++) {
+        const row = visitData[i];
+        if (safeString(row[VISIT_COL.PATIENT_ID]) === patientId &&
+            safeString(row[VISIT_COL.VISIT_ID]) !== visitId) {
+          const vDate = row[VISIT_COL.VISIT_DATE];
+          if (vDate && vDate < visitDate) {
+            if (!previousVisitDate || vDate > previousVisitDate) {
+              previousVisitDate = vDate;
+              previousVisitId = safeString(row[VISIT_COL.VISIT_ID]);
+            }
+          }
+        }
+      }
+
+      // 前回の検査結果を取得
+      if (previousVisitId && resultSheet) {
+        const resultData = resultSheet.getDataRange().getValues();
+        for (let i = 1; i < resultData.length; i++) {
+          const row = resultData[i];
+          if (safeString(row[1]) === previousVisitId) {
+            result.previousResults.push({
+              itemId: safeString(row[2]),
+              value: safeString(row[3]),
+              judgment: safeString(row[5]),
+              notes: safeString(row[6])
+            });
+          }
+        }
+      }
+    }
+
+    // 6. 選択肢マスタを取得
+    const optionSheet = ss.getSheetByName('選択肢マスタ');
+    if (optionSheet && optionSheet.getLastRow() > 1) {
+      const optionData = optionSheet.getDataRange().getValues();
+      for (let i = 1; i < optionData.length; i++) {
+        const row = optionData[i];
+        const itemId = safeString(row[0]);
+        if (itemId) {
+          result.selectOptions[itemId] = safeString(row[1]).split(',').map(s => s.trim());
+        }
+      }
+    }
+
+    // 7. 判定基準マスタを取得
+    const criteriaSheet = ss.getSheetByName('判定基準マスタ');
+    if (criteriaSheet && criteriaSheet.getLastRow() > 1) {
+      const criteriaData = criteriaSheet.getDataRange().getValues();
+      for (let i = 1; i < criteriaData.length; i++) {
+        const row = criteriaData[i];
+        if (!row[0]) continue;
+        result.judgmentCriteria.push({
+          itemId: safeString(row[0]),
+          itemName: safeString(row[1]),
+          gender: safeString(row[2]),
+          unit: safeString(row[3]),
+          aMin: safeNumber(row[4]),
+          aMax: safeNumber(row[5]),
+          bMin: safeNumber(row[6]),
+          bMax: safeNumber(row[7]),
+          cMin: safeNumber(row[8]),
+          cMax: safeNumber(row[9]),
+          dMin: safeNumber(row[10]),
+          dMax: safeNumber(row[11])
+        });
+      }
+    }
+
+    return {
+      success: true,
+      data: result,
+      timestamp: new Date().toISOString()
+    };
+
+  } catch (error) {
+    console.error('getInputScreenData error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * 検査結果を一括保存（バッチ処理）
+ * @param {string} visitId - 受診ID
+ * @param {Array} results - 検査結果配列 [{itemId, value, judgment, notes}, ...]
+ * @returns {Object} 保存結果
+ */
+function saveTestResultsBatch(visitId, results) {
+  try {
+    if (!visitId || !results || !Array.isArray(results)) {
+      return { success: false, error: 'パラメータが不正です' };
+    }
+
+    const ss = getPortalSpreadsheet();
+    const resultSheet = ss.getSheetByName('検査結果');
+
+    if (!resultSheet) {
+      return { success: false, error: '検査結果シートが見つかりません' };
+    }
+
+    // 既存の結果を取得（visitIdでフィルタ）
+    const existingData = resultSheet.getDataRange().getValues();
+    const existingMap = {};  // itemId -> rowIndex
+
+    for (let i = 1; i < existingData.length; i++) {
+      if (safeString(existingData[i][1]) === String(visitId)) {
+        const itemId = safeString(existingData[i][2]);
+        existingMap[itemId] = i + 1;  // 1-indexed row number
+      }
+    }
+
+    const now = new Date();
+    let updatedCount = 0;
+    let insertedCount = 0;
+    const errors = [];
+
+    // バッチ処理（100件ずつ）
+    const batchSize = 100;
+    for (let batch = 0; batch < results.length; batch += batchSize) {
+      const batchResults = results.slice(batch, batch + batchSize);
+
+      for (const item of batchResults) {
+        try {
+          const itemId = safeString(item.itemId);
+          if (!itemId) continue;
+
+          // 数値変換
+          let numericValue = '';
+          if (item.value !== '' && item.value !== null && item.value !== undefined) {
+            const parsed = parseFloat(item.value);
+            if (!isNaN(parsed)) {
+              numericValue = parsed;
+            }
+          }
+
+          if (existingMap[itemId]) {
+            // 既存行を更新
+            const rowIndex = existingMap[itemId];
+            resultSheet.getRange(rowIndex, 4).setValue(item.value || '');  // D: 値
+            resultSheet.getRange(rowIndex, 5).setValue(numericValue);       // E: 数値変換
+            resultSheet.getRange(rowIndex, 6).setValue(item.judgment || ''); // F: 判定
+            resultSheet.getRange(rowIndex, 7).setValue(item.notes || '');    // G: 所見
+            resultSheet.getRange(rowIndex, 8).setValue(now);                 // H: 更新日時
+            updatedCount++;
+          } else {
+            // 新規行を追加
+            const resultId = generateNextResultId(resultSheet);
+            const newRow = [
+              resultId,           // A: 結果ID
+              visitId,            // B: 受診ID
+              itemId,             // C: 項目ID
+              item.value || '',   // D: 値
+              numericValue,       // E: 数値変換
+              item.judgment || '', // F: 判定
+              item.notes || '',   // G: 所見
+              now                  // H: 作成日時
+            ];
+            resultSheet.appendRow(newRow);
+            existingMap[itemId] = resultSheet.getLastRow();
+            insertedCount++;
+          }
+        } catch (itemError) {
+          errors.push({ itemId: item.itemId, error: itemError.message });
+        }
+      }
+    }
+
+    return {
+      success: true,
+      message: `保存完了: 更新${updatedCount}件, 新規${insertedCount}件`,
+      updatedCount: updatedCount,
+      insertedCount: insertedCount,
+      errors: errors
+    };
+
+  } catch (error) {
+    console.error('saveTestResultsBatch error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * 次の結果IDを生成
+ * @param {Sheet} sheet - 検査結果シート
+ * @returns {string} R00001形式のID
+ */
+function generateNextResultId(sheet) {
+  if (!sheet || sheet.getLastRow() < 2) {
+    return 'R00001';
+  }
+
+  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+  let maxNum = 0;
+
+  for (const row of data) {
+    const id = String(row[0]);
+    if (id.startsWith('R')) {
+      const num = parseInt(id.replace('R', ''), 10);
+      if (!isNaN(num) && num > maxNum) {
+        maxNum = num;
+      }
+    }
+  }
+
+  return `R${String(maxNum + 1).padStart(5, '0')}`;
+}
+
+/**
+ * 即時判定計算
+ * @param {string} itemId - 項目ID
+ * @param {*} value - 検査値
+ * @param {string} gender - 性別 (M/F)
+ * @returns {Object} 判定結果 {judgment, color, label}
+ */
+function calculateJudgment(itemId, value, gender) {
+  try {
+    // 値がない場合
+    if (value === '' || value === null || value === undefined) {
+      return { judgment: '', color: '', label: '' };
+    }
+
+    const numValue = parseFloat(value);
+
+    // 数値でない場合（定性検査など）
+    if (isNaN(numValue)) {
+      // 定性検査の判定
+      const qualitativeJudgments = {
+        '(-)': 'A',
+        '-': 'A',
+        '陰性': 'A',
+        '(±)': 'B',
+        '±': 'B',
+        '(+)': 'C',
+        '+': 'C',
+        '(2+)': 'D',
+        '2+': 'D',
+        '(3+)': 'D',
+        '3+': 'D',
+        '陽性': 'D'
+      };
+      const judgment = qualitativeJudgments[String(value)] || '';
+      return getJudgmentInfo(judgment);
+    }
+
+    // 判定基準を取得
+    const ss = getPortalSpreadsheet();
+    const criteriaSheet = ss.getSheetByName('判定基準マスタ');
+
+    if (!criteriaSheet || criteriaSheet.getLastRow() < 2) {
+      return { judgment: '', color: '', label: '判定基準なし' };
+    }
+
+    const criteriaData = criteriaSheet.getDataRange().getValues();
+
+    // 該当項目の判定基準を検索
+    for (let i = 1; i < criteriaData.length; i++) {
+      const row = criteriaData[i];
+      if (safeString(row[0]) === itemId) {
+        const criteriaGender = safeString(row[2]);
+
+        // 性別チェック（空なら共通、Mなら男性、Fなら女性）
+        if (criteriaGender && criteriaGender !== gender) {
+          continue;
+        }
+
+        const aMin = safeNumber(row[4]);
+        const aMax = safeNumber(row[5]);
+        const bMin = safeNumber(row[6]);
+        const bMax = safeNumber(row[7]);
+        const cMin = safeNumber(row[8]);
+        const cMax = safeNumber(row[9]);
+        const dMin = safeNumber(row[10]);
+        const dMax = safeNumber(row[11]);
+
+        // 判定ロジック
+        let judgment = '';
+
+        // A判定
+        if (aMin !== '' && aMax !== '') {
+          if (numValue >= aMin && numValue <= aMax) {
+            judgment = 'A';
+          }
+        }
+
+        // B判定
+        if (!judgment && bMin !== '' && bMax !== '') {
+          if (numValue >= bMin && numValue <= bMax) {
+            judgment = 'B';
+          }
+        }
+
+        // C判定
+        if (!judgment && cMin !== '' && cMax !== '') {
+          if (numValue >= cMin && numValue <= cMax) {
+            judgment = 'C';
+          }
+        }
+
+        // D判定（範囲外）
+        if (!judgment && (dMin !== '' || dMax !== '')) {
+          if ((dMin !== '' && numValue < dMin) || (dMax !== '' && numValue > dMax)) {
+            judgment = 'D';
+          } else if (!judgment) {
+            judgment = 'D';
+          }
+        }
+
+        // いずれにも該当しない場合
+        if (!judgment) {
+          judgment = 'D';  // 範囲外はD判定
+        }
+
+        return getJudgmentInfo(judgment);
+      }
+    }
+
+    return { judgment: '', color: '', label: '判定基準なし' };
+
+  } catch (error) {
+    console.error('calculateJudgment error:', error);
+    return { judgment: '', color: '', label: 'エラー' };
+  }
+}
+
+/**
+ * 判定情報を取得
+ * @param {string} judgment - 判定 (A/B/C/D/E/F)
+ * @returns {Object} {judgment, color, label}
+ */
+function getJudgmentInfo(judgment) {
+  const info = {
+    A: { color: '#e8f5e9', textColor: '#2e7d32', label: '異常なし' },
+    B: { color: '#fff8e1', textColor: '#f57f17', label: '軽度異常' },
+    C: { color: '#fff3e0', textColor: '#e65100', label: '要経過観察' },
+    D: { color: '#ffebee', textColor: '#c62828', label: '要精密検査' },
+    E: { color: '#f3e5f5', textColor: '#6a1b9a', label: '治療中' },
+    F: { color: '#e3f2fd', textColor: '#1565c0', label: '経過観察中' }
+  };
+
+  if (info[judgment]) {
+    return {
+      judgment: judgment,
+      color: info[judgment].color,
+      textColor: info[judgment].textColor,
+      label: info[judgment].label
+    };
+  }
+
+  return { judgment: '', color: '', textColor: '', label: '' };
+}
+
+/**
+ * 3レベル判定を取得
+ * @param {string} visitId - 受診ID
+ * @returns {Object} 3レベル判定結果
+ */
+function getThreeLevelJudgment(visitId) {
+  try {
+    const ss = getPortalSpreadsheet();
+    const result = {
+      level1: {},  // 項目別判定 {itemId: judgment}
+      level2: {},  // カテゴリ別判定 {category: judgment}
+      level3: ''   // 総合判定
+    };
+
+    // 検査結果を取得
+    const resultSheet = ss.getSheetByName('検査結果');
+    if (!resultSheet || resultSheet.getLastRow() < 2) {
+      return { success: false, error: '検査結果がありません' };
+    }
+
+    const resultData = resultSheet.getDataRange().getValues();
+
+    // Level 1: 項目別判定を収集
+    for (let i = 1; i < resultData.length; i++) {
+      const row = resultData[i];
+      if (safeString(row[1]) === String(visitId)) {
+        const itemId = safeString(row[2]);
+        const judgment = safeString(row[5]);
+        if (itemId && judgment) {
+          result.level1[itemId] = judgment;
+        }
+      }
+    }
+
+    // 検査項目マスタからカテゴリを取得
+    const itemSheet = ss.getSheetByName('検査項目マスタ');
+    const categoryMap = {};  // itemId -> category
+
+    if (itemSheet && itemSheet.getLastRow() > 1) {
+      const itemData = itemSheet.getDataRange().getValues();
+      for (let i = 1; i < itemData.length; i++) {
+        const row = itemData[i];
+        categoryMap[safeString(row[0])] = safeString(row[3]);  // category列
+      }
+    }
+
+    // Level 2: カテゴリ別に最悪の判定を集計
+    const categoryJudgments = {};  // category -> [judgments]
+    const judgmentOrder = { 'D': 4, 'C': 3, 'B': 2, 'E': 1, 'F': 1, 'A': 0 };
+
+    for (const [itemId, judgment] of Object.entries(result.level1)) {
+      const category = categoryMap[itemId] || '未分類';
+      if (!categoryJudgments[category]) {
+        categoryJudgments[category] = [];
+      }
+      categoryJudgments[category].push(judgment);
+    }
+
+    for (const [category, judgments] of Object.entries(categoryJudgments)) {
+      // 最悪の判定を取得
+      let worstJudgment = 'A';
+      for (const j of judgments) {
+        if ((judgmentOrder[j] || 0) > (judgmentOrder[worstJudgment] || 0)) {
+          worstJudgment = j;
+        }
+      }
+      result.level2[category] = worstJudgment;
+    }
+
+    // Level 3: 総合判定（全カテゴリの最悪判定）
+    let overallWorst = 'A';
+    for (const judgment of Object.values(result.level2)) {
+      if ((judgmentOrder[judgment] || 0) > (judgmentOrder[overallWorst] || 0)) {
+        overallWorst = judgment;
+      }
+    }
+    result.level3 = overallWorst;
+
+    return {
+      success: true,
+      data: result
+    };
+
+  } catch (error) {
+    console.error('getThreeLevelJudgment error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * 当日受診者リストを取得
+ * @param {string} dateStr - 日付文字列 (YYYY-MM-DD)
+ * @returns {Object} 受診者リスト
+ */
+function getTodayVisitors(dateStr) {
+  try {
+    const ss = getPortalSpreadsheet();
+    const visitSheet = ss.getSheetByName('受診記録');
+    const patientSheet = ss.getSheetByName('受診者マスタ');
+
+    if (!visitSheet) {
+      return { success: false, error: '受診記録シートが見つかりません' };
+    }
+
+    const targetDate = dateStr ? new Date(dateStr) : new Date();
+    const targetDateStr = Utilities.formatDate(targetDate, 'Asia/Tokyo', 'yyyyMMdd');
+
+    const visitData = visitSheet.getDataRange().getValues();
+    const visitors = [];
+
+    // 患者情報をマップ化
+    const patientMap = {};
+    if (patientSheet && patientSheet.getLastRow() > 1) {
+      const patientData = patientSheet.getDataRange().getValues();
+      for (let i = 1; i < patientData.length; i++) {
+        const patientId = safeString(patientData[i][PATIENT_COL.PATIENT_ID]);
+        patientMap[patientId] = {
+          name: safeString(patientData[i][PATIENT_COL.NAME]),
+          kana: safeString(patientData[i][PATIENT_COL.KANA]),
+          gender: safeString(patientData[i][PATIENT_COL.GENDER])
+        };
+      }
+    }
+
+    for (let i = 1; i < visitData.length; i++) {
+      const row = visitData[i];
+      const visitDate = row[VISIT_COL.VISIT_DATE];
+
+      if (visitDate) {
+        const visitDateStr = Utilities.formatDate(new Date(visitDate), 'Asia/Tokyo', 'yyyyMMdd');
+        if (visitDateStr === targetDateStr) {
+          const patientId = safeString(row[VISIT_COL.PATIENT_ID]);
+          const patient = patientMap[patientId] || {};
+
+          visitors.push({
+            visitId: safeString(row[VISIT_COL.VISIT_ID]),
+            patientId: patientId,
+            name: patient.name || '',
+            kana: patient.kana || '',
+            gender: patient.gender || '',
+            course: safeString(row[VISIT_COL.COURSE]),
+            status: safeString(row[VISIT_COL.STATUS]),
+            judgment: safeString(row[VISIT_COL.JUDGMENT]),
+            age: safeNumber(row[VISIT_COL.AGE])
+          });
+        }
+      }
+    }
+
+    // カナでソート
+    visitors.sort((a, b) => (a.kana || '').localeCompare(b.kana || '', 'ja'));
+
+    return {
+      success: true,
+      data: visitors,
+      count: visitors.length,
+      date: formatDateToString(targetDate)
+    };
+
+  } catch (error) {
+    console.error('getTodayVisitors error:', error);
+    return { success: false, error: error.message };
+  }
 }

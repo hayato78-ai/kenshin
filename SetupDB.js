@@ -686,3 +686,349 @@ function showExtendedMasterSheets() {
     }
   }
 }
+
+// ============================================
+// Phase 2: 結果入力機能用シート作成（iD-Heart準拠）
+// ============================================
+
+/**
+ * Phase 2: 結果入力機能用シートをセットアップ
+ * M_検査所見マスタ、M_団体マスタ、M_コース項目マスタ、T_判定結果、T_所見を作成
+ */
+function setupResultInputSheets() {
+  logInfo('===== Phase 2: 結果入力機能用シート作成開始 =====');
+
+  try {
+    const ss = getSpreadsheet();
+
+    // 1. M_検査所見マスタ（所見テンプレート）
+    createFindingTemplateSheet(ss);
+
+    // 2. M_団体マスタ（企業・団体情報）
+    createOrganizationMasterSheet(ss);
+
+    // 3. M_コース項目マスタ（コースと検査項目のリレーション）
+    createCourseItemSheet(ss);
+
+    // 4. T_判定結果（3レベル判定）
+    createJudgmentResultSheet(ss);
+
+    // 5. T_所見（所見記録）
+    createFindingsSheet(ss);
+
+    logInfo('===== Phase 2: 結果入力機能用シート作成完了 =====');
+
+    // 結果をダイアログで表示
+    const ui = SpreadsheetApp.getUi();
+    ui.alert('セットアップ完了',
+      '結果入力機能用シートの作成が完了しました。\n\n' +
+      '作成されたシート:\n' +
+      '- M_検査所見マスタ（所見テンプレート）\n' +
+      '- M_団体マスタ（企業・団体情報）\n' +
+      '- M_コース項目マスタ（コース-項目関連）\n' +
+      '- T_判定結果（3レベル判定結果）\n' +
+      '- T_所見（所見記録）',
+      ui.ButtonSet.OK);
+
+  } catch (e) {
+    logError('setupResultInputSheets', e);
+    throw e;
+  }
+}
+
+/**
+ * M_検査所見マスタシートを作成
+ * @param {Spreadsheet} ss - スプレッドシート
+ */
+function createFindingTemplateSheet(ss) {
+  const sheetName = DB_CONFIG.SHEETS.FINDING_TEMPLATE;
+  let sheet = ss.getSheetByName(sheetName);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    logInfo(`  シート作成: ${sheetName}`);
+  } else {
+    logInfo(`  シート既存: ${sheetName}`);
+    if (sheet.getLastRow() > 1) {
+      logInfo(`    データ既存、スキップ`);
+      return sheet;
+    }
+  }
+
+  // ヘッダー設定
+  const headers = FINDING_TEMPLATE_DEF.headers;
+  const headerRange = sheet.getRange(1, 1, 1, headers.length);
+  headerRange.setValues([headers]);
+  headerRange.setFontWeight('bold');
+  headerRange.setBackground('#9c27b0');  // 紫
+  headerRange.setFontColor('#ffffff');
+  headerRange.setHorizontalAlignment('center');
+
+  // 列幅設定
+  for (const [col, width] of Object.entries(FINDING_TEMPLATE_DEF.columnWidths)) {
+    const colIndex = columnLetterToIndex(col);
+    sheet.setColumnWidth(colIndex, width);
+  }
+
+  // 1行目を固定
+  sheet.setFrozenRows(1);
+
+  // サンプルデータ投入
+  const sampleData = [
+    ['F001', 'BMI', '身体計測', 'B', '体重管理が必要です。', 1, true],
+    ['F002', 'BMI', '身体計測', 'C', '肥満傾向です。生活習慣の改善を推奨します。', 1, true],
+    ['F003', 'BMI', '身体計測', 'D', '高度肥満です。医療機関での相談を推奨します。', 1, true],
+    ['F004', 'BP_SYS', '血圧', 'B', '血圧がやや高めです。塩分控えめの食事を心がけてください。', 1, true],
+    ['F005', 'BP_SYS', '血圧', 'C', '高血圧の傾向があります。定期的な血圧測定を推奨します。', 1, true],
+    ['F006', 'BP_SYS', '血圧', 'D', '高血圧です。医療機関での精密検査を推奨します。', 1, true],
+    ['F007', 'FBS', '糖代謝', 'C', '血糖値がやや高めです。食生活の見直しを推奨します。', 1, true],
+    ['F008', 'FBS', '糖代謝', 'D', '糖尿病の疑いがあります。医療機関での精密検査を推奨します。', 1, true],
+    ['F009', 'LDL', '脂質', 'C', 'LDLコレステロールが高めです。食事・運動の改善を推奨します。', 1, true],
+    ['F010', 'LDL', '脂質', 'D', '脂質異常症の疑いがあります。医療機関での精密検査を推奨します。', 1, true]
+  ];
+
+  if (sampleData.length > 0) {
+    sheet.getRange(2, 1, sampleData.length, sampleData[0].length).setValues(sampleData);
+    logInfo(`    サンプルデータ投入: ${sampleData.length}件`);
+  }
+
+  return sheet;
+}
+
+/**
+ * M_団体マスタシートを作成
+ * @param {Spreadsheet} ss - スプレッドシート
+ */
+function createOrganizationMasterSheet(ss) {
+  const sheetName = DB_CONFIG.SHEETS.ORGANIZATION_MASTER;
+  let sheet = ss.getSheetByName(sheetName);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    logInfo(`  シート作成: ${sheetName}`);
+  } else {
+    logInfo(`  シート既存: ${sheetName}`);
+    if (sheet.getLastRow() > 1) {
+      logInfo(`    データ既存、スキップ`);
+      return sheet;
+    }
+  }
+
+  // ヘッダー設定
+  const headers = ORGANIZATION_MASTER_DEF.headers;
+  const headerRange = sheet.getRange(1, 1, 1, headers.length);
+  headerRange.setValues([headers]);
+  headerRange.setFontWeight('bold');
+  headerRange.setBackground('#00bcd4');  // シアン
+  headerRange.setFontColor('#ffffff');
+  headerRange.setHorizontalAlignment('center');
+
+  // 列幅設定
+  for (const [col, width] of Object.entries(ORGANIZATION_MASTER_DEF.columnWidths)) {
+    const colIndex = columnLetterToIndex(col);
+    sheet.setColumnWidth(colIndex, width);
+  }
+
+  // 1行目を固定
+  sheet.setFrozenRows(1);
+
+  // サンプルデータ投入
+  const sampleData = [
+    ['ORG001', '個人（一般）', '', '', '', '', 'DOCK_LIFE,DOCK_GI,DOCK_FULL', '都度', '個人受診者用', true],
+    ['ORG002', 'サンプル株式会社', '150-0001', '東京都渋谷区神宮前1-1-1', '03-1234-5678', '健康管理部 山田太郎', 'DOCK_LIFE', '一括', '年間契約', true]
+  ];
+
+  if (sampleData.length > 0) {
+    sheet.getRange(2, 1, sampleData.length, sampleData[0].length).setValues(sampleData);
+    logInfo(`    サンプルデータ投入: ${sampleData.length}件`);
+  }
+
+  return sheet;
+}
+
+/**
+ * M_コース項目マスタシートを作成
+ * @param {Spreadsheet} ss - スプレッドシート
+ */
+function createCourseItemSheet(ss) {
+  const sheetName = DB_CONFIG.SHEETS.COURSE_ITEM;
+  let sheet = ss.getSheetByName(sheetName);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    logInfo(`  シート作成: ${sheetName}`);
+  } else {
+    logInfo(`  シート既存: ${sheetName}`);
+    if (sheet.getLastRow() > 1) {
+      logInfo(`    データ既存、スキップ`);
+      return sheet;
+    }
+  }
+
+  // ヘッダー設定
+  const headers = COURSE_ITEM_DEF.headers;
+  const headerRange = sheet.getRange(1, 1, 1, headers.length);
+  headerRange.setValues([headers]);
+  headerRange.setFontWeight('bold');
+  headerRange.setBackground('#ff9800');  // オレンジ
+  headerRange.setFontColor('#ffffff');
+  headerRange.setHorizontalAlignment('center');
+
+  // 列幅設定
+  for (const [col, width] of Object.entries(COURSE_ITEM_DEF.columnWidths)) {
+    const colIndex = columnLetterToIndex(col);
+    sheet.setColumnWidth(colIndex, width);
+  }
+
+  // 1行目を固定
+  sheet.setFrozenRows(1);
+
+  // サンプルデータ投入（生活習慣病ドックの項目例）
+  const sampleData = [
+    ['DOCK_LIFE', 'HEIGHT', true, 1],
+    ['DOCK_LIFE', 'WEIGHT', true, 2],
+    ['DOCK_LIFE', 'BMI', true, 3],
+    ['DOCK_LIFE', 'BP_SYS', true, 4],
+    ['DOCK_LIFE', 'BP_DIA', true, 5],
+    ['DOCK_LIFE', 'FBS', true, 10],
+    ['DOCK_LIFE', 'HBA1C', true, 11],
+    ['DOCK_LIFE', 'TCHO', true, 20],
+    ['DOCK_LIFE', 'HDL', true, 21],
+    ['DOCK_LIFE', 'LDL', true, 22],
+    ['DOCK_LIFE', 'TG', true, 23],
+    ['DOCK_LIFE', 'AST', true, 30],
+    ['DOCK_LIFE', 'ALT', true, 31],
+    ['DOCK_LIFE', 'GGT', true, 32]
+  ];
+
+  if (sampleData.length > 0) {
+    sheet.getRange(2, 1, sampleData.length, sampleData[0].length).setValues(sampleData);
+    logInfo(`    サンプルデータ投入: ${sampleData.length}件`);
+  }
+
+  return sheet;
+}
+
+/**
+ * T_判定結果シートを作成
+ * @param {Spreadsheet} ss - スプレッドシート
+ */
+function createJudgmentResultSheet(ss) {
+  const sheetName = DB_CONFIG.SHEETS.JUDGMENT_RESULT;
+  let sheet = ss.getSheetByName(sheetName);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    logInfo(`  シート作成: ${sheetName}`);
+  } else {
+    logInfo(`  シート既存: ${sheetName}`);
+    return sheet;
+  }
+
+  // ヘッダー設定
+  const headers = JUDGMENT_RESULT_DEF.headers;
+  const headerRange = sheet.getRange(1, 1, 1, headers.length);
+  headerRange.setValues([headers]);
+  headerRange.setFontWeight('bold');
+  headerRange.setBackground('#e91e63');  // ピンク
+  headerRange.setFontColor('#ffffff');
+  headerRange.setHorizontalAlignment('center');
+
+  // 列幅設定
+  for (const [col, width] of Object.entries(JUDGMENT_RESULT_DEF.columnWidths)) {
+    const colIndex = columnLetterToIndex(col);
+    sheet.setColumnWidth(colIndex, width);
+  }
+
+  // 1行目を固定
+  sheet.setFrozenRows(1);
+
+  // トランザクションシートなのでサンプルデータは投入しない
+  logInfo(`    トランザクションシート作成完了`);
+
+  return sheet;
+}
+
+/**
+ * T_所見シートを作成
+ * @param {Spreadsheet} ss - スプレッドシート
+ */
+function createFindingsSheet(ss) {
+  const sheetName = DB_CONFIG.SHEETS.FINDINGS;
+  let sheet = ss.getSheetByName(sheetName);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    logInfo(`  シート作成: ${sheetName}`);
+  } else {
+    logInfo(`  シート既存: ${sheetName}`);
+    return sheet;
+  }
+
+  // ヘッダー設定
+  const headers = FINDINGS_DEF.headers;
+  const headerRange = sheet.getRange(1, 1, 1, headers.length);
+  headerRange.setValues([headers]);
+  headerRange.setFontWeight('bold');
+  headerRange.setBackground('#607d8b');  // グレー
+  headerRange.setFontColor('#ffffff');
+  headerRange.setHorizontalAlignment('center');
+
+  // 列幅設定
+  for (const [col, width] of Object.entries(FINDINGS_DEF.columnWidths)) {
+    const colIndex = columnLetterToIndex(col);
+    sheet.setColumnWidth(colIndex, width);
+  }
+
+  // 1行目を固定
+  sheet.setFrozenRows(1);
+
+  // トランザクションシートなのでサンプルデータは投入しない
+  logInfo(`    トランザクションシート作成完了`);
+
+  return sheet;
+}
+
+/**
+ * 結果入力機能用シートを非表示に設定
+ */
+function hideResultInputSheets() {
+  const ss = getSpreadsheet();
+  const sheetNames = [
+    DB_CONFIG.SHEETS.FINDING_TEMPLATE,
+    DB_CONFIG.SHEETS.ORGANIZATION_MASTER,
+    DB_CONFIG.SHEETS.COURSE_ITEM,
+    DB_CONFIG.SHEETS.JUDGMENT_RESULT,
+    DB_CONFIG.SHEETS.FINDINGS
+  ];
+
+  for (const sheetName of sheetNames) {
+    const sheet = ss.getSheetByName(sheetName);
+    if (sheet) {
+      sheet.hideSheet();
+      logInfo(`シート非表示: ${sheetName}`);
+    }
+  }
+}
+
+/**
+ * 結果入力機能用シートを表示（開発・デバッグ用）
+ */
+function showResultInputSheets() {
+  const ss = getSpreadsheet();
+  const sheetNames = [
+    DB_CONFIG.SHEETS.FINDING_TEMPLATE,
+    DB_CONFIG.SHEETS.ORGANIZATION_MASTER,
+    DB_CONFIG.SHEETS.COURSE_ITEM,
+    DB_CONFIG.SHEETS.JUDGMENT_RESULT,
+    DB_CONFIG.SHEETS.FINDINGS
+  ];
+
+  for (const sheetName of sheetNames) {
+    const sheet = ss.getSheetByName(sheetName);
+    if (sheet) {
+      sheet.showSheet();
+      logInfo(`シート表示: ${sheetName}`);
+    }
+  }
+}

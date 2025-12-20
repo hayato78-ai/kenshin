@@ -27,7 +27,13 @@ const DB_CONFIG = {
     EXAM_ITEM_MASTER: '検査項目マスタ',      // 150項目の詳細定義
     JUDGMENT_CRITERIA: '判定基準マスタ',      // 判定基準（人間ドック学会2025）
     SELECT_OPTIONS: '選択肢マスタ',           // 定性検査の選択肢
-    EXAM_COURSE_MASTER: '健診コースマスタ'   // 6コース定義
+    EXAM_COURSE_MASTER: '健診コースマスタ',  // 6コース定義
+    // Phase 2追加: 結果入力機能用シート（iD-Heart準拠）
+    FINDING_TEMPLATE: 'M_検査所見マスタ',    // 所見テンプレート
+    ORGANIZATION_MASTER: 'M_団体マスタ',     // 企業・団体情報
+    COURSE_ITEM: 'M_コース項目マスタ',       // コースと検査項目の関連
+    JUDGMENT_RESULT: 'T_判定結果',           // 3レベル判定結果
+    FINDINGS: 'T_所見'                       // 所見記録
   },
 
   // ステータス定義（設計書4.2準拠）
@@ -511,6 +517,158 @@ const JUDGMENT_LABELS = {
   'E': '治療中',
   'F': '経過観察中'
 };
+
+// ============================================
+// Phase 2: 結果入力機能用シート定義（iD-Heart準拠）
+// ============================================
+
+// M_検査所見マスタ（所見テンプレート）
+const FINDING_TEMPLATE_DEF = {
+  headers: [
+    '所見ID', '項目ID', 'カテゴリ', '判定', '所見テンプレート', '優先順位', '有効'
+  ],
+  columns: {
+    FINDING_ID: 0,      // A: 所見ID
+    ITEM_ID: 1,         // B: 項目ID（FK）
+    CATEGORY: 2,        // C: カテゴリ（身体計測、血圧等）
+    JUDGMENT: 3,        // D: 判定（A/B/C/D/E/F）
+    TEMPLATE: 4,        // E: 所見テンプレート文章
+    PRIORITY: 5,        // F: 優先順位（同一判定内の表示順）
+    IS_ACTIVE: 6        // G: 有効フラグ
+  },
+  columnWidths: {
+    A: 100, B: 120, C: 100, D: 60, E: 400, F: 80, G: 60
+  }
+};
+
+// M_団体マスタ（企業・団体情報）
+const ORGANIZATION_MASTER_DEF = {
+  headers: [
+    '団体ID', '団体名', '郵便番号', '住所', '電話番号',
+    '担当者', '契約コース', '請求方法', '備考', '有効'
+  ],
+  columns: {
+    ORG_ID: 0,          // A: 団体ID
+    ORG_NAME: 1,        // B: 団体名
+    POSTAL_CODE: 2,     // C: 郵便番号
+    ADDRESS: 3,         // D: 住所
+    PHONE: 4,           // E: 電話番号
+    CONTACT: 5,         // F: 担当者
+    CONTRACT_COURSE: 6, // G: 契約コース（カンマ区切り）
+    BILLING_METHOD: 7,  // H: 請求方法（一括/個別/都度）
+    NOTES: 8,           // I: 備考
+    IS_ACTIVE: 9        // J: 有効フラグ
+  },
+  columnWidths: {
+    A: 100, B: 200, C: 100, D: 300, E: 120,
+    F: 100, G: 150, H: 100, I: 200, J: 60
+  }
+};
+
+// M_コース項目マスタ（コースと検査項目の多対多リレーション）
+const COURSE_ITEM_DEF = {
+  headers: [
+    'コースID', '項目ID', '必須フラグ', '表示順'
+  ],
+  columns: {
+    COURSE_ID: 0,       // A: コースID（FK）
+    ITEM_ID: 1,         // B: 項目ID（FK）
+    IS_REQUIRED: 2,     // C: 必須フラグ（TRUE/FALSE）
+    DISPLAY_ORDER: 3    // D: 表示順
+  },
+  columnWidths: {
+    A: 150, B: 150, C: 100, D: 80
+  }
+};
+
+// T_判定結果（3レベル判定結果）
+const JUDGMENT_RESULT_DEF = {
+  headers: [
+    '受診ID', '項目ID', 'Lv1判定', 'Lv2カテゴリ', 'Lv2判定',
+    'Lv3総合判定', '判定日時', '判定者'
+  ],
+  columns: {
+    VISIT_ID: 0,        // A: 受診ID（FK）
+    ITEM_ID: 1,         // B: 項目ID（FK、Lv1のみ）
+    LV1_JUDGMENT: 2,    // C: Lv1判定（A/B/C/D/E/F）
+    LV2_CATEGORY: 3,    // D: Lv2カテゴリ名
+    LV2_JUDGMENT: 4,    // E: Lv2判定（A/B/C/D/E/F）
+    LV3_JUDGMENT: 5,    // F: Lv3総合判定（A/B/C/D/E/F）
+    JUDGED_AT: 6,       // G: 判定日時
+    JUDGED_BY: 7        // H: 判定者
+  },
+  columnWidths: {
+    A: 130, B: 120, C: 80, D: 120, E: 80,
+    F: 100, G: 150, H: 100
+  }
+};
+
+// T_所見（所見記録）
+const FINDINGS_DEF = {
+  headers: [
+    '受診ID', '既往歴', '自覚症状', '他覚症状',
+    '身体計測所見', '血圧所見', '眼科所見', '聴力所見',
+    '尿検査所見', '血液検査所見', '画像診断所見', '総合所見',
+    '作成日時', '更新日時'
+  ],
+  columns: {
+    VISIT_ID: 0,           // A: 受診ID（FK）
+    MEDICAL_HISTORY: 1,    // B: 既往歴
+    SUBJECTIVE: 2,         // C: 自覚症状
+    OBJECTIVE: 3,          // D: 他覚症状
+    BODY_FINDING: 4,       // E: 身体計測所見
+    BP_FINDING: 5,         // F: 血圧所見
+    EYE_FINDING: 6,        // G: 眼科所見
+    HEARING_FINDING: 7,    // H: 聴力所見
+    URINE_FINDING: 8,      // I: 尿検査所見
+    BLOOD_FINDING: 9,      // J: 血液検査所見
+    IMAGING_FINDING: 10,   // K: 画像診断所見
+    OVERALL_FINDING: 11,   // L: 総合所見
+    CREATED_AT: 12,        // M: 作成日時
+    UPDATED_AT: 13         // N: 更新日時
+  },
+  columnWidths: {
+    A: 130, B: 300, C: 300, D: 300,
+    E: 250, F: 250, G: 250, H: 250,
+    I: 250, J: 250, K: 300, L: 400,
+    M: 150, N: 150
+  }
+};
+
+// 判定カラー定義（iD-Heart準拠、6段階）
+const JUDGMENT_COLORS_EXTENDED = {
+  A: { bg: '#e8f5e9', text: '#2e7d32' },  // 緑 - 異常なし
+  B: { bg: '#fff8e1', text: '#f57f17' },  // 黄 - 軽度異常
+  C: { bg: '#fff3e0', text: '#e65100' },  // 橙 - 要経過観察
+  D: { bg: '#ffebee', text: '#c62828' },  // 赤 - 要精密検査
+  E: { bg: '#f3e5f5', text: '#6a1b9a' },  // 紫 - 治療中
+  F: { bg: '#e3f2fd', text: '#1565c0' }   // 青 - 経過観察中
+};
+
+// 入力画面タブ定義（iD-Heart準拠）
+const INPUT_TABS = [
+  { id: 'interview', name: '問診結果', categories: ['基本情報', '問診'] },
+  { id: 'physical', name: '身体情報', categories: ['身体測定', '血圧', '眼科', '聴力'] },
+  { id: 'laboratory', name: '検体検査', categories: ['尿検査', '血液学検査', '肝胆膵機能', '脂質検査', '糖代謝', '腎機能'] },
+  { id: 'imaging', name: '画像診断', categories: ['画像診断', '心電図', '胸部X線'] },
+  { id: 'judgment', name: '判定項目', view: 'judgment' },
+  { id: 'findings', name: '所見文章', view: 'findings' }
+];
+
+// カテゴリ別判定定義（Lv2判定用）
+const JUDGMENT_CATEGORIES = [
+  { id: 'body', name: '身体計測', items: ['身長', '体重', 'BMI', '腹囲'] },
+  { id: 'bp', name: '血圧', items: ['収縮期血圧', '拡張期血圧'] },
+  { id: 'hearing', name: '聴力', items: ['1000Hz右', '1000Hz左', '4000Hz右', '4000Hz左'] },
+  { id: 'eye', name: '眼科', items: ['視力右', '視力左', '眼底', '眼圧'] },
+  { id: 'urine', name: '尿検査', items: ['尿蛋白', '尿糖', '尿潜血'] },
+  { id: 'blood', name: '血液学', items: ['白血球', '赤血球', 'ヘモグロビン', 'ヘマトクリット', '血小板'] },
+  { id: 'liver', name: '肝胆膵', items: ['AST', 'ALT', 'γ-GTP', 'ALP', '総ビリルビン'] },
+  { id: 'lipid', name: '脂質', items: ['総コレステロール', 'HDLコレステロール', 'LDLコレステロール', '中性脂肪'] },
+  { id: 'diabetes', name: '糖尿病', items: ['空腹時血糖', 'HbA1c'] },
+  { id: 'ecg', name: '心電図', items: ['心電図'] },
+  { id: 'chest', name: '胸部', items: ['胸部X線'] }
+];
 // Auto-deploy test: 2025-12-18 07:21:10
 // Workflow test: 2025-12-18 07:28:47
 // Re-deploy: 2025-12-18 13:04:08

@@ -2498,3 +2498,505 @@ function getTodayVisitors(dateStr) {
     return { success: false, error: error.message };
   }
 }
+
+// ============================================================
+// Phase 3: 所見生成・保存 API
+// ============================================================
+
+/**
+ * 所見を自動生成して保存
+ * @param {string} visitId - 受診ID
+ * @returns {Object} 生成された所見データ
+ */
+function generateAndSaveFindings(visitId) {
+  try {
+    if (!visitId) {
+      return { success: false, error: '受診IDが必要です' };
+    }
+
+    // 3レベル判定を取得
+    const judgmentResult = getThreeLevelJudgment(visitId);
+    if (!judgmentResult.success) {
+      return { success: false, error: '判定取得失敗: ' + judgmentResult.error };
+    }
+
+    const ss = getPortalSpreadsheet();
+    const findingsSheet = ss.getSheetByName(DB_CONFIG.SHEETS.FINDINGS);
+    if (!findingsSheet) {
+      return { success: false, error: 'T_所見シートが見つかりません' };
+    }
+
+    // 既存レコード検索
+    const lastRow = findingsSheet.getLastRow();
+    let existingRow = 0;
+    if (lastRow >= 2) {
+      const ids = findingsSheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      for (let i = 0; i < ids.length; i++) {
+        if (safeString(ids[i][0]) === visitId) {
+          existingRow = i + 2;
+          break;
+        }
+      }
+    }
+
+    // カテゴリ別所見を生成
+    const level2 = judgmentResult.level2 || {};
+    const findings = {
+      circulatory: generateCategoryFindingText('循環器系', level2['血圧'] || level2['循環器'] || 'A'),
+      digestive: generateCategoryFindingText('消化器系', level2['肝胆膵機能'] || level2['消化器'] || 'A'),
+      metabolicSugar: generateCategoryFindingText('代謝系（糖）', level2['糖代謝'] || 'A'),
+      metabolicLipid: generateCategoryFindingText('代謝系（脂質）', level2['脂質検査'] || level2['脂質'] || 'A'),
+      renal: generateCategoryFindingText('腎機能', level2['腎機能'] || 'A'),
+      blood: generateCategoryFindingText('血液系', level2['血液学検査'] || level2['血液学'] || 'A'),
+      other: generateCategoryFindingText('その他', level2['身体測定'] || 'A')
+    };
+
+    // 総合所見を生成
+    const overallJudgment = judgmentResult.level3 || 'A';
+    const combinedFindings = generateCombinedFindings(findings, overallJudgment);
+
+    const now = new Date();
+    const rowData = [
+      visitId,                    // A: 受診ID
+      '',                         // B: 既往歴
+      '',                         // C: 自覚症状
+      '',                         // D: 他覚症状
+      findings.circulatory,       // E: 所見_循環器系
+      findings.digestive,         // F: 所見_消化器系
+      findings.metabolicSugar,    // G: 所見_代謝系_糖
+      findings.metabolicLipid,    // H: 所見_代謝系_脂質
+      findings.renal,             // I: 所見_腎機能
+      findings.blood,             // J: 所見_血液系
+      findings.other,             // K: 所見_その他
+      combinedFindings,           // L: 総合所見
+      '',                         // M: 心電図_今回
+      '',                         // N: 心電図_前回
+      '',                         // O: 腹部超音波_今回
+      '',                         // P: 腹部超音波_前回
+      now                         // Q: 更新日時
+    ];
+
+    if (existingRow > 0) {
+      // 既存レコードを更新（所見列のみ E-L列）
+      findingsSheet.getRange(existingRow, 5, 1, 8).setValues([[
+        findings.circulatory,
+        findings.digestive,
+        findings.metabolicSugar,
+        findings.metabolicLipid,
+        findings.renal,
+        findings.blood,
+        findings.other,
+        combinedFindings
+      ]]);
+      findingsSheet.getRange(existingRow, 17).setValue(now);
+    } else {
+      // 新規レコードを追加
+      findingsSheet.appendRow(rowData);
+    }
+
+    return {
+      success: true,
+      message: existingRow > 0 ? '所見を更新しました' : '所見を生成しました',
+      findings: findings,
+      combined: combinedFindings,
+      overallJudgment: overallJudgment
+    };
+
+  } catch (error) {
+    console.error('generateAndSaveFindings error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * カテゴリ別所見テキストを生成
+ * @param {string} category - カテゴリ名
+ * @param {string} judgment - 判定 (A/B/C/D/E/F)
+ * @returns {string} 所見テキスト
+ */
+function generateCategoryFindingText(category, judgment) {
+  if (!judgment || judgment === 'A') {
+    return '';
+  }
+
+  // 所見テンプレートマスタから取得を試みる
+  try {
+    const ss = getPortalSpreadsheet();
+    const templateSheet = ss.getSheetByName(DB_CONFIG.SHEETS.FINDING_TEMPLATE);
+    if (templateSheet && templateSheet.getLastRow() >= 2) {
+      const templateData = templateSheet.getDataRange().getValues();
+      for (let i = 1; i < templateData.length; i++) {
+        const row = templateData[i];
+        if (safeString(row[2]) === category && safeString(row[3]) === judgment) {
+          return safeString(row[4]); // E列: 所見テンプレート
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('テンプレート取得エラー:', e);
+  }
+
+  // デフォルトテンプレート
+  const defaultTemplates = {
+    '循環器系': {
+      'B': '血圧がやや高めです。減塩と適度な運動を心がけてください。',
+      'C': '血圧が高めです。生活習慣の見直しと定期的な測定をお勧めします。',
+      'D': '血圧が基準値を大きく超えています。医療機関での受診をお勧めします。',
+      'E': '血圧について治療中です。引き続き治療を継続してください。',
+      'F': '血圧について経過観察中です。定期的な測定を継続してください。'
+    },
+    '消化器系': {
+      'B': '肝機能に軽度の異常があります。飲酒量の見直しをお勧めします。',
+      'C': '肝機能に異常があります。精密検査をお勧めします。',
+      'D': '肝機能に明らかな異常があります。早めの医療機関受診をお勧めします。',
+      'E': '肝機能について治療中です。引き続き治療を継続してください。',
+      'F': '肝機能について経過観察中です。定期的な検査を継続してください。'
+    },
+    '代謝系（糖）': {
+      'B': '血糖値がやや高めです。糖質の摂取を控えめにしてください。',
+      'C': '血糖値が高めです。糖尿病の精密検査をお勧めします。',
+      'D': '血糖値が基準値を大きく超えています。糖尿病の治療が必要です。',
+      'E': '糖尿病について治療中です。引き続き治療を継続してください。',
+      'F': '血糖値について経過観察中です。定期的な検査を継続してください。'
+    },
+    '代謝系（脂質）': {
+      'B': '脂質代謝に軽度の異常があります。食事内容の見直しをお勧めします。',
+      'C': '脂質代謝に異常があります。動物性脂肪を控え、運動習慣を取り入れてください。',
+      'D': '脂質代謝に明らかな異常があります。医療機関での治療をお勧めします。',
+      'E': '脂質異常について治療中です。引き続き治療を継続してください。',
+      'F': '脂質について経過観察中です。定期的な検査を継続してください。'
+    },
+    '腎機能': {
+      'B': '腎機能に軽度の異常があります。水分を十分に摂取してください。',
+      'C': '腎機能に異常があります。定期的な経過観察をお勧めします。',
+      'D': '腎機能に明らかな異常があります。専門医の受診をお勧めします。',
+      'E': '腎機能について治療中です。引き続き治療を継続してください。',
+      'F': '腎機能について経過観察中です。定期的な検査を継続してください。'
+    },
+    '血液系': {
+      'B': '血液検査に軽度の異常があります。経過観察をお勧めします。',
+      'C': '血液検査に異常があります。精密検査をお勧めします。',
+      'D': '血液検査に明らかな異常があります。早めの受診をお勧めします。',
+      'E': '血液疾患について治療中です。引き続き治療を継続してください。',
+      'F': '血液検査について経過観察中です。定期的な検査を継続してください。'
+    },
+    'その他': {
+      'B': '軽度の異常が認められます。経過観察をお勧めします。',
+      'C': '異常が認められます。精密検査をお勧めします。',
+      'D': '明らかな異常が認められます。医療機関の受診をお勧めします。',
+      'E': '治療中の項目があります。引き続き治療を継続してください。',
+      'F': '経過観察中の項目があります。定期的な検査を継続してください。'
+    }
+  };
+
+  const templates = defaultTemplates[category] || defaultTemplates['その他'];
+  return templates[judgment] || '';
+}
+
+/**
+ * 総合所見を生成
+ * @param {Object} findings - カテゴリ別所見
+ * @param {string} overallJudgment - 総合判定
+ * @returns {string} 総合所見
+ */
+function generateCombinedFindings(findings, overallJudgment) {
+  const sections = [];
+
+  const categoryOrder = [
+    { key: 'circulatory', label: '循環器系' },
+    { key: 'digestive', label: '消化器系' },
+    { key: 'metabolicSugar', label: '代謝系（糖）' },
+    { key: 'metabolicLipid', label: '代謝系（脂質）' },
+    { key: 'renal', label: '腎機能' },
+    { key: 'blood', label: '血液系' },
+    { key: 'other', label: 'その他' }
+  ];
+
+  for (const cat of categoryOrder) {
+    const text = findings[cat.key];
+    if (text && text.trim()) {
+      sections.push(`【${cat.label}】\n${text}`);
+    }
+  }
+
+  if (sections.length === 0) {
+    return '今回の検査では特に問題は認められませんでした。引き続き健康管理に努めてください。';
+  }
+
+  // 総合コメントを追加
+  const overallComments = {
+    'A': '\n\n【総合】\n今回の検査では特に問題は認められませんでした。',
+    'B': '\n\n【総合】\n軽度の異常がありますが、生活習慣の見直しで改善が期待できます。',
+    'C': '\n\n【総合】\n要経過観察の項目があります。定期的な検査をお勧めします。',
+    'D': '\n\n【総合】\n要精密検査の項目があります。早めに医療機関を受診してください。',
+    'E': '\n\n【総合】\n治療中の項目があります。引き続き治療を継続してください。',
+    'F': '\n\n【総合】\n経過観察中の項目があります。定期的な検査を継続してください。'
+  };
+
+  return sections.join('\n\n') + (overallComments[overallJudgment] || '');
+}
+
+/**
+ * 所見を取得
+ * @param {string} visitId - 受診ID
+ * @returns {Object} 所見データ
+ */
+function getFindings(visitId) {
+  try {
+    if (!visitId) {
+      return { success: false, error: '受診IDが必要です' };
+    }
+
+    const ss = getPortalSpreadsheet();
+    const findingsSheet = ss.getSheetByName(DB_CONFIG.SHEETS.FINDINGS);
+    if (!findingsSheet) {
+      return { success: false, error: 'T_所見シートが見つかりません' };
+    }
+
+    const lastRow = findingsSheet.getLastRow();
+    if (lastRow < 2) {
+      return { success: true, data: null, message: '所見データがありません' };
+    }
+
+    const data = findingsSheet.getRange(2, 1, lastRow - 1, 16).getValues();
+    for (const row of data) {
+      if (safeString(row[0]) === visitId) {
+        return {
+          success: true,
+          data: {
+            visitId: row[0],
+            history: row[1],
+            subjective: row[2],
+            objective: row[3],
+            circulatory: row[4],
+            digestive: row[5],
+            metabolicSugar: row[6],
+            metabolicLipid: row[7],
+            renal: row[8],
+            blood: row[9],
+            other: row[10],
+            combined: row[11],
+            ecgCurrent: row[12],
+            ecgPrevious: row[13],
+            usCurrent: row[14],
+            usPrevious: row[15]
+          }
+        };
+      }
+    }
+
+    return { success: true, data: null, message: '所見データがありません' };
+
+  } catch (error) {
+    console.error('getFindings error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * 所見を保存（手動編集用）
+ * @param {string} visitId - 受診ID
+ * @param {Object} findingsData - 所見データ
+ * @returns {Object} 保存結果
+ */
+function saveFindings(visitId, findingsData) {
+  try {
+    if (!visitId) {
+      return { success: false, error: '受診IDが必要です' };
+    }
+
+    const ss = getPortalSpreadsheet();
+    const findingsSheet = ss.getSheetByName(DB_CONFIG.SHEETS.FINDINGS);
+    if (!findingsSheet) {
+      return { success: false, error: 'T_所見シートが見つかりません' };
+    }
+
+    // 既存レコード検索
+    const lastRow = findingsSheet.getLastRow();
+    let existingRow = 0;
+    if (lastRow >= 2) {
+      const ids = findingsSheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      for (let i = 0; i < ids.length; i++) {
+        if (safeString(ids[i][0]) === visitId) {
+          existingRow = i + 2;
+          break;
+        }
+      }
+    }
+
+    const now = new Date();
+
+    if (existingRow > 0) {
+      // 既存レコードを更新
+      if (findingsData.history !== undefined) findingsSheet.getRange(existingRow, 2).setValue(findingsData.history);
+      if (findingsData.subjective !== undefined) findingsSheet.getRange(existingRow, 3).setValue(findingsData.subjective);
+      if (findingsData.objective !== undefined) findingsSheet.getRange(existingRow, 4).setValue(findingsData.objective);
+      if (findingsData.circulatory !== undefined) findingsSheet.getRange(existingRow, 5).setValue(findingsData.circulatory);
+      if (findingsData.digestive !== undefined) findingsSheet.getRange(existingRow, 6).setValue(findingsData.digestive);
+      if (findingsData.metabolicSugar !== undefined) findingsSheet.getRange(existingRow, 7).setValue(findingsData.metabolicSugar);
+      if (findingsData.metabolicLipid !== undefined) findingsSheet.getRange(existingRow, 8).setValue(findingsData.metabolicLipid);
+      if (findingsData.renal !== undefined) findingsSheet.getRange(existingRow, 9).setValue(findingsData.renal);
+      if (findingsData.blood !== undefined) findingsSheet.getRange(existingRow, 10).setValue(findingsData.blood);
+      if (findingsData.other !== undefined) findingsSheet.getRange(existingRow, 11).setValue(findingsData.other);
+      if (findingsData.combined !== undefined) findingsSheet.getRange(existingRow, 12).setValue(findingsData.combined);
+      if (findingsData.ecgCurrent !== undefined) findingsSheet.getRange(existingRow, 13).setValue(findingsData.ecgCurrent);
+      if (findingsData.ecgPrevious !== undefined) findingsSheet.getRange(existingRow, 14).setValue(findingsData.ecgPrevious);
+      if (findingsData.usCurrent !== undefined) findingsSheet.getRange(existingRow, 15).setValue(findingsData.usCurrent);
+      if (findingsData.usPrevious !== undefined) findingsSheet.getRange(existingRow, 16).setValue(findingsData.usPrevious);
+      findingsSheet.getRange(existingRow, 17).setValue(now);
+    } else {
+      // 新規レコードを追加
+      const rowData = [
+        visitId,
+        findingsData.history || '',
+        findingsData.subjective || '',
+        findingsData.objective || '',
+        findingsData.circulatory || '',
+        findingsData.digestive || '',
+        findingsData.metabolicSugar || '',
+        findingsData.metabolicLipid || '',
+        findingsData.renal || '',
+        findingsData.blood || '',
+        findingsData.other || '',
+        findingsData.combined || '',
+        findingsData.ecgCurrent || '',
+        findingsData.ecgPrevious || '',
+        findingsData.usCurrent || '',
+        findingsData.usPrevious || '',
+        now
+      ];
+      findingsSheet.appendRow(rowData);
+    }
+
+    return {
+      success: true,
+      message: existingRow > 0 ? '所見を更新しました' : '所見を保存しました'
+    };
+
+  } catch (error) {
+    console.error('saveFindings error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * 判定結果を保存（T_判定結果シート）
+ * @param {string} visitId - 受診ID
+ * @param {Object} judgmentData - 判定データ
+ * @returns {Object} 保存結果
+ */
+function saveJudgmentResult(visitId, judgmentData) {
+  try {
+    if (!visitId) {
+      return { success: false, error: '受診IDが必要です' };
+    }
+
+    const ss = getPortalSpreadsheet();
+    const judgmentSheet = ss.getSheetByName(DB_CONFIG.SHEETS.JUDGMENT_RESULT);
+    if (!judgmentSheet) {
+      return { success: false, error: 'T_判定結果シートが見つかりません' };
+    }
+
+    // 既存レコード検索
+    const lastRow = judgmentSheet.getLastRow();
+    let existingRow = 0;
+    if (lastRow >= 2) {
+      const ids = judgmentSheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      for (let i = 0; i < ids.length; i++) {
+        if (safeString(ids[i][0]) === visitId) {
+          existingRow = i + 2;
+          break;
+        }
+      }
+    }
+
+    const now = new Date();
+
+    // Level1判定をJSON形式で保存
+    const level1Json = JSON.stringify(judgmentData.level1 || {});
+    // Level2判定をJSON形式で保存
+    const level2Json = JSON.stringify(judgmentData.level2 || {});
+
+    if (existingRow > 0) {
+      // 既存レコードを更新
+      judgmentSheet.getRange(existingRow, 2).setValue(level1Json);      // B: Lv1判定JSON
+      judgmentSheet.getRange(existingRow, 3).setValue(level2Json);      // C: Lv2判定JSON
+      judgmentSheet.getRange(existingRow, 4).setValue(judgmentData.level3 || '');  // D: Lv3総合判定
+      judgmentSheet.getRange(existingRow, 5).setValue(now);             // E: 判定日時
+    } else {
+      // 新規レコードを追加
+      const rowData = [
+        visitId,
+        level1Json,
+        level2Json,
+        judgmentData.level3 || '',
+        now
+      ];
+      judgmentSheet.appendRow(rowData);
+    }
+
+    return {
+      success: true,
+      message: existingRow > 0 ? '判定結果を更新しました' : '判定結果を保存しました'
+    };
+
+  } catch (error) {
+    console.error('saveJudgmentResult error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * 判定と所見を一括で計算・保存
+ * @param {string} visitId - 受診ID
+ * @returns {Object} 処理結果
+ */
+function calculateAndSaveAllJudgments(visitId) {
+  try {
+    if (!visitId) {
+      return { success: false, error: '受診IDが必要です' };
+    }
+
+    // 3レベル判定を取得
+    const judgmentResult = getThreeLevelJudgment(visitId);
+    if (!judgmentResult.success) {
+      return { success: false, error: '判定計算失敗: ' + judgmentResult.error };
+    }
+
+    // 判定結果を保存
+    const saveJudgment = saveJudgmentResult(visitId, judgmentResult);
+    if (!saveJudgment.success) {
+      return { success: false, error: '判定保存失敗: ' + saveJudgment.error };
+    }
+
+    // 所見を自動生成して保存
+    const findingsResult = generateAndSaveFindings(visitId);
+    if (!findingsResult.success) {
+      return { success: false, error: '所見生成失敗: ' + findingsResult.error };
+    }
+
+    // 受診記録シートの総合判定を更新
+    const ss = getPortalSpreadsheet();
+    const visitSheet = ss.getSheetByName(DB_CONFIG.SHEETS.VISIT);
+    if (visitSheet) {
+      const visitData = visitSheet.getDataRange().getValues();
+      for (let i = 1; i < visitData.length; i++) {
+        if (safeString(visitData[i][VISIT_COL.VISIT_ID]) === visitId) {
+          visitSheet.getRange(i + 1, VISIT_COL.JUDGMENT + 1).setValue(judgmentResult.level3);
+          break;
+        }
+      }
+    }
+
+    return {
+      success: true,
+      message: '判定と所見を保存しました',
+      judgment: judgmentResult,
+      findings: findingsResult
+    };
+
+  } catch (error) {
+    console.error('calculateAndSaveAllJudgments error:', error);
+    return { success: false, error: error.message };
+  }
+}

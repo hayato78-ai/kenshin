@@ -304,47 +304,332 @@
       </div>
     </section>
 
-    <!-- ========== 結果入力セクション ========== -->
+    <!-- ========== 結果入力セクション（iD-Heart II形式6タブ）========== -->
     <section id="section-results" class="section">
       <div class="section-header">
         <h2>結果入力</h2>
-      </div>
-
-      <!-- 患者選択 -->
-      <div class="patient-selector">
-        <div class="search-inline">
-          <input type="text" id="resultPatientSearch" placeholder="患者IDまたは氏名で検索" class="input-lg">
-          <button class="btn btn-primary" onclick="searchPatientForResults()">検索</button>
-        </div>
-        <div class="patient-nav">
-          <button class="btn btn-sm" onclick="navigatePatient('prev')">← 前へ</button>
-          <span id="currentPatientInfo" class="current-patient">患者未選択</span>
-          <button class="btn btn-sm" onclick="navigatePatient('next')">次へ →</button>
+        <div class="header-actions">
+          <button class="btn btn-sm btn-secondary" onclick="toggleResultInputMode()">
+            <span id="inputModeLabel">簡易入力に切替</span>
+          </button>
         </div>
       </div>
 
-      <!-- 患者情報ヘッダー -->
-      <div id="selectedPatientHeader" class="patient-header" style="display:none;">
-        <div class="patient-basic-info">
-          <span class="patient-id"></span>
-          <span class="patient-name"></span>
-          <span class="patient-birth"></span>
-          <span class="patient-gender"></span>
-          <span class="patient-age"></span>
+      <!-- iD-Heart II形式レイアウト -->
+      <div class="result-input-layout" id="idheart-layout">
+        <!-- 左サイドバー：当日受診者リスト -->
+        <div class="visitor-sidebar">
+          <div class="visitor-header">
+            <span class="visitor-date" id="visitorDate"></span>
+            <button class="btn btn-xs" onclick="refreshVisitorList()">🔄</button>
+          </div>
+          <div class="visitor-search">
+            <input type="text" id="visitorSearchInput" placeholder="氏名・ID検索" class="input-sm" onkeyup="filterVisitorList()">
+          </div>
+          <ul class="visitor-list" id="visitorList">
+            <!-- 動的に追加 -->
+          </ul>
+          <div class="visitor-stats">
+            <span id="visitorStatsText">0人 / 0人完了</span>
+          </div>
         </div>
-        <div class="patient-status">
-          <span class="status-badge blood">血液: -</span>
-          <span class="status-badge body">身体計測: -</span>
-          <span class="status-badge findings">所見: -</span>
+
+        <!-- メインエリア -->
+        <div class="result-input-main">
+          <!-- 患者情報ヘッダー（iD-Heart形式） -->
+          <div class="patient-header-idheart" id="patientHeaderIdheart" style="display:none;">
+            <div class="patient-row-1">
+              <span class="field"><label>受診日:</label><span id="ihVisitDate">-</span></span>
+              <span class="field"><label>受診ID:</label><span id="ihVisitId">-</span></span>
+              <span class="field"><label>患者ID:</label><span id="ihPatientId">-</span></span>
+              <span class="field"><label>コース:</label><span id="ihCourse">-</span></span>
+            </div>
+            <div class="patient-row-2">
+              <span class="field name"><label>氏名:</label><span id="ihPatientName">-</span></span>
+              <span class="field"><label>性別:</label><span id="ihGender">-</span></span>
+              <span class="field"><label>年齢:</label><span id="ihAge">-</span>歳</span>
+              <span class="field"><label>事業所:</label><span id="ihCompany">-</span></span>
+            </div>
+          </div>
+
+          <!-- 6タブナビゲーション -->
+          <div class="input-tabs-6" id="inputTabs6" style="display:none;">
+            <button class="tab-6-btn active" data-tab="interview" onclick="showInputTab6('interview')">問診結果</button>
+            <button class="tab-6-btn" data-tab="physical" onclick="showInputTab6('physical')">身体情報</button>
+            <button class="tab-6-btn" data-tab="laboratory" onclick="showInputTab6('laboratory')">検体検査</button>
+            <button class="tab-6-btn" data-tab="imaging" onclick="showInputTab6('imaging')">画像診断</button>
+            <button class="tab-6-btn" data-tab="judgment" onclick="showInputTab6('judgment')">判定項目</button>
+            <button class="tab-6-btn" data-tab="findings6" onclick="showInputTab6('findings6')">所見文章</button>
+          </div>
+
+          <!-- タブコンテンツ：問診結果 -->
+          <div id="tab6-interview" class="tab6-content active">
+            <div class="input-grid-container">
+              <table class="result-input-grid">
+                <thead>
+                  <tr>
+                    <th class="col-code">コード</th>
+                    <th class="col-name">項目名</th>
+                    <th class="col-current" colspan="3">今回</th>
+                    <th class="col-prev" colspan="3">前回</th>
+                  </tr>
+                  <tr>
+                    <th></th><th></th>
+                    <th class="col-value">結果</th>
+                    <th class="col-judge">判定</th>
+                    <th class="col-note">所見</th>
+                    <th class="col-value">結果</th>
+                    <th class="col-judge">判定</th>
+                    <th class="col-note">所見</th>
+                  </tr>
+                </thead>
+                <tbody id="grid-interview"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- タブコンテンツ：身体情報 -->
+          <div id="tab6-physical" class="tab6-content">
+            <div class="input-grid-container">
+              <table class="result-input-grid">
+                <thead>
+                  <tr>
+                    <th class="col-code">コード</th>
+                    <th class="col-name">項目名</th>
+                    <th class="col-current" colspan="3">今回</th>
+                    <th class="col-prev" colspan="3">前回</th>
+                  </tr>
+                  <tr>
+                    <th></th><th></th>
+                    <th class="col-value">結果</th>
+                    <th class="col-judge">判定</th>
+                    <th class="col-note">所見</th>
+                    <th class="col-value">結果</th>
+                    <th class="col-judge">判定</th>
+                    <th class="col-note">所見</th>
+                  </tr>
+                </thead>
+                <tbody id="grid-physical"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- タブコンテンツ：検体検査 -->
+          <div id="tab6-laboratory" class="tab6-content">
+            <div class="input-grid-container">
+              <table class="result-input-grid">
+                <thead>
+                  <tr>
+                    <th class="col-code">コード</th>
+                    <th class="col-name">項目名</th>
+                    <th class="col-current" colspan="3">今回</th>
+                    <th class="col-prev" colspan="3">前回</th>
+                  </tr>
+                  <tr>
+                    <th></th><th></th>
+                    <th class="col-value">結果</th>
+                    <th class="col-judge">判定</th>
+                    <th class="col-note">所見</th>
+                    <th class="col-value">結果</th>
+                    <th class="col-judge">判定</th>
+                    <th class="col-note">所見</th>
+                  </tr>
+                </thead>
+                <tbody id="grid-laboratory"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- タブコンテンツ：画像診断 -->
+          <div id="tab6-imaging" class="tab6-content">
+            <div class="input-grid-container">
+              <table class="result-input-grid">
+                <thead>
+                  <tr>
+                    <th class="col-code">コード</th>
+                    <th class="col-name">項目名</th>
+                    <th class="col-current" colspan="3">今回</th>
+                    <th class="col-prev" colspan="3">前回</th>
+                  </tr>
+                  <tr>
+                    <th></th><th></th>
+                    <th class="col-value">結果</th>
+                    <th class="col-judge">判定</th>
+                    <th class="col-note">所見</th>
+                    <th class="col-value">結果</th>
+                    <th class="col-judge">判定</th>
+                    <th class="col-note">所見</th>
+                  </tr>
+                </thead>
+                <tbody id="grid-imaging"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- タブコンテンツ：判定項目 -->
+          <div id="tab6-judgment" class="tab6-content">
+            <div class="judgment-summary-panel">
+              <h4>3レベル判定サマリー</h4>
+
+              <!-- Level 3: 総合判定 -->
+              <div class="judgment-level level-3">
+                <span class="level-label">総合判定</span>
+                <select id="judgmentLevel3" class="judgment-select">
+                  <option value="">-</option>
+                  <option value="A">A - 異常なし</option>
+                  <option value="B">B - 軽度異常</option>
+                  <option value="C">C - 要経過観察</option>
+                  <option value="D">D - 要精密検査</option>
+                  <option value="E">E - 要治療</option>
+                  <option value="F">F - 治療継続</option>
+                </select>
+                <button class="btn btn-xs btn-secondary" onclick="autoCalcLevel3()">自動算出</button>
+              </div>
+
+              <!-- Level 2: カテゴリ判定 -->
+              <div class="judgment-level level-2">
+                <h5>カテゴリ別判定（Level 2）</h5>
+                <div class="category-judgment-grid" id="categoryJudgmentGrid">
+                  <!-- 動的に追加 -->
+                </div>
+              </div>
+
+              <!-- Level 1: 項目別判定（概要） -->
+              <div class="judgment-level level-1">
+                <h5>項目別判定（Level 1）- 異常値のみ</h5>
+                <div class="item-judgment-list" id="itemJudgmentList">
+                  <!-- 動的に追加 -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- タブコンテンツ：所見文章 -->
+          <div id="tab6-findings6" class="tab6-content">
+            <div class="findings-input-area">
+              <div class="findings-row">
+                <label>既往歴</label>
+                <textarea id="findingsPastHistory" rows="2" class="input-full"></textarea>
+              </div>
+              <div class="findings-row">
+                <label>自覚症状</label>
+                <textarea id="findingsSubjective" rows="2" class="input-full"></textarea>
+              </div>
+              <div class="findings-row">
+                <label>他覚症状</label>
+                <textarea id="findingsObjective" rows="2" class="input-full"></textarea>
+              </div>
+
+              <h5>カテゴリ別所見</h5>
+              <div class="findings-row">
+                <label>循環器系</label>
+                <textarea id="findingsCirculatory" rows="2" class="input-full"></textarea>
+              </div>
+              <div class="findings-row">
+                <label>消化器系</label>
+                <textarea id="findingsDigestive" rows="2" class="input-full"></textarea>
+              </div>
+              <div class="findings-row">
+                <label>代謝系（糖）</label>
+                <textarea id="findingsMetabolicSugar" rows="2" class="input-full"></textarea>
+              </div>
+              <div class="findings-row">
+                <label>代謝系（脂質）</label>
+                <textarea id="findingsMetabolicLipid" rows="2" class="input-full"></textarea>
+              </div>
+              <div class="findings-row">
+                <label>腎機能</label>
+                <textarea id="findingsRenal" rows="2" class="input-full"></textarea>
+              </div>
+              <div class="findings-row">
+                <label>血液系</label>
+                <textarea id="findingsBlood" rows="2" class="input-full"></textarea>
+              </div>
+              <div class="findings-row">
+                <label>その他</label>
+                <textarea id="findingsOther" rows="2" class="input-full"></textarea>
+              </div>
+
+              <h5>総合所見</h5>
+              <div class="findings-row">
+                <label>総合所見</label>
+                <textarea id="findingsOverall" rows="4" class="input-full"></textarea>
+                <button class="btn btn-xs btn-secondary" onclick="autoGenerateFindings()">自動生成</button>
+              </div>
+
+              <h5>画像診断所見</h5>
+              <div class="findings-row">
+                <label>胸部X線</label>
+                <textarea id="findingsChestXray" rows="2" class="input-full"></textarea>
+              </div>
+              <div class="findings-row">
+                <label>心電図</label>
+                <textarea id="findingsEcg" rows="2" class="input-full"></textarea>
+              </div>
+              <div class="findings-row">
+                <label>上部消化管</label>
+                <textarea id="findingsUpperGI" rows="2" class="input-full"></textarea>
+              </div>
+              <div class="findings-row">
+                <label>腹部超音波</label>
+                <textarea id="findingsAbdominalUS" rows="2" class="input-full"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- アクションバー -->
+          <div class="result-action-bar" id="resultActionBar" style="display:none;">
+            <div class="action-left">
+              <button class="btn btn-secondary" onclick="clearCurrentResults()">クリア</button>
+            </div>
+            <div class="action-center">
+              <span class="save-status" id="saveStatus"></span>
+            </div>
+            <div class="action-right">
+              <button class="btn btn-primary" onclick="saveCurrentResults()">保存</button>
+              <button class="btn btn-success" onclick="saveAndNextVisitor()">保存して次へ →</button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- 入力タブ -->
-      <div id="resultInputTabs" class="tabs" style="display:none;">
-        <button class="tab-btn active" data-tab="blood" onclick="showResultTab('blood')">血液検査</button>
-        <button class="tab-btn" data-tab="body" onclick="showResultTab('body')">身体計測</button>
-        <button class="tab-btn" data-tab="findings" onclick="showResultTab('findings')">所見入力</button>
-      </div>
+      <!-- 簡易入力モード（既存UIを維持） -->
+      <div class="simple-input-layout" id="simple-layout" style="display:none;">
+        <!-- 患者選択 -->
+        <div class="patient-selector">
+          <div class="search-inline">
+            <input type="text" id="resultPatientSearch" placeholder="患者IDまたは氏名で検索" class="input-lg">
+            <button class="btn btn-primary" onclick="searchPatientForResults()">検索</button>
+          </div>
+          <div class="patient-nav">
+            <button class="btn btn-sm" onclick="navigatePatient('prev')">← 前へ</button>
+            <span id="currentPatientInfo" class="current-patient">患者未選択</span>
+            <button class="btn btn-sm" onclick="navigatePatient('next')">次へ →</button>
+          </div>
+        </div>
+
+        <!-- 患者情報ヘッダー -->
+        <div id="selectedPatientHeader" class="patient-header" style="display:none;">
+          <div class="patient-basic-info">
+            <span class="patient-id"></span>
+            <span class="patient-name"></span>
+            <span class="patient-birth"></span>
+            <span class="patient-gender"></span>
+            <span class="patient-age"></span>
+          </div>
+          <div class="patient-status">
+            <span class="status-badge blood">血液: -</span>
+            <span class="status-badge body">身体計測: -</span>
+            <span class="status-badge findings">所見: -</span>
+          </div>
+        </div>
+
+        <!-- 入力タブ -->
+        <div id="resultInputTabs" class="tabs" style="display:none;">
+          <button class="tab-btn active" data-tab="blood" onclick="showResultTab('blood')">血液検査</button>
+          <button class="tab-btn" data-tab="body" onclick="showResultTab('body')">身体計測</button>
+          <button class="tab-btn" data-tab="findings" onclick="showResultTab('findings')">所見入力</button>
+        </div>
 
       <!-- 血液検査タブ -->
       <div id="tab-blood" class="tab-content active">
@@ -629,6 +914,7 @@
           <button class="btn btn-success" onclick="saveFindingsAndNext()">保存して次へ</button>
         </div>
       </div>
+      </div><!-- /.simple-input-layout -->
     </section>
 
     <!-- ========== 帳票出力セクション ========== -->

@@ -1047,6 +1047,384 @@ label {
 }
 
 /* ============================================================
+   Phase 4: iD-Heart準拠 6タブ形式結果入力UI
+   ============================================================ */
+
+/* 判定カラーコーディング */
+.judgment-A { background: #e8f5e9 !important; color: #2e7d32 !important; }
+.judgment-B { background: #fff8e1 !important; color: #f57f17 !important; }
+.judgment-C { background: #fff3e0 !important; color: #e65100 !important; }
+.judgment-D { background: #ffebee !important; color: #c62828 !important; }
+.judgment-E { background: #f3e5f5 !important; color: #6a1b9a !important; }
+.judgment-F { background: #e3f2fd !important; color: #1565c0 !important; }
+
+.judgment-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 12px;
+  text-align: center;
+  min-width: 24px;
+}
+
+/* 結果入力画面レイアウト */
+.result-input-layout {
+  display: flex;
+  gap: 15px;
+  height: calc(100vh - 200px);
+  min-height: 500px;
+}
+
+/* 左サイドバー（受診者リスト） */
+.visitor-sidebar {
+  width: 250px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.visitor-sidebar-header {
+  padding: 12px 15px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.visitor-sidebar-header h4 {
+  margin: 0;
+  font-size: 14px;
+  color: #2c3e50;
+}
+
+.visitor-date-picker {
+  padding: 4px 8px;
+  font-size: 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.visitor-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.visitor-item {
+  padding: 10px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-bottom: 4px;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+.visitor-item:hover {
+  background: #e8f4fc;
+  border-color: #2980b9;
+}
+
+.visitor-item.active {
+  background: #2980b9;
+  color: white;
+}
+
+.visitor-item.active .visitor-kana,
+.visitor-item.active .visitor-status {
+  color: rgba(255,255,255,0.8);
+}
+
+.visitor-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.visitor-kana {
+  font-size: 11px;
+  color: #666;
+}
+
+.visitor-info {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+.visitor-status {
+  font-size: 11px;
+  color: #888;
+}
+
+/* 右側コンテンツエリア */
+.result-input-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* 患者情報ヘッダー（拡張版） */
+.patient-info-header {
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 6px;
+  margin-bottom: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.patient-info-left {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.patient-info-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.patient-info-label {
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+.patient-info-value {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.patient-info-right {
+  display: flex;
+  gap: 8px;
+}
+
+.overall-judgment-display {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* 6タブナビゲーション */
+.input-tabs-6 {
+  display: flex;
+  background: #f0f0f0;
+  border-radius: 6px 6px 0 0;
+  overflow: hidden;
+}
+
+.input-tab-btn {
+  flex: 1;
+  padding: 12px 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+  transition: all 0.2s;
+  border-bottom: 3px solid transparent;
+}
+
+.input-tab-btn:hover {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.input-tab-btn.active {
+  background: white;
+  color: #2980b9;
+  border-bottom-color: #2980b9;
+}
+
+/* タブコンテンツ */
+.input-tab-content {
+  flex: 1;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  overflow-y: auto;
+  padding: 15px;
+}
+
+/* 結果入力グリッド（今回/前回比較） */
+.result-input-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.result-input-grid th {
+  background: #f5f5f5;
+  padding: 8px 10px;
+  text-align: center;
+  border: 1px solid #ddd;
+  font-weight: 600;
+  font-size: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.result-input-grid th.group-header {
+  background: #e8f4fc;
+  color: #2980b9;
+}
+
+.result-input-grid td {
+  padding: 6px 8px;
+  border: 1px solid #eee;
+  vertical-align: middle;
+}
+
+.result-input-grid .item-code {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: #666;
+  width: 70px;
+}
+
+.result-input-grid .item-name {
+  font-weight: 500;
+  width: 120px;
+}
+
+.result-input-grid .result-input {
+  width: 80px;
+  padding: 4px 6px;
+  font-size: 13px;
+  text-align: right;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+}
+
+.result-input-grid .result-input:focus {
+  border-color: #2980b9;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(41,128,185,0.2);
+}
+
+.result-input-grid .judgment-cell {
+  text-align: center;
+  width: 40px;
+}
+
+.result-input-grid .prev-value {
+  color: #888;
+  text-align: right;
+  width: 80px;
+}
+
+.result-input-grid .prev-judgment {
+  text-align: center;
+  width: 40px;
+}
+
+/* カテゴリ行 */
+.result-input-grid .category-row {
+  background: #f0f7ff;
+}
+
+.result-input-grid .category-row td {
+  font-weight: 600;
+  color: #2980b9;
+  padding: 10px;
+}
+
+/* 所見入力エリア */
+.findings-input-area {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+}
+
+.findings-group {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 6px;
+}
+
+.findings-group h5 {
+  margin: 0 0 10px 0;
+  font-size: 13px;
+  color: #2c3e50;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.findings-group textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.findings-group.full-width {
+  grid-column: 1 / -1;
+}
+
+/* 判定サマリーパネル */
+.judgment-summary-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.judgment-category-card {
+  background: #f8f9fa;
+  padding: 12px;
+  border-radius: 6px;
+  text-align: center;
+  border: 1px solid #e0e0e0;
+}
+
+.judgment-category-card.has-abnormal {
+  border-color: #e74c3c;
+}
+
+.judgment-category-name {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 6px;
+}
+
+.judgment-category-value {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* アクションバー */
+.result-action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-top: 1px solid #eee;
+  margin-top: 15px;
+}
+
+.action-left {
+  display: flex;
+  gap: 10px;
+}
+
+.action-right {
+  display: flex;
+  gap: 10px;
+}
+
+/* ============================================================
    レスポンシブ
    ============================================================ */
 @media (max-width: 768px) {

@@ -100,6 +100,8 @@ function showSection(sectionName) {
     loadBillingList();
   } else if (sectionName === 'master') {
     loadKenpoList();
+  } else if (sectionName === 'results') {
+    initResultInputSection();
   }
 }
 
@@ -2627,4 +2629,771 @@ document.addEventListener('DOMContentLoaded', function() {
   // 初期画面表示
   showSection('dashboard');
 });
+
+// ============================================================
+// iD-Heart II形式 6タブ結果入力UI
+// ============================================================
+
+// 現在の入力モード（idheart / simple）
+let currentInputMode = 'idheart';
+
+// 現在選択中の受診者
+let currentVisitorData = null;
+
+// 受診者リスト
+let visitorList = [];
+
+// 検査項目データキャッシュ
+let examItemsCache = null;
+
+// タブとカテゴリのマッピング
+const TAB_CATEGORIES = {
+  interview: ['基本情報', '問診'],
+  physical: ['身体測定', '血圧', '眼科', '聴力'],
+  laboratory: ['尿検査', '血液学検査', '肝胆膵機能', '脂質検査', '糖代謝', '腎機能'],
+  imaging: ['画像診断', '心電図', '胸部X線', '腹部超音波', '上部消化管']
+};
+
+// カテゴリ判定項目
+const CATEGORY_JUDGMENTS = [
+  { id: 'bodyMeasure', name: '身体計測' },
+  { id: 'bloodPressure', name: '血圧' },
+  { id: 'hearing', name: '聴力' },
+  { id: 'ophthalmology', name: '眼科' },
+  { id: 'urinalysis', name: '尿検査' },
+  { id: 'hematology', name: '血液学' },
+  { id: 'liverFunction', name: '肝胆膵' },
+  { id: 'lipid', name: '脂質' },
+  { id: 'diabetes', name: '糖代謝' },
+  { id: 'ecg', name: '心電図' },
+  { id: 'chestXray', name: '胸部X線' }
+];
+
+/**
+ * 入力モード切替
+ */
+function toggleResultInputMode() {
+  const idheartLayout = document.getElementById('idheart-layout');
+  const simpleLayout = document.getElementById('simple-layout');
+  const modeLabel = document.getElementById('inputModeLabel');
+
+  if (currentInputMode === 'idheart') {
+    currentInputMode = 'simple';
+    idheartLayout.style.display = 'none';
+    simpleLayout.style.display = 'block';
+    modeLabel.textContent = 'iD-Heart形式に切替';
+  } else {
+    currentInputMode = 'idheart';
+    idheartLayout.style.display = 'flex';
+    simpleLayout.style.display = 'none';
+    modeLabel.textContent = '簡易入力に切替';
+  }
+}
+
+/**
+ * 結果入力セクション表示時の初期化
+ */
+function initResultInputSection() {
+  if (currentInputMode === 'idheart') {
+    // 日付表示
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    document.getElementById('visitorDate').textContent = dateStr;
+
+    // 受診者リスト読み込み
+    refreshVisitorList();
+
+    // カテゴリ判定グリッド初期化
+    initCategoryJudgmentGrid();
+  }
+}
+
+/**
+ * 受診者リスト更新
+ */
+function refreshVisitorList() {
+  showLoading();
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        visitorList = result.visitors || [];
+        renderVisitorList(visitorList);
+        updateVisitorStats();
+      } else {
+        showNotification('受診者リストの取得に失敗しました: ' + result.message, 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showNotification('エラー: ' + error.message, 'error');
+    })
+    .getTodayVisitors();
+}
+
+/**
+ * 受診者リスト描画
+ */
+function renderVisitorList(visitors) {
+  const list = document.getElementById('visitorList');
+  list.innerHTML = '';
+
+  if (!visitors || visitors.length === 0) {
+    list.innerHTML = '<li class="visitor-empty">本日の受診者はいません</li>';
+    return;
+  }
+
+  visitors.forEach(function(v, idx) {
+    const li = document.createElement('li');
+    li.className = 'visitor-item' + (v.status === '完了' ? ' completed' : '');
+    li.dataset.visitId = v.visitId;
+    li.onclick = function() { selectVisitor(v.visitId); };
+
+    const statusIcon = v.status === '完了' ? '✓' : (v.status === '入力中' ? '⋯' : '○');
+
+    li.innerHTML =
+      '<span class="visitor-status">' + statusIcon + '</span>' +
+      '<span class="visitor-name">' + (v.name || '-') + '</span>' +
+      '<span class="visitor-course">' + (v.course || '-') + '</span>';
+
+    list.appendChild(li);
+  });
+}
+
+/**
+ * 受診者リストフィルタ
+ */
+function filterVisitorList() {
+  const keyword = document.getElementById('visitorSearchInput').value.toLowerCase();
+
+  if (!keyword) {
+    renderVisitorList(visitorList);
+    return;
+  }
+
+  const filtered = visitorList.filter(function(v) {
+    return (v.name && v.name.toLowerCase().includes(keyword)) ||
+           (v.patientId && v.patientId.toLowerCase().includes(keyword)) ||
+           (v.visitId && v.visitId.toLowerCase().includes(keyword));
+  });
+
+  renderVisitorList(filtered);
+}
+
+/**
+ * 受診者統計更新
+ */
+function updateVisitorStats() {
+  const total = visitorList.length;
+  const completed = visitorList.filter(function(v) { return v.status === '完了'; }).length;
+  document.getElementById('visitorStatsText').textContent = total + '人 / ' + completed + '人完了';
+}
+
+/**
+ * 受診者選択
+ */
+function selectVisitor(visitId) {
+  showLoading();
+
+  // リスト内の選択状態更新
+  document.querySelectorAll('.visitor-item').forEach(function(item) {
+    item.classList.remove('active');
+    if (item.dataset.visitId === visitId) {
+      item.classList.add('active');
+    }
+  });
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        currentVisitorData = result;
+        displayVisitorData(result);
+      } else {
+        showNotification('データ取得に失敗しました: ' + result.message, 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showNotification('エラー: ' + error.message, 'error');
+    })
+    .getInputScreenData(visitId);
+}
+
+/**
+ * 受診者データ表示
+ */
+function displayVisitorData(data) {
+  // ヘッダー表示
+  document.getElementById('patientHeaderIdheart').style.display = 'block';
+  document.getElementById('inputTabs6').style.display = 'flex';
+  document.getElementById('resultActionBar').style.display = 'flex';
+
+  // ヘッダー情報セット
+  const visit = data.visit || {};
+  const patient = data.patient || {};
+
+  document.getElementById('ihVisitDate').textContent = formatDate(visit.examDate) || '-';
+  document.getElementById('ihVisitId').textContent = visit.visitId || '-';
+  document.getElementById('ihPatientId').textContent = patient.patientId || '-';
+  document.getElementById('ihCourse').textContent = visit.course || '-';
+  document.getElementById('ihPatientName').textContent = patient.name || '-';
+  document.getElementById('ihGender').textContent = patient.gender || '-';
+  document.getElementById('ihAge').textContent = calculateAge(patient.birthDate) || '-';
+  document.getElementById('ihCompany').textContent = patient.company || '-';
+
+  // 検査項目マスタをキャッシュ
+  examItemsCache = data.items || [];
+
+  // 各タブのグリッドに項目を描画
+  renderInputGrids(data);
+
+  // 判定タブ更新
+  updateJudgmentTab(data);
+
+  // 所見タブ更新
+  updateFindingsTab(data);
+}
+
+/**
+ * 入力グリッド描画
+ */
+function renderInputGrids(data) {
+  const items = data.items || [];
+  const existingResults = data.existingResults || {};
+  const previousResults = data.previousResults || {};
+  const gender = data.patient ? data.patient.gender : '';
+
+  // タブごとにグリッド描画
+  Object.keys(TAB_CATEGORIES).forEach(function(tabId) {
+    const categories = TAB_CATEGORIES[tabId];
+    const tbody = document.getElementById('grid-' + tabId);
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    // カテゴリに属する項目をフィルタ
+    const tabItems = items.filter(function(item) {
+      return categories.some(function(cat) {
+        return item.subCategory === cat || item.category === cat;
+      });
+    });
+
+    // 項目ごとに行を生成
+    tabItems.forEach(function(item) {
+      const tr = document.createElement('tr');
+      const itemId = item.itemCode || item.itemId;
+      const existing = existingResults[itemId] || {};
+      const prev = previousResults[itemId] || {};
+
+      // コード
+      const tdCode = document.createElement('td');
+      tdCode.className = 'col-code';
+      tdCode.textContent = itemId;
+      tr.appendChild(tdCode);
+
+      // 項目名
+      const tdName = document.createElement('td');
+      tdName.className = 'col-name';
+      tdName.textContent = item.itemName || '';
+      tr.appendChild(tdName);
+
+      // 今回結果（入力）
+      const tdValue = document.createElement('td');
+      tdValue.className = 'col-value';
+      const input = createInputField(item, existing.value);
+      input.dataset.itemId = itemId;
+      input.dataset.gender = gender;
+      input.onchange = function() { onResultValueChange(this, item); };
+      tdValue.appendChild(input);
+      tr.appendChild(tdValue);
+
+      // 今回判定
+      const tdJudge = document.createElement('td');
+      tdJudge.className = 'col-judge';
+      tdJudge.id = 'judge-' + itemId;
+      if (existing.judgment) {
+        tdJudge.textContent = existing.judgment;
+        tdJudge.classList.add('judgment-' + existing.judgment);
+      }
+      tr.appendChild(tdJudge);
+
+      // 今回所見（アイコン）
+      const tdNote = document.createElement('td');
+      tdNote.className = 'col-note';
+      if (existing.notes) {
+        tdNote.innerHTML = '<span class="note-icon" title="' + existing.notes + '">📝</span>';
+      }
+      tr.appendChild(tdNote);
+
+      // 前回結果
+      const tdPrevValue = document.createElement('td');
+      tdPrevValue.className = 'col-value prev';
+      tdPrevValue.textContent = prev.value || '-';
+      tr.appendChild(tdPrevValue);
+
+      // 前回判定
+      const tdPrevJudge = document.createElement('td');
+      tdPrevJudge.className = 'col-judge prev';
+      if (prev.judgment) {
+        tdPrevJudge.textContent = prev.judgment;
+        tdPrevJudge.classList.add('judgment-' + prev.judgment);
+      } else {
+        tdPrevJudge.textContent = '-';
+      }
+      tr.appendChild(tdPrevJudge);
+
+      // 前回所見
+      const tdPrevNote = document.createElement('td');
+      tdPrevNote.className = 'col-note prev';
+      if (prev.notes) {
+        tdPrevNote.innerHTML = '<span class="note-icon" title="' + prev.notes + '">📝</span>';
+      } else {
+        tdPrevNote.textContent = '-';
+      }
+      tr.appendChild(tdPrevNote);
+
+      tbody.appendChild(tr);
+    });
+  });
+}
+
+/**
+ * 入力フィールド生成
+ */
+function createInputField(item, value) {
+  const dataType = item.dataType || 'numeric';
+
+  if (dataType === 'select') {
+    const select = document.createElement('select');
+    select.className = 'grid-input';
+    select.innerHTML = '<option value="">-</option>';
+
+    if (item.selectOptions) {
+      item.selectOptions.forEach(function(opt) {
+        const option = document.createElement('option');
+        option.value = opt;
+        option.textContent = opt;
+        if (opt === value) option.selected = true;
+        select.appendChild(option);
+      });
+    }
+
+    return select;
+  } else if (dataType === 'text') {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'grid-input';
+    input.value = value || '';
+    return input;
+  } else {
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.className = 'grid-input';
+    input.step = item.decimalPlaces ? Math.pow(10, -item.decimalPlaces) : '1';
+    input.value = value || '';
+    return input;
+  }
+}
+
+/**
+ * 結果値変更時のハンドラ
+ */
+function onResultValueChange(inputEl, item) {
+  const value = inputEl.value;
+  const itemId = inputEl.dataset.itemId;
+  const gender = inputEl.dataset.gender;
+
+  if (!value) {
+    // 値がクリアされた場合
+    const judgeCell = document.getElementById('judge-' + itemId);
+    if (judgeCell) {
+      judgeCell.textContent = '';
+      judgeCell.className = 'col-judge';
+    }
+    return;
+  }
+
+  // リアルタイム判定計算
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result && result.judgment) {
+        const judgeCell = document.getElementById('judge-' + itemId);
+        if (judgeCell) {
+          judgeCell.textContent = result.judgment;
+          judgeCell.className = 'col-judge judgment-' + result.judgment;
+        }
+      }
+    })
+    .withFailureHandler(function(error) {
+      console.error('判定計算エラー:', error);
+    })
+    .calculateJudgment(itemId, value, gender);
+}
+
+/**
+ * 6タブ切替
+ */
+function showInputTab6(tabId) {
+  // タブボタン更新
+  document.querySelectorAll('.tab-6-btn').forEach(function(btn) {
+    btn.classList.remove('active');
+    if (btn.dataset.tab === tabId) {
+      btn.classList.add('active');
+    }
+  });
+
+  // コンテンツ更新
+  document.querySelectorAll('.tab6-content').forEach(function(content) {
+    content.classList.remove('active');
+  });
+  const targetContent = document.getElementById('tab6-' + tabId);
+  if (targetContent) {
+    targetContent.classList.add('active');
+  }
+}
+
+/**
+ * カテゴリ判定グリッド初期化
+ */
+function initCategoryJudgmentGrid() {
+  const grid = document.getElementById('categoryJudgmentGrid');
+  if (!grid) return;
+
+  grid.innerHTML = '';
+
+  CATEGORY_JUDGMENTS.forEach(function(cat) {
+    const item = document.createElement('div');
+    item.className = 'category-judgment-item';
+
+    item.innerHTML =
+      '<span class="cat-name">' + cat.name + '</span>' +
+      '<select id="catJudge-' + cat.id + '" class="cat-judgment-select">' +
+        '<option value="">-</option>' +
+        '<option value="A">A</option>' +
+        '<option value="B">B</option>' +
+        '<option value="C">C</option>' +
+        '<option value="D">D</option>' +
+        '<option value="E">E</option>' +
+        '<option value="F">F</option>' +
+      '</select>';
+
+    grid.appendChild(item);
+  });
+}
+
+/**
+ * 判定タブ更新
+ */
+function updateJudgmentTab(data) {
+  if (!data.judgmentResult) return;
+
+  const jr = data.judgmentResult;
+
+  // Level 3
+  if (jr.level3) {
+    document.getElementById('judgmentLevel3').value = jr.level3;
+  }
+
+  // Level 2
+  if (jr.level2) {
+    CATEGORY_JUDGMENTS.forEach(function(cat) {
+      const sel = document.getElementById('catJudge-' + cat.id);
+      if (sel && jr.level2[cat.name]) {
+        sel.value = jr.level2[cat.name];
+      }
+    });
+  }
+
+  // Level 1（異常値のみ表示）
+  const list = document.getElementById('itemJudgmentList');
+  if (list && jr.level1) {
+    list.innerHTML = '';
+    Object.keys(jr.level1).forEach(function(itemId) {
+      const j = jr.level1[itemId];
+      if (j && j !== 'A') {
+        const div = document.createElement('div');
+        div.className = 'item-judgment-entry judgment-' + j;
+        div.textContent = itemId + ': ' + j;
+        list.appendChild(div);
+      }
+    });
+    if (list.children.length === 0) {
+      list.innerHTML = '<div class="no-abnormal">異常値なし</div>';
+    }
+  }
+}
+
+/**
+ * 所見タブ更新
+ */
+function updateFindingsTab(data) {
+  if (!data.findings) return;
+
+  const f = data.findings;
+
+  // テキストエリアに値をセット
+  if (f.pastHistory) document.getElementById('findingsPastHistory').value = f.pastHistory;
+  if (f.subjective) document.getElementById('findingsSubjective').value = f.subjective;
+  if (f.objective) document.getElementById('findingsObjective').value = f.objective;
+
+  if (f.circulatory) document.getElementById('findingsCirculatory').value = f.circulatory;
+  if (f.digestive) document.getElementById('findingsDigestive').value = f.digestive;
+  if (f.metabolicSugar) document.getElementById('findingsMetabolicSugar').value = f.metabolicSugar;
+  if (f.metabolicLipid) document.getElementById('findingsMetabolicLipid').value = f.metabolicLipid;
+  if (f.renal) document.getElementById('findingsRenal').value = f.renal;
+  if (f.blood) document.getElementById('findingsBlood').value = f.blood;
+  if (f.other) document.getElementById('findingsOther').value = f.other;
+
+  if (f.overall) document.getElementById('findingsOverall').value = f.overall;
+
+  if (f.chestXray) document.getElementById('findingsChestXray').value = f.chestXray;
+  if (f.ecg) document.getElementById('findingsEcg').value = f.ecg;
+  if (f.upperGI) document.getElementById('findingsUpperGI').value = f.upperGI;
+  if (f.abdominalUS) document.getElementById('findingsAbdominalUS').value = f.abdominalUS;
+}
+
+/**
+ * Level3自動算出
+ */
+function autoCalcLevel3() {
+  if (!currentVisitorData || !currentVisitorData.visit) {
+    showNotification('受診者を選択してください', 'warning');
+    return;
+  }
+
+  showLoading();
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        document.getElementById('judgmentLevel3').value = result.level3 || '';
+        showNotification('総合判定を算出しました: ' + (result.level3 || '-'), 'success');
+      } else {
+        showNotification('算出に失敗しました: ' + result.message, 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showNotification('エラー: ' + error.message, 'error');
+    })
+    .getThreeLevelJudgment(currentVisitorData.visit.visitId);
+}
+
+/**
+ * 所見自動生成
+ */
+function autoGenerateFindings() {
+  if (!currentVisitorData || !currentVisitorData.visit) {
+    showNotification('受診者を選択してください', 'warning');
+    return;
+  }
+
+  showLoading();
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        // 生成された所見をフォームにセット
+        if (result.findings) {
+          const f = result.findings;
+          if (f.circulatory) document.getElementById('findingsCirculatory').value = f.circulatory;
+          if (f.digestive) document.getElementById('findingsDigestive').value = f.digestive;
+          if (f.metabolicSugar) document.getElementById('findingsMetabolicSugar').value = f.metabolicSugar;
+          if (f.metabolicLipid) document.getElementById('findingsMetabolicLipid').value = f.metabolicLipid;
+          if (f.renal) document.getElementById('findingsRenal').value = f.renal;
+          if (f.blood) document.getElementById('findingsBlood').value = f.blood;
+          if (f.overall) document.getElementById('findingsOverall').value = f.overall;
+        }
+        showNotification('所見を自動生成しました', 'success');
+      } else {
+        showNotification('生成に失敗しました: ' + result.message, 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showNotification('エラー: ' + error.message, 'error');
+    })
+    .generateAndSaveFindings(currentVisitorData.visit.visitId);
+}
+
+/**
+ * 現在の結果をクリア
+ */
+function clearCurrentResults() {
+  if (!confirm('入力内容をクリアしますか？')) return;
+
+  document.querySelectorAll('.grid-input').forEach(function(input) {
+    input.value = '';
+  });
+
+  document.querySelectorAll('.col-judge').forEach(function(cell) {
+    if (!cell.classList.contains('prev')) {
+      cell.textContent = '';
+      cell.className = 'col-judge';
+    }
+  });
+}
+
+/**
+ * 結果保存
+ */
+function saveCurrentResults() {
+  if (!currentVisitorData || !currentVisitorData.visit) {
+    showNotification('受診者を選択してください', 'warning');
+    return;
+  }
+
+  const results = collectResultData();
+
+  if (results.length === 0) {
+    showNotification('保存するデータがありません', 'warning');
+    return;
+  }
+
+  showLoading();
+  document.getElementById('saveStatus').textContent = '保存中...';
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        document.getElementById('saveStatus').textContent = '保存完了 ' + new Date().toLocaleTimeString();
+        showNotification('結果を保存しました', 'success');
+
+        // 判定結果も保存
+        saveJudgmentData();
+        // 所見も保存
+        saveFindingsData();
+
+        // リスト更新
+        refreshVisitorList();
+      } else {
+        document.getElementById('saveStatus').textContent = '保存失敗';
+        showNotification('保存に失敗しました: ' + result.message, 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      document.getElementById('saveStatus').textContent = '保存エラー';
+      showNotification('エラー: ' + error.message, 'error');
+    })
+    .saveTestResultsBatch(currentVisitorData.visit.visitId, results);
+}
+
+/**
+ * 結果データ収集
+ */
+function collectResultData() {
+  const results = [];
+
+  document.querySelectorAll('.grid-input').forEach(function(input) {
+    const value = input.value;
+    if (!value) return;
+
+    const itemId = input.dataset.itemId;
+    if (!itemId) return;
+
+    const judgeCell = document.getElementById('judge-' + itemId);
+    const judgment = judgeCell ? judgeCell.textContent : '';
+
+    results.push({
+      itemId: itemId,
+      value: value,
+      judgment: judgment,
+      notes: ''
+    });
+  });
+
+  return results;
+}
+
+/**
+ * 判定データ保存
+ */
+function saveJudgmentData() {
+  const level3 = document.getElementById('judgmentLevel3').value;
+
+  const level2 = {};
+  CATEGORY_JUDGMENTS.forEach(function(cat) {
+    const sel = document.getElementById('catJudge-' + cat.id);
+    if (sel && sel.value) {
+      level2[cat.name] = sel.value;
+    }
+  });
+
+  const judgmentData = {
+    level1: {}, // Level1は検査結果から自動で保存される
+    level2: level2,
+    level3: level3
+  };
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (!result.success) {
+        console.error('判定保存失敗:', result.message);
+      }
+    })
+    .withFailureHandler(function(error) {
+      console.error('判定保存エラー:', error);
+    })
+    .saveJudgmentResult(currentVisitorData.visit.visitId, judgmentData);
+}
+
+/**
+ * 所見データ保存
+ */
+function saveFindingsData() {
+  const findingsData = {
+    pastHistory: document.getElementById('findingsPastHistory').value,
+    subjective: document.getElementById('findingsSubjective').value,
+    objective: document.getElementById('findingsObjective').value,
+    circulatory: document.getElementById('findingsCirculatory').value,
+    digestive: document.getElementById('findingsDigestive').value,
+    metabolicSugar: document.getElementById('findingsMetabolicSugar').value,
+    metabolicLipid: document.getElementById('findingsMetabolicLipid').value,
+    renal: document.getElementById('findingsRenal').value,
+    blood: document.getElementById('findingsBlood').value,
+    other: document.getElementById('findingsOther').value,
+    overall: document.getElementById('findingsOverall').value,
+    chestXray: document.getElementById('findingsChestXray').value,
+    ecg: document.getElementById('findingsEcg').value,
+    upperGI: document.getElementById('findingsUpperGI').value,
+    abdominalUS: document.getElementById('findingsAbdominalUS').value
+  };
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (!result.success) {
+        console.error('所見保存失敗:', result.message);
+      }
+    })
+    .withFailureHandler(function(error) {
+      console.error('所見保存エラー:', error);
+    })
+    .saveFindings(currentVisitorData.visit.visitId, findingsData);
+}
+
+/**
+ * 保存して次の受診者へ
+ */
+function saveAndNextVisitor() {
+  saveCurrentResults();
+
+  // 次の受診者を選択
+  setTimeout(function() {
+    const currentIndex = visitorList.findIndex(function(v) {
+      return v.visitId === currentVisitorData.visit.visitId;
+    });
+
+    if (currentIndex >= 0 && currentIndex < visitorList.length - 1) {
+      selectVisitor(visitorList[currentIndex + 1].visitId);
+    } else {
+      showNotification('最後の受診者です', 'info');
+    }
+  }, 1500);
+}
 </script>

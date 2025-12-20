@@ -701,12 +701,192 @@
 
       <!-- マスタ管理タブ -->
       <div class="tabs master-tabs">
-        <button class="tab-btn active" data-tab="master-kenpo" onclick="showMasterTab('kenpo')">けんぽ</button>
+        <button class="tab-btn active" data-tab="master-exam-item" onclick="showMasterTab('exam-item')">検査項目</button>
+        <button class="tab-btn" data-tab="master-kenpo" onclick="showMasterTab('kenpo')">けんぽ</button>
         <button class="tab-btn" data-tab="master-company" onclick="showMasterTab('company')">事業所</button>
       </div>
 
+      <!-- 検査項目マスタタブ -->
+      <div id="tab-master-exam-item" class="tab-content active">
+        <div class="master-section">
+          <div class="section-header">
+            <h3>検査項目マスタ</h3>
+            <button class="btn btn-success btn-sm" onclick="showExamItemForm()">+ 新規登録</button>
+          </div>
+
+          <!-- 検索エリア -->
+          <div class="search-box exam-item-search">
+            <div class="form-group">
+              <label>項目コード</label>
+              <div style="display:flex;gap:5px;align-items:center;">
+                <input type="text" id="examCodeFrom" class="input-sm" placeholder="011001">
+                <span>～</span>
+                <input type="text" id="examCodeTo" class="input-sm" placeholder="099999">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>入力区分</label>
+              <div style="display:flex;gap:10px;">
+                <label style="font-weight:normal;"><input type="checkbox" id="examCatBody"> 身体情報</label>
+                <label style="font-weight:normal;"><input type="checkbox" id="examCatLab"> 検体検査</label>
+                <label style="font-weight:normal;"><input type="checkbox" id="examCatImg"> 画像診断</label>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>検索文字</label>
+              <input type="text" id="examKeyword" class="input-md" placeholder="項目名で検索">
+            </div>
+            <div class="form-group" style="align-self:flex-end;">
+              <button class="btn btn-primary" onclick="searchExamItems()">表示</button>
+              <button class="btn btn-secondary btn-sm" onclick="clearExamSearch()">クリア</button>
+            </div>
+          </div>
+
+          <!-- 検査項目一覧 -->
+          <div id="examItemList" class="results-table-container">
+            <p>検索条件を指定して「表示」をクリックしてください</p>
+          </div>
+        </div>
+
+        <!-- 検査項目登録・編集モーダル -->
+        <div id="examItemModal" class="form-panel" style="display:none;">
+          <h4 id="examItemModalTitle">検査項目登録</h4>
+          <input type="hidden" id="examItemIsNew" value="true">
+
+          <!-- ヘッダー部 -->
+          <div class="form-grid">
+            <div class="form-group">
+              <label>項目コード <span class="required">*</span></label>
+              <input type="text" id="examItemCode" class="input-sm" placeholder="011001" maxlength="6">
+            </div>
+            <div class="form-group">
+              <label>JLAC10コード</label>
+              <input type="text" id="examJlac10" class="input-lg" placeholder="9N01000000000001" maxlength="17">
+            </div>
+            <div class="form-group">
+              <label>項目名 <span class="required">*</span></label>
+              <input type="text" id="examItemName" class="input-lg" placeholder="身長">
+            </div>
+            <div class="form-group">
+              <label>カナ</label>
+              <input type="text" id="examItemKana" class="input-md" placeholder="シンチョウ">
+            </div>
+            <div class="form-group">
+              <label>入力区分</label>
+              <div style="display:flex;gap:10px;">
+                <label style="font-weight:normal;"><input type="checkbox" id="examIsBody"> 身体情報</label>
+                <label style="font-weight:normal;"><input type="checkbox" id="examIsLab"> 検体検査</label>
+                <label style="font-weight:normal;"><input type="checkbox" id="examIsImg"> 画像診断</label>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>小分類</label>
+              <input type="text" id="examSubCategory" class="input-md" placeholder="血球系">
+            </div>
+          </div>
+
+          <!-- 数値設定 -->
+          <fieldset class="form-fieldset">
+            <legend>数値設定</legend>
+            <div class="form-row">
+              <div class="form-group">
+                <label>データ型</label>
+                <select id="examDataType" class="input-sm">
+                  <option value="numeric">数値</option>
+                  <option value="text">テキスト</option>
+                  <option value="select">選択</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>小数桁数</label>
+                <input type="number" id="examDecimal" class="input-xs" min="0" max="4" value="0">
+              </div>
+              <div class="form-group">
+                <label>単位</label>
+                <input type="text" id="examUnit" class="input-sm" placeholder="cm">
+              </div>
+              <div class="form-group">
+                <label>有効範囲</label>
+                <div style="display:flex;gap:5px;align-items:center;">
+                  <input type="number" id="examValidMin" class="input-sm" placeholder="0">
+                  <span>～</span>
+                  <input type="number" id="examValidMax" class="input-sm" placeholder="999">
+                </div>
+              </div>
+            </div>
+          </fieldset>
+
+          <!-- 判定基準 -->
+          <fieldset class="form-fieldset">
+            <legend>判定基準</legend>
+            <div class="criteria-grid-container">
+              <table class="results-table criteria-table">
+                <thead>
+                  <tr>
+                    <th>判定</th>
+                    <th colspan="2">男性</th>
+                    <th colspan="2">女性</th>
+                  </tr>
+                  <tr>
+                    <th></th>
+                    <th>下限</th>
+                    <th>上限</th>
+                    <th>下限</th>
+                    <th>上限</th>
+                  </tr>
+                </thead>
+                <tbody id="criteriaGrid">
+                  <!-- F L～F H の11行 -->
+                </tbody>
+              </table>
+            </div>
+          </fieldset>
+
+          <!-- 基準値表記 -->
+          <div class="form-grid">
+            <div class="form-group">
+              <label>帳票基準値（男性）</label>
+              <input type="text" id="examStdMale" class="input-md" placeholder="18.5～24.9">
+            </div>
+            <div class="form-group">
+              <label>帳票基準値（女性）</label>
+              <input type="text" id="examStdFemale" class="input-md" placeholder="18.5～24.9">
+            </div>
+          </div>
+
+          <!-- その他 -->
+          <fieldset class="form-fieldset">
+            <legend>その他設定</legend>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>初期値</label>
+                <input type="text" id="examDefaultValue" class="input-sm">
+              </div>
+              <div class="form-group">
+                <label>検査会社コード（BML）</label>
+                <input type="text" id="examLabCodeBml" class="input-sm">
+              </div>
+              <div class="form-group">
+                <label>表示順</label>
+                <input type="number" id="examDisplayOrder" class="input-sm" value="0">
+              </div>
+              <div class="form-group full-width">
+                <label>備考</label>
+                <textarea id="examNotes" rows="2" class="input-full"></textarea>
+              </div>
+            </div>
+          </fieldset>
+
+          <div class="form-actions">
+            <button class="btn btn-primary" onclick="saveExamItem()">保存</button>
+            <button class="btn btn-danger" onclick="deleteExamItem()" id="examDeleteBtn" style="display:none;">削除</button>
+            <button class="btn btn-secondary" onclick="hideExamItemForm()">キャンセル</button>
+          </div>
+        </div>
+      </div>
+
       <!-- けんぽマスタタブ -->
-      <div id="tab-master-kenpo" class="tab-content active">
+      <div id="tab-master-kenpo" class="tab-content">
         <div class="master-section">
           <div class="section-header">
             <h3>けんぽ（健康保険組合）一覧</h3>

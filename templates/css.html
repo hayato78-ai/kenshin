@@ -929,6 +929,113 @@ label {
 }
 
 /* ============================================================
+   検査項目マスタ
+   ============================================================ */
+.exam-item-search {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  align-items: flex-end;
+}
+
+.exam-item-search .form-group {
+  margin-bottom: 0;
+}
+
+/* 判定基準グリッド */
+.criteria-grid-container {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.criteria-table {
+  font-size: 12px;
+}
+
+.criteria-table th,
+.criteria-table td {
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.criteria-table th {
+  background: #f0f0f0;
+  font-weight: 500;
+  position: sticky;
+  top: 0;
+}
+
+.criteria-table .criteria-label {
+  background: #f8f9fa;
+  font-weight: 600;
+  text-align: left;
+  width: 50px;
+}
+
+.criteria-table input {
+  width: 60px;
+  padding: 4px 6px;
+  font-size: 12px;
+  text-align: right;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+}
+
+.criteria-table input:focus {
+  border-color: #2980b9;
+  outline: none;
+}
+
+/* 検査項目一覧テーブル */
+#examItemList .results-table {
+  font-size: 12px;
+}
+
+#examItemList .results-table th {
+  white-space: nowrap;
+}
+
+#examItemList .results-table td {
+  vertical-align: middle;
+}
+
+#examItemList .item-code {
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+}
+
+#examItemList .item-name {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#examItemList .category-check {
+  text-align: center;
+}
+
+#examItemList .category-check input {
+  pointer-events: none;
+}
+
+#examItemList .jlac10 {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: #666;
+}
+
+/* 検査項目フォーム */
+#examItemModal {
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+#examItemModal .form-fieldset {
+  margin-top: 15px;
+}
+
+/* ============================================================
    フッター
    ============================================================ */
 .footer {

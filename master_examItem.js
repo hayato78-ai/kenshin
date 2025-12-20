@@ -137,6 +137,13 @@ function setupExamItemMasterSheet() {
     sheet.setColumnWidth(6, 100);  // 小分類
     sheet.setColumnWidth(9, 60);   // 単位
 
+    // 項目コード列（A列）をテキスト形式に設定（先頭0の欠落防止）
+    sheet.getRange('A:A').setNumberFormat('@');
+    // JLAC10コード列（B列）もテキスト形式
+    sheet.getRange('B:B').setNumberFormat('@');
+    // BMLコード列（AP列）もテキスト形式
+    sheet.getRange('AP:AP').setNumberFormat('@');
+
     console.log('M_検査項目シート作成完了: ' + M_EXAM_ITEM_HEADERS.length + '列');
 
     return {
@@ -412,7 +419,10 @@ function portalSaveExamItem(itemData) {
 
     if (existingRow > 0) {
       // 更新
-      sheet.getRange(existingRow, 1, 1, rowData.length).setValues([rowData]);
+      const range = sheet.getRange(existingRow, 1, 1, rowData.length);
+      // 項目コード列をテキスト形式に設定してから値をセット
+      sheet.getRange(existingRow, 1).setNumberFormat('@');
+      range.setValues([rowData]);
       debugInfo.action = 'update';
       debugInfo.rowIndex = existingRow;
 
@@ -426,8 +436,10 @@ function portalSaveExamItem(itemData) {
 
     } else {
       // 新規追加
-      sheet.appendRow(rowData);
-      const newRowIndex = sheet.getLastRow();
+      const newRowIndex = sheet.getLastRow() + 1;
+      // 項目コード列をテキスト形式に設定してから値をセット
+      sheet.getRange(newRowIndex, 1).setNumberFormat('@');
+      sheet.getRange(newRowIndex, 1, 1, rowData.length).setValues([rowData]);
       debugInfo.action = 'create';
       debugInfo.rowIndex = newRowIndex;
 

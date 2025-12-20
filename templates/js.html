@@ -1552,16 +1552,354 @@ function showMasterTab(tabName) {
   if (activeBtn) activeBtn.classList.add('active');
 
   // タブコンテンツ切り替え
+  document.getElementById('tab-master-exam-item').classList.remove('active');
   document.getElementById('tab-master-kenpo').classList.remove('active');
   document.getElementById('tab-master-company').classList.remove('active');
   document.getElementById('tab-master-' + tabName).classList.add('active');
 
   // データ読み込み
-  if (tabName === 'kenpo') {
+  if (tabName === 'exam-item') {
+    initExamItemTab();
+  } else if (tabName === 'kenpo') {
     loadKenpoList();
   } else if (tabName === 'company') {
     loadCompanyList();
   }
+}
+
+// ========== 検査項目マスタ ==========
+
+/**
+ * 検査項目タブ初期化
+ */
+function initExamItemTab() {
+  // 判定基準グリッド初期化
+  initCriteriaGrid();
+}
+
+/**
+ * 判定基準グリッド初期化
+ */
+function initCriteriaGrid() {
+  const tbody = document.getElementById('criteriaGrid');
+  if (!tbody || tbody.children.length > 0) return; // 既に初期化済み
+
+  const criteria = ['F L', 'E L', 'D L', 'C L', 'B L', 'A', 'B H', 'C H', 'D H', 'E H', 'F H'];
+  const criteriaIds = ['f_low', 'e_low', 'd_low', 'c_low', 'b_low', 'a', 'b_high', 'c_high', 'd_high', 'e_high', 'f_high'];
+
+  criteria.forEach((label, i) => {
+    const id = criteriaIds[i];
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="criteria-label">${label}</td>
+      <td><input type="number" id="crit_${id}_m_min" step="0.1"></td>
+      <td><input type="number" id="crit_${id}_m_max" step="0.1"></td>
+      <td><input type="number" id="crit_${id}_f_min" step="0.1"></td>
+      <td><input type="number" id="crit_${id}_f_max" step="0.1"></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+/**
+ * 検査項目検索
+ */
+function searchExamItems() {
+  const criteria = {
+    codeFrom: document.getElementById('examCodeFrom').value,
+    codeTo: document.getElementById('examCodeTo').value,
+    category: getExamCategoryFilter(),
+    keyword: document.getElementById('examKeyword').value
+  };
+
+  const container = document.getElementById('examItemList');
+  container.innerHTML = '<p>検索中...</p>';
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result.success) {
+        displayExamItemList(result.data, result.count);
+      } else {
+        container.innerHTML = '<p class="error">検索エラー: ' + (result.error || '不明') + '</p>';
+      }
+    })
+    .withFailureHandler(function(error) {
+      container.innerHTML = '<p class="error">検索エラー: ' + error.message + '</p>';
+    })
+    .portalGetExamItems(criteria);
+}
+
+/**
+ * 検索条件のカテゴリフィルタ取得
+ */
+function getExamCategoryFilter() {
+  const cats = [];
+  if (document.getElementById('examCatBody').checked) cats.push('身体情報');
+  if (document.getElementById('examCatLab').checked) cats.push('検体検査');
+  if (document.getElementById('examCatImg').checked) cats.push('画像診断');
+  return cats.length > 0 ? cats : null;
+}
+
+/**
+ * 検索条件クリア
+ */
+function clearExamSearch() {
+  document.getElementById('examCodeFrom').value = '';
+  document.getElementById('examCodeTo').value = '';
+  document.getElementById('examCatBody').checked = false;
+  document.getElementById('examCatLab').checked = false;
+  document.getElementById('examCatImg').checked = false;
+  document.getElementById('examKeyword').value = '';
+}
+
+/**
+ * 検査項目一覧表示
+ */
+function displayExamItemList(data, count) {
+  const container = document.getElementById('examItemList');
+
+  if (!data || data.length === 0) {
+    container.innerHTML = '<p>該当する検査項目がありません。</p>';
+    return;
+  }
+
+  let html = '<table class="results-table"><thead><tr>' +
+    '<th>コード</th><th>項目名</th><th>身体</th><th>検体</th><th>画像</th><th>JLAC10</th><th>備考</th><th>操作</th>' +
+    '</tr></thead><tbody>';
+
+  data.forEach(item => {
+    const isBody = item.category === '身体情報';
+    const isLab = item.category === '検体検査';
+    const isImg = item.category === '画像診断';
+
+    html += '<tr class="clickable" onclick="editExamItem(\'' + item.item_code + '\')">' +
+      '<td class="item-code">' + (item.item_code || '') + '</td>' +
+      '<td class="item-name">' + (item.item_name || '') + '</td>' +
+      '<td class="category-check"><input type="checkbox" ' + (isBody ? 'checked' : '') + ' disabled></td>' +
+      '<td class="category-check"><input type="checkbox" ' + (isLab ? 'checked' : '') + ' disabled></td>' +
+      '<td class="category-check"><input type="checkbox" ' + (isImg ? 'checked' : '') + ' disabled></td>' +
+      '<td class="jlac10">' + (item.jlac10_code || '') + '</td>' +
+      '<td>' + (item.notes || '') + '</td>' +
+      '<td><button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); editExamItem(\'' + item.item_code + '\')">編集</button></td>' +
+      '</tr>';
+  });
+
+  html += '</tbody></table>';
+  html += '<p class="result-count">' + (count || data.length) + '件</p>';
+
+  container.innerHTML = html;
+}
+
+/**
+ * 新規登録フォーム表示
+ */
+function showExamItemForm() {
+  initCriteriaGrid();
+  clearExamItemForm();
+  document.getElementById('examItemModalTitle').textContent = '検査項目新規登録';
+  document.getElementById('examItemIsNew').value = 'true';
+  document.getElementById('examItemCode').readOnly = false;
+  document.getElementById('examDeleteBtn').style.display = 'none';
+  document.getElementById('examItemModal').style.display = 'block';
+}
+
+/**
+ * 編集フォーム表示
+ */
+function editExamItem(itemCode) {
+  initCriteriaGrid();
+
+  showLoading('読み込み中...');
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success && result.data) {
+        fillExamItemForm(result.data);
+        document.getElementById('examItemModalTitle').textContent = '検査項目編集';
+        document.getElementById('examItemIsNew').value = 'false';
+        document.getElementById('examItemCode').readOnly = true;
+        document.getElementById('examDeleteBtn').style.display = 'inline-block';
+        document.getElementById('examItemModal').style.display = 'block';
+      } else {
+        showNotification('データ取得エラー: ' + (result.error || '不明'), 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showNotification('データ取得エラー: ' + error.message, 'error');
+    })
+    .portalGetExamItemById(itemCode);
+}
+
+/**
+ * フォームにデータ入力
+ */
+function fillExamItemForm(data) {
+  document.getElementById('examItemCode').value = data.item_code || '';
+  document.getElementById('examJlac10').value = data.jlac10_code || '';
+  document.getElementById('examItemName').value = data.item_name || '';
+  document.getElementById('examItemKana').value = data.item_name_kana || '';
+
+  // カテゴリ
+  document.getElementById('examIsBody').checked = data.category === '身体情報';
+  document.getElementById('examIsLab').checked = data.category === '検体検査';
+  document.getElementById('examIsImg').checked = data.category === '画像診断';
+
+  document.getElementById('examSubCategory').value = data.sub_category || '';
+  document.getElementById('examDataType').value = data.data_type || 'numeric';
+  document.getElementById('examDecimal').value = data.decimal_places || 0;
+  document.getElementById('examUnit').value = data.unit || '';
+  document.getElementById('examValidMin').value = data.valid_min || '';
+  document.getElementById('examValidMax').value = data.valid_max || '';
+  document.getElementById('examStdMale').value = data.std_male || '';
+  document.getElementById('examStdFemale').value = data.std_female || '';
+  document.getElementById('examDefaultValue').value = data.default_value || '';
+  document.getElementById('examLabCodeBml').value = data.lab_code_bml || '';
+  document.getElementById('examDisplayOrder').value = data.display_order || 0;
+  document.getElementById('examNotes').value = data.notes || '';
+
+  // 判定基準（簡易版）
+  // 詳細な判定基準データがあれば各フィールドに設定
+}
+
+/**
+ * フォームクリア
+ */
+function clearExamItemForm() {
+  document.getElementById('examItemCode').value = '';
+  document.getElementById('examJlac10').value = '';
+  document.getElementById('examItemName').value = '';
+  document.getElementById('examItemKana').value = '';
+  document.getElementById('examIsBody').checked = false;
+  document.getElementById('examIsLab').checked = false;
+  document.getElementById('examIsImg').checked = false;
+  document.getElementById('examSubCategory').value = '';
+  document.getElementById('examDataType').value = 'numeric';
+  document.getElementById('examDecimal').value = 0;
+  document.getElementById('examUnit').value = '';
+  document.getElementById('examValidMin').value = '';
+  document.getElementById('examValidMax').value = '';
+  document.getElementById('examStdMale').value = '';
+  document.getElementById('examStdFemale').value = '';
+  document.getElementById('examDefaultValue').value = '';
+  document.getElementById('examLabCodeBml').value = '';
+  document.getElementById('examDisplayOrder').value = 0;
+  document.getElementById('examNotes').value = '';
+
+  // 判定基準グリッドクリア
+  const criteriaIds = ['f_low', 'e_low', 'd_low', 'c_low', 'b_low', 'a', 'b_high', 'c_high', 'd_high', 'e_high', 'f_high'];
+  criteriaIds.forEach(id => {
+    const mMin = document.getElementById('crit_' + id + '_m_min');
+    const mMax = document.getElementById('crit_' + id + '_m_max');
+    const fMin = document.getElementById('crit_' + id + '_f_min');
+    const fMax = document.getElementById('crit_' + id + '_f_max');
+    if (mMin) mMin.value = '';
+    if (mMax) mMax.value = '';
+    if (fMin) fMin.value = '';
+    if (fMax) fMax.value = '';
+  });
+}
+
+/**
+ * フォームを閉じる
+ */
+function hideExamItemForm() {
+  document.getElementById('examItemModal').style.display = 'none';
+}
+
+/**
+ * 検査項目保存
+ */
+function saveExamItem() {
+  const itemCode = document.getElementById('examItemCode').value.trim();
+  const itemName = document.getElementById('examItemName').value.trim();
+
+  if (!itemCode) {
+    showNotification('項目コードは必須です', 'error');
+    return;
+  }
+  if (!itemName) {
+    showNotification('項目名は必須です', 'error');
+    return;
+  }
+
+  // カテゴリ判定
+  let category = '';
+  if (document.getElementById('examIsBody').checked) category = '身体情報';
+  else if (document.getElementById('examIsLab').checked) category = '検体検査';
+  else if (document.getElementById('examIsImg').checked) category = '画像診断';
+
+  const itemData = {
+    item_code: itemCode,
+    jlac10_code: document.getElementById('examJlac10').value,
+    item_name: itemName,
+    item_name_kana: document.getElementById('examItemKana').value,
+    category: category,
+    sub_category: document.getElementById('examSubCategory').value,
+    data_type: document.getElementById('examDataType').value,
+    decimal_places: parseInt(document.getElementById('examDecimal').value) || 0,
+    unit: document.getElementById('examUnit').value,
+    valid_min: document.getElementById('examValidMin').value,
+    valid_max: document.getElementById('examValidMax').value,
+    std_male: document.getElementById('examStdMale').value,
+    std_female: document.getElementById('examStdFemale').value,
+    default_value: document.getElementById('examDefaultValue').value,
+    lab_code_bml: document.getElementById('examLabCodeBml').value,
+    display_order: parseInt(document.getElementById('examDisplayOrder').value) || 0,
+    notes: document.getElementById('examNotes').value,
+    is_active: true
+  };
+
+  showLoading('保存中...');
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        showNotification('保存しました', 'success');
+        hideExamItemForm();
+        searchExamItems(); // 一覧を再読み込み
+      } else {
+        showNotification('保存エラー: ' + (result.error || '不明'), 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showNotification('保存エラー: ' + error.message, 'error');
+    })
+    .portalSaveExamItem(itemData);
+}
+
+/**
+ * 検査項目削除
+ */
+function deleteExamItem() {
+  const itemCode = document.getElementById('examItemCode').value;
+  if (!itemCode) return;
+
+  if (!confirm('この検査項目を削除しますか？\n項目コード: ' + itemCode)) {
+    return;
+  }
+
+  showLoading('削除中...');
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        showNotification('削除しました', 'success');
+        hideExamItemForm();
+        searchExamItems();
+      } else {
+        showNotification('削除エラー: ' + (result.error || '不明'), 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showNotification('削除エラー: ' + error.message, 'error');
+    })
+    .portalDeleteExamItem(itemCode);
 }
 
 // ========== けんぽマスタ ==========

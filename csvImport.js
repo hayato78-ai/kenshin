@@ -710,6 +710,218 @@ function findMappingPattern(headers) {
 // ============================================
 
 /**
+ * BMLコード+値ペア形式のCSVを検出
+ * @param {string} csvContent - CSVの内容
+ * @returns {boolean} コード形式かどうか
+ */
+function isBmlCodeFormat(csvContent) {
+  const lines = csvContent.split(/\r?\n/).filter(line => line.trim());
+  if (lines.length === 0) return false;
+
+  const firstLine = lines[0];
+  const values = firstLine.split(',');
+
+  // BMLコード形式の特徴:
+  // - 位置1がカルテNo（5-7桁の数字）
+  // - 位置2が受診日（YYYYMMDD形式の8桁数字）
+  // - 位置11に7桁のコードが出現
+  // 実際のBML形式: BML検体番号[0],カルテNo[1],受診日[2],時間[3],[4],BML患者ID[5],性別[6],[7],[8],[9],?[10],コード1[11],値1[12],...
+  if (values.length > 11) {
+    const karteNo = values[1];
+    const examDate = values[2];
+    const code11 = values[11];
+
+    const isKarteNo = /^\d{5,7}$/.test(karteNo);
+    const isExamDate = /^\d{8}$/.test(examDate);
+    const isCode = /^\d{7}$/.test(code11);
+
+    return isKarteNo && isExamDate && isCode;
+  }
+  return false;
+}
+
+/**
+ * BMLコード+値ペア形式CSVをパース
+ * 形式: BML検体番号,カルテNo,受診日,時間,,BML患者ID,性別,,,?,年齢?,コード1,値1,判定1,コメント1,コード2,値2,...
+ * @param {string} csvContent - BMLコード形式CSVの内容
+ * @param {Object} options - オプション
+ * @returns {Object} 変換結果 {success, records[], mappingInfo, errors[]}
+ */
+function parseBmlCodeFormatCsv(csvContent, options = {}) {
+  try {
+    const lines = csvContent.split(/\r?\n/).filter(line => line.trim());
+    if (lines.length === 0) {
+      return { success: false, error: 'CSVが空です', records: [], errors: [] };
+    }
+
+    const records = [];
+    const errors = [];
+    const mappedCodes = new Set();
+    const unmappedCodes = new Set();
+
+    // BML 7桁コード → システムitem_id マッピング
+    const BML_7DIGIT_CODE_MAP = {
+      // 身体測定
+      '0000401': 'HEIGHT',      // 身長
+      '0000402': 'WEIGHT',      // 体重
+      '0000403': 'BMI',         // BMI
+      '0000404': 'WAIST_M',     // 腹囲
+      // 血圧
+      '0000411': 'BP_SYSTOLIC_1',
+      '0000412': 'BP_DIASTOLIC_1',
+      '0000413': 'PULSE',
+      // 尿検査
+      '0003891': 'URINE_PROTEIN',
+      '0003892': 'URINE_GLUCOSE',
+      '0003893': 'URINE_OCCULT_BLOOD',
+      '0003894': 'UROBILINOGEN',
+      // 血液学検査
+      '0000301': 'WBC',
+      '0000302': 'RBC',
+      '0000303': 'HEMOGLOBIN',
+      '0000304': 'HEMATOCRIT',
+      '0000308': 'MCV',
+      '0000313': 'PLATELET',
+      // 肝機能
+      '0000482': 'AST',
+      '0000484': 'ALT',
+      '0000501': 'GGT',
+      '0000481': 'ALP',
+      '0000491': 'LDH',
+      // 脂質
+      '0000453': 'TOTAL_CHOLESTEROL',
+      '0000454': 'TG',
+      '0003845': 'HDL_C',
+      '0003317': 'LDL_C',
+      // 糖代謝
+      '0000497': 'FBS',
+      '0002696': 'HBA1C',
+      // 腎機能
+      '0000413': 'CREATININE',
+      '0000417': 'BUN',
+      '0000460': 'EGFR',
+      '0000472': 'UA',
+      // 電解質
+      '0000421': 'NA',
+      '0000423': 'K',
+      '0000425': 'CL',
+      '0000427': 'CA',
+      // 蛋白
+      '0000407': 'TOTAL_PROTEIN',
+      '0000409': 'ALBUMIN',
+      '0000410': 'A_G_RATIO',
+      // 炎症
+      '0000658': 'CRP',
+      // 便潜血
+      '0000905': 'FOBT_1',
+      '0000911': 'FOBT_2',
+      // 感染症
+      '0004821': 'HBS_AG',
+      '0004822': 'HCV_AB',
+      // 腫瘍マーカー
+      '0003550': 'PSA',
+      // その他
+      '0000503': 'FE',         // 血清鉄
+      '0013067': 'BLOOD_TYPE_ABO',
+      '0013380': 'BLOOD_TYPE_RH'
+    };
+
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+      const line = lines[lineIndex];
+      const values = line.split(',');
+
+      if (values.length < 12) {
+        errors.push({ row: lineIndex + 1, error: 'データ長不足', data: line });
+        continue;
+      }
+
+      try {
+        // 基本情報の抽出
+        // BML形式: BML検体番号[0],カルテNo[1],受診日[2],時間[3],[4],BML患者ID[5],性別[6],[7],[8],[9],?[10],コード1[11],値1[12],...
+        const record = {
+          _rowIndex: lineIndex + 1,
+          _raw: { line },
+          BML_SPECIMEN_NO: values[0],        // BML検体番号
+          KARTE_NO: values[1],               // カルテNo（紐付けキー）
+          EXAM_DATE: normalizeBmlExamDate(values[2]), // 受診日
+          BML_PATIENT_ID: values[5],         // BML患者ID
+          SEX: values[6] === '1' ? 'M' : (values[6] === '2' ? 'F' : null),
+          AGE: values[10] ? parseInt(values[10]) : null  // 位置10が年齢？（要確認）
+        };
+
+        // コード+値ペアの解析（位置11以降、4つ1組）
+        // 形式: コード[11], 値[12], 判定?[13], コメント?[14], コード[15], ...
+        for (let i = 11; i < values.length; i += 4) {
+          const code = values[i];
+          const value = values[i + 1];
+          const judgment = values[i + 2];
+          const comment = values[i + 3];
+
+          if (!code || !/^\d{7}$/.test(code)) continue;
+
+          const itemId = BML_7DIGIT_CODE_MAP[code];
+          if (itemId) {
+            mappedCodes.add(code);
+            // 値を正規化して保存
+            if (value !== undefined && value !== '') {
+              record[itemId] = normalizeBmlValue(value, itemId);
+            }
+            // 判定があれば保存
+            if (judgment) {
+              record[itemId + '_JUDGMENT'] = judgment;
+            }
+          } else {
+            unmappedCodes.add(code);
+            // 未マッピングコードも生データとして保存
+            record._raw[code] = { value, judgment, comment };
+          }
+        }
+
+        records.push(record);
+
+      } catch (rowError) {
+        errors.push({ row: lineIndex + 1, error: rowError.message, data: line });
+      }
+    }
+
+    return {
+      success: true,
+      records,
+      mappingInfo: {
+        format: 'BML_CODE_FORMAT',
+        totalRows: lines.length,
+        successCount: records.length,
+        errorCount: errors.length,
+        mappedCodes: Array.from(mappedCodes),
+        unmappedCodes: Array.from(unmappedCodes)
+      },
+      errors
+    };
+
+  } catch (e) {
+    logError('parseBmlCodeFormatCsv', e);
+    return { success: false, error: e.message, records: [], errors: [] };
+  }
+}
+
+/**
+ * BML受診日形式（YYYYMMDD）を正規化
+ * @param {string} dateStr - YYYYMMDD形式の日付
+ * @returns {Date|null} Dateオブジェクト
+ */
+function normalizeBmlExamDate(dateStr) {
+  if (!dateStr || dateStr.length !== 8) return null;
+  try {
+    const y = parseInt(dateStr.substring(0, 4));
+    const m = parseInt(dateStr.substring(4, 6)) - 1;
+    const d = parseInt(dateStr.substring(6, 8));
+    return new Date(y, m, d);
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
  * BML形式CSVをパースして標準形式に変換
  * @param {string} csvContent - BML形式CSVの内容
  * @param {Object} options - オプション（gender指定など）

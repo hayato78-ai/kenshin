@@ -1451,4 +1451,79 @@ label {
     justify-content: center;
   }
 }
+
+/* ============================================================
+   検体検査結果テーブル
+   ============================================================ */
+.lab-results-container {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.lab-results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.lab-results-header h4 {
+  margin: 0;
+  font-size: 14px;
+  color: #333;
+}
+
+.lab-results-table {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.lab-results-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.lab-results-table th,
+.lab-results-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #e0e0e0;
+  text-align: left;
+}
+
+.lab-results-table th {
+  background: #f8f9fa;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+}
+
+.lab-results-table tr:hover {
+  background: #f5f8ff;
+}
+
+.lab-results-table .text-right {
+  text-align: right;
+}
+
+.lab-results-table .text-center {
+  text-align: center;
+  color: #666;
+}
+
+.lab-results-table .text-error {
+  color: #c0392b;
+}
+
+/* 判定表示 */
+.lab-results-table .judgment-A { color: #27ae60; font-weight: bold; }
+.lab-results-table .judgment-B { color: #2980b9; font-weight: bold; }
+.lab-results-table .judgment-C { color: #f39c12; font-weight: bold; }
+.lab-results-table .judgment-D { color: #e74c3c; font-weight: bold; }
+.lab-results-table .judgment-E { color: #8e44ad; font-weight: bold; }
+.lab-results-table .judgment-R { color: #c0392b; font-weight: bold; }
 </style>

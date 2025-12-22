@@ -272,9 +272,9 @@ function displayPatientSearchResults(result) {
     html += '<td>' + escapeHtml(patient['ステータス'] || '-') + '</td>';
     html += '<td>';
     html += '<button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); showPatientDetail(' + index + ')">詳細</button> ';
-    // 受診IDがある場合は結果入力ボタンを表示
-    if (patient['受診ID']) {
-      html += '<button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); selectPatientForInput(\'' + escapeHtml(patient['受診ID'] || '') + '\')">結果入力</button>';
+    // 受診者IDがある場合は結果入力ボタンを表示
+    if (patient['受診者ID']) {
+      html += '<button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); selectPatientForInput(\'' + escapeHtml(patient['受診者ID'] || '') + '\')">結果入力</button>';
     }
     // 既存患者に受診追加ボタン
     html += ' <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); addVisitToPatient(\'' + escapeHtml(patient['受診者ID'] || '') + '\', \'' + escapeHtml(patient['氏名'] || '') + '\')">+受診</button>';
@@ -596,7 +596,7 @@ function savePatientEdit() {
 
 function goToResultInput() {
   if (currentDetailPatient) {
-    selectPatientForInput(currentDetailPatient['受診ID']);
+    selectPatientForInput(currentDetailPatient['受診者ID']);
   }
 }
 
@@ -1091,46 +1091,58 @@ function searchPatientForResults() {
 function loadPatientForResults(patientId) {
   showLoading('データ読込中...');
 
-  // 患者情報と検査結果を並列で取得
-  Promise.all([
-    new Promise((resolve, reject) => {
-      google.script.run
-        .withSuccessHandler(resolve)
-        .withFailureHandler(reject)
-        .portalGetPatient(patientId);
-    }),
-    new Promise((resolve, reject) => {
-      google.script.run
-        .withSuccessHandler(resolve)
-        .withFailureHandler(reject)
-        .portalGetBloodTestResults(patientId);
-    })
-  ]).then(([patientResult, bloodResult]) => {
-    hideLoading();
+  // まず患者情報を取得し、カルテNoを使って検査結果を取得
+  google.script.run
+    .withSuccessHandler(function(patientResult) {
+      if (!patientResult.success) {
+        hideLoading();
+        showNotification('患者情報の取得に失敗: ' + (patientResult.error || ''), 'error');
+        return;
+      }
 
-    if (patientResult.success) {
       currentPatientData = patientResult.data;
       displayPatientHeader(patientResult.data);
       document.getElementById('selectedPatientHeader').style.display = 'flex';
       document.getElementById('resultInputTabs').style.display = 'flex';
-    }
 
-    if (bloodResult.success && bloodResult.data) {
-      displayBloodTestResults(bloodResult.data);
-      populateMeasurementForm(bloodResult.data);
-    }
+      // カルテNoで検査結果を取得
+      const karteNo = patientResult.data['カルテNo'];
+      console.log('loadPatientForResults: karteNo=' + karteNo);
 
-    showResultTab('blood'); // 血液検査タブを表示（手入力可能）
-  }).catch(error => {
-    hideLoading();
-    showNotification('データ読込エラー: ' + error.message, 'error');
-  });
+      if (karteNo) {
+        google.script.run
+          .withSuccessHandler(function(bloodResult) {
+            hideLoading();
+            if (bloodResult.success && bloodResult.data) {
+              displayBloodTestResults(bloodResult.data);
+              populateMeasurementForm(bloodResult.data);
+            }
+            showResultTab('blood');
+          })
+          .withFailureHandler(function(error) {
+            hideLoading();
+            console.error('血液検査結果取得エラー:', error);
+            showResultTab('blood');
+          })
+          .portalGetBloodTestResults(karteNo);
+      } else {
+        hideLoading();
+        console.log('カルテNoが設定されていません');
+        showResultTab('blood');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showNotification('データ読込エラー: ' + error.message, 'error');
+    })
+    .portalGetPatient(patientId);
 }
 
 function displayPatientHeader(patient) {
   const header = document.getElementById('selectedPatientHeader');
+  const patientId = patient['受診者ID'] || patient['患者ID'] || '';
 
-  header.querySelector('.patient-id').textContent = 'ID: ' + patient['患者ID'];
+  header.querySelector('.patient-id').textContent = 'ID: ' + patientId;
   header.querySelector('.patient-name').textContent = patient['氏名'] || '';
   header.querySelector('.patient-birth').textContent = formatDate(patient['生年月日']);
   header.querySelector('.patient-gender').textContent = patient['性別'] || '';
@@ -1142,7 +1154,7 @@ function displayPatientHeader(patient) {
   }
 
   document.getElementById('currentPatientInfo').textContent =
-    patient['患者ID'] + ' ' + (patient['氏名'] || '');
+    patientId + ' ' + (patient['氏名'] || '');
 }
 
 // 入力フィールドのマッピング（設計書準拠）
@@ -1384,6 +1396,21 @@ function saveInputResultsAndNext() {
     .portalSaveInputResults(currentPatientId, inputData);
 }
 
+/**
+ * 血液検査結果を表示（BML CSVデータ対応）
+ * @param {Object} data - 検査結果データ（日本語キーまたはIDキー）
+ */
+function displayBloodTestResults(data) {
+  if (!data) return;
+
+  // 血液検査タブがあれば結果を表示
+  const bloodTable = document.getElementById('bloodTestTable');
+  if (bloodTable) {
+    // 既存のテーブル表示処理があればここで呼び出し
+    console.log('Blood test data loaded:', Object.keys(data).length + ' fields');
+  }
+}
+
 function populateMeasurementForm(data) {
   // 既存データがあればフォームに反映
   if (data['身長']) document.getElementById('mHeight').value = data['身長'];
@@ -1422,6 +1449,131 @@ function showResultTab(tabName) {
   if (tabBtn) {
     tabBtn.classList.add('active');
   }
+
+  // 検体検査タブ選択時はデータ読込
+  if (tabName === 'lab' && currentPatientId) {
+    loadLabResultsForPatient(currentPatientId);
+  }
+}
+
+/**
+ * 検体検査結果をテーブルに表示
+ * カルテNoで検索（CSV取込データとの紐付け）
+ */
+function loadLabResultsForPatient(patientId) {
+  const tbody = document.getElementById('labResultsBody');
+  if (!tbody) return;
+
+  // カルテNoを取得（currentPatientDataから）
+  const karteNo = currentPatientData ? currentPatientData['カルテNo'] : null;
+  console.log('loadLabResultsForPatient: patientId=' + patientId + ', karteNo=' + karteNo);
+
+  if (!karteNo) {
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center">カルテNoが設定されていません</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = '<tr><td colspan="4" class="text-center">読込中... (カルテNo: ' + escapeHtml(karteNo) + ')</td></tr>';
+
+  // カルテNoで検索
+  google.script.run
+    .withSuccessHandler(function(result) {
+      console.log('portalGetLabResultsByKarteNo result:', result);
+      if (result.success && result.data) {
+        displayLabResultsTable(result.data);
+      } else {
+        // デバッグ情報を表示
+        var debugInfo = result._debug ? ' [カルテNo:' + (result._debug.searchedKarteNo || '?') + ', rows:' + (result._debug.rowCount || '?') + ']' : '';
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center">' + escapeHtml(result.message || '検査結果がありません') + debugInfo + '</td></tr>';
+      }
+    })
+    .withFailureHandler(function(error) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center text-error">エラー: ' + error.message + '</td></tr>';
+    })
+    .portalGetLabResultsByKarteNo(karteNo);
+}
+
+/**
+ * 検体検査結果テーブルを描画
+ */
+function displayLabResultsTable(data) {
+  const tbody = document.getElementById('labResultsBody');
+  if (!tbody) return;
+
+  const items = data.items || [];
+  if (items.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center">検査結果がありません</td></tr>';
+    return;
+  }
+
+  let html = '';
+  items.forEach(function(item) {
+    const judgment = item.judgment || '';
+    const judgmentClass = judgment ? 'judgment-' + judgment : '';
+    html += '<tr>';
+    html += '<td>' + escapeHtml(item.name || item.id) + '</td>';
+    html += '<td class="text-right">' + escapeHtml(String(item.value || '')) + '</td>';
+    html += '<td>' + escapeHtml(item.unit || '') + '</td>';
+    html += '<td class="' + judgmentClass + '">' + escapeHtml(judgment) + '</td>';
+    html += '</tr>';
+  });
+
+  tbody.innerHTML = html;
+}
+
+/**
+ * 検体検査結果を再読込
+ */
+function refreshLabResults() {
+  if (currentPatientId) {
+    loadLabResultsForPatient(currentPatientId);
+  } else {
+    showNotification('患者を選択してください', 'warning');
+  }
+}
+
+/**
+ * 検体検査シート診断を実行
+ */
+function runLabDiagnostic() {
+  const tbody = document.getElementById('labResultsBody');
+  tbody.innerHTML = '<tr><td colspan="4" class="text-center">診断実行中...</td></tr>';
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      console.log('診断結果:', result);
+      if (result.success) {
+        var html = '<tr><td colspan="4">';
+        html += '<div style="text-align:left; font-size:12px; white-space:pre-wrap;">';
+        html += '<strong>◆ 検査結果シート</strong><br>';
+        if (result.labResultSheet && result.labResultSheet.exists) {
+          html += '行数: ' + result.labResultSheet.rowCount + '<br>';
+          html += 'ヘッダー: ' + JSON.stringify(result.labResultSheet.headers.slice(0, 5)) + '<br>';
+          html += 'サンプル: ' + JSON.stringify(result.labResultSheet.sampleData, null, 1) + '<br>';
+        } else {
+          html += 'シートが存在しません<br>';
+        }
+        html += '<br><strong>◆ 受診者マスタシート</strong><br>';
+        if (result.patientSheet && result.patientSheet.exists) {
+          html += '行数: ' + result.patientSheet.rowCount + '<br>';
+          html += 'ヘッダー: ' + JSON.stringify(result.patientSheet.headers.slice(0, 6)) + '<br>';
+          html += 'サンプル: ' + JSON.stringify(result.patientSheet.sampleData, null, 1) + '<br>';
+        } else {
+          html += 'シートが存在しません<br>';
+        }
+        html += '<br><strong>◆ 期待値</strong><br>';
+        html += JSON.stringify(result.comparison, null, 1);
+        html += '</div></td></tr>';
+        tbody.innerHTML = html;
+        showNotification('診断完了。結果を表示しています。', 'success');
+      } else {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-error">診断エラー: ' + (result.error || '不明') + '</td></tr>';
+      }
+    })
+    .withFailureHandler(function(error) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center text-error">エラー: ' + error.message + '</td></tr>';
+    })
+    .diagnoseLabResultsSheet();
 }
 
 function calculateBMI() {
@@ -1436,8 +1588,9 @@ function calculateBMI() {
 }
 
 function saveBodyMeasurements() {
-  if (!currentPatientId) {
-    showNotification('患者を選択してください', 'error');
+  const karteNo = currentPatientData ? currentPatientData['カルテNo'] : null;
+  if (!karteNo) {
+    showNotification('カルテNoが設定されていません', 'error');
     return;
   }
 
@@ -1476,7 +1629,7 @@ function saveBodyMeasurements() {
       hideLoading();
       showNotification('保存エラー: ' + error.message, 'error');
     })
-    .portalSaveBodyMeasurements(currentPatientId, measurements);
+    .portalSaveBodyMeasurements(karteNo, measurements);
 }
 
 function saveBodyMeasurementsAndNext() {
@@ -3050,6 +3203,41 @@ function displayVisitorData(data) {
 
   // 検査項目マスタをキャッシュ
   examItemsCache = data.items || [];
+
+  // existingResults配列をオブジェクト形式に変換
+  if (Array.isArray(data.existingResults)) {
+    const resultsMap = {};
+    data.existingResults.forEach(function(r) {
+      const key = r.itemId || r.itemCode;
+      if (key) {
+        resultsMap[key] = {
+          value: r.value,
+          numericValue: r.numericValue,
+          judgment: r.judgment,
+          notes: r.notes,
+          unit: r.unit,
+          source: r.source
+        };
+      }
+    });
+    data.existingResults = resultsMap;
+  }
+
+  // previousResults配列をオブジェクト形式に変換
+  if (Array.isArray(data.previousResults)) {
+    const prevMap = {};
+    data.previousResults.forEach(function(r) {
+      const key = r.itemId || r.itemCode;
+      if (key) {
+        prevMap[key] = {
+          value: r.value,
+          judgment: r.judgment,
+          notes: r.notes
+        };
+      }
+    });
+    data.previousResults = prevMap;
+  }
 
   // 各タブのグリッドに項目を描画
   renderInputGrids(data);

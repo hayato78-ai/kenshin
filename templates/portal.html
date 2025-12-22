@@ -627,6 +627,7 @@
         <!-- 入力タブ -->
         <div id="resultInputTabs" class="tabs" style="display:none;">
           <button class="tab-btn active" data-tab="blood" onclick="showResultTab('blood')">血液検査</button>
+          <button class="tab-btn" data-tab="lab" onclick="showResultTab('lab')">検体検査</button>
           <button class="tab-btn" data-tab="body" onclick="showResultTab('body')">身体計測</button>
           <button class="tab-btn" data-tab="findings" onclick="showResultTab('findings')">所見入力</button>
         </div>
@@ -715,6 +716,32 @@
           <button class="btn btn-secondary btn-sm" onclick="clearBloodTestForm()">クリア</button>
           <button class="btn btn-primary" onclick="saveBloodTestResults()">保存</button>
           <button class="btn btn-success" onclick="saveBloodTestResultsAndNext()">保存して次へ →</button>
+        </div>
+      </div>
+
+      <!-- 検体検査タブ（BML CSV取込データ表示） -->
+      <div id="tab-lab" class="tab-content">
+        <div class="lab-results-container">
+          <div class="lab-results-header">
+            <h4>検体検査結果（CSV取込データ）</h4>
+            <button class="btn btn-sm btn-secondary" onclick="refreshLabResults()">🔄 再読込</button>
+            <button class="btn btn-sm btn-outline" onclick="runLabDiagnostic()">🔧 診断</button>
+          </div>
+          <div id="labResultsTable" class="lab-results-table">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>検査項目</th>
+                  <th>結果値</th>
+                  <th>単位</th>
+                  <th>判定</th>
+                </tr>
+              </thead>
+              <tbody id="labResultsBody">
+                <tr><td colspan="4" class="text-center">患者を選択してください</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

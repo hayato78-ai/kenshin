@@ -1322,3 +1322,403 @@ function showReportMappingList() {
 
   ui.alert('レポートマッピング設定', message, ui.ButtonSet.OK);
 }
+
+// ============================================
+// 個人レポート出力機能（1221_template_new_default.xlsm用）
+// ============================================
+
+/**
+ * 個人レポート出力設定
+ */
+const INDIVIDUAL_REPORT_CONFIG = {
+  templateFileId: null,  // 設定シートから取得
+  templateFileName: '1221_template_new_default.xlsm',
+  outputFolderName: '個人レポート出力',
+  patientInfoSheet: '1ページ',
+  testResultSheet: '４ページ'
+};
+
+/**
+ * 個人レポートを出力
+ * @param {string} patientId - 受診者ID
+ * @param {Object} options - オプション {templateId, includeJudgment}
+ * @returns {Object} 結果 {success, fileUrl, fileName, error}
+ */
+function exportIndividualReport(patientId, options) {
+  options = options || {};
+  logInfo(`個人レポート出力開始: ${patientId}`);
+
+  try {
+    // 1. 受診者情報を取得
+    const patientInfo = getPatientInfoForReport(patientId);
+    if (!patientInfo) {
+      return { success: false, error: '受診者情報が見つかりません: ' + patientId };
+    }
+
+    // 2. 検査結果を取得
+    const testResults = getTestResultsForReport(patientId);
+    logInfo(`検査結果取得: ${Object.keys(testResults).length}件`);
+
+    // 3. マッピング定義を取得
+    const mapping = getIndividualReportMapping(options.templateId);
+
+    // 4. テンプレートをコピー
+    const outputSpreadsheet = copyIndividualTemplate(patientInfo, options);
+    if (!outputSpreadsheet) {
+      return { success: false, error: 'テンプレートのコピーに失敗しました' };
+    }
+
+    // 5. データを転記
+    fillIndividualReportData(outputSpreadsheet, patientInfo, testResults, mapping, options);
+
+    // 6. Excelファイルとして出力
+    const file = convertIndividualReportToExcel(outputSpreadsheet, patientInfo, options);
+
+    logInfo(`個人レポート出力完了: ${file.getName()}`);
+
+    return {
+      success: true,
+      fileUrl: file.getUrl(),
+      fileName: file.getName(),
+      patientId: patientId,
+      patientName: patientInfo.name
+    };
+
+  } catch (e) {
+    logError('exportIndividualReport', e);
+    return {
+      success: false,
+      error: e.message
+    };
+  }
+}
+
+/**
+ * レポート用受診者情報を取得
+ * @param {string} patientId - 受診者ID
+ * @returns {Object|null} 受診者情報
+ */
+function getPatientInfoForReport(patientId) {
+  // まずportalApiを試す
+  if (typeof portalGetPatient === 'function') {
+    const result = portalGetPatient(patientId);
+    if (result) {
+      return {
+        patientId: result.patientId,
+        name: result.name || result.氏名,
+        nameKana: result.kana || result.カナ,
+        gender: result.gender || result.性別,
+        birthDate: result.birthDate || result.生年月日,
+        examDate: result.examDate || result.受診日,
+        course: result.course || result.受診コース,
+        company: result.company || result.事業所名,
+        bmlPatientId: result.bmlPatientId || result.BML患者ID
+      };
+    }
+  }
+
+  // 次にpatientManagerを試す
+  if (typeof getPatientDetail === 'function') {
+    const result = getPatientDetail(patientId);
+    if (result) {
+      return {
+        patientId: result.patientId,
+        name: result.name,
+        nameKana: result.kana,
+        gender: result.gender,
+        birthDate: result.birthDate,
+        examDate: result.examDate,
+        course: result.course,
+        company: result.company,
+        bmlPatientId: result.bmlPatientId
+      };
+    }
+  }
+
+  // 直接シートから取得
+  const patientSheet = getSheet(CONFIG.SHEETS.PATIENT);
+  if (!patientSheet) return null;
+
+  const data = patientSheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === patientId) {
+      return {
+        patientId: data[i][0],
+        name: data[i][3],
+        nameKana: data[i][4],
+        gender: data[i][5],
+        birthDate: data[i][6],
+        examDate: data[i][2],
+        course: data[i][8],
+        company: data[i][9],
+        bmlPatientId: data[i][15] || ''
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * レポート用検査結果を取得（BMLコードをキーとした辞書）
+ * @param {string} patientId - 受診者ID
+ * @returns {Object} 検査結果 {bmlCode: {value, flag, judgment}}
+ */
+function getTestResultsForReport(patientId) {
+  const results = {};
+
+  // T_検査結果シートから取得を試す
+  const resultSheet = getSheet('T_検査結果');
+  if (resultSheet) {
+    const data = resultSheet.getDataRange().getValues();
+    const headers = data[0];
+    // 結果ID, 受診者ID, BMLコード, 項目名, 値, 単位, フラグ, 判定, ...
+    const colIndex = {
+      patientId: headers.indexOf('受診者ID'),
+      bmlCode: headers.indexOf('BMLコード'),
+      value: headers.indexOf('値'),
+      flag: headers.indexOf('フラグ'),
+      judgment: headers.indexOf('判定')
+    };
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][colIndex.patientId] === patientId) {
+        const bmlCode = String(data[i][colIndex.bmlCode] || '').trim();
+        if (bmlCode) {
+          results[bmlCode] = {
+            value: data[i][colIndex.value],
+            flag: data[i][colIndex.flag] || '',
+            judgment: data[i][colIndex.judgment] || ''
+          };
+        }
+      }
+    }
+
+    if (Object.keys(results).length > 0) {
+      return results;
+    }
+  }
+
+  // T_血液検査シートから取得を試す（従来形式）
+  const bloodSheet = getSheet(CONFIG.SHEETS.BLOOD_TEST);
+  if (bloodSheet) {
+    const data = bloodSheet.getDataRange().getValues();
+    const headers = data[0];
+
+    // BMLコードマッピング（項目名→BMLコード）
+    const itemToBmlCode = {
+      'WBC': '0000301', 'RBC': '0000302', 'Hb': '0000303', 'Ht': '0000304',
+      'PLT': '0000308', 'MCV': '0000305', 'MCH': '0000306', 'MCHC': '0000307',
+      'TP': '0000401', 'ALB': '0000417', 'AST': '0000481', 'ALT': '0000482',
+      'γ-GTP': '0000484', 'ALP': '0013067', 'LDH': '0000497', 'T-Bil': '0000472',
+      'TC': '0000453', 'TG': '0000454', 'HDL': '0000460', 'LDL': '0000410',
+      'FBS': '0000503', 'HbA1c': '0003317', 'Cre': '0000413', 'BUN': '0000491',
+      'eGFR': '0002696', 'UA': '0000407', 'CK': '0003845', 'Na': '0003550',
+      'K': '0000421', 'Cl': '0000425', 'CRP': '0000658'
+    };
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === patientId) {
+        for (let j = 1; j < headers.length; j++) {
+          const itemName = headers[j];
+          const bmlCode = itemToBmlCode[itemName];
+          if (bmlCode && data[i][j] !== '' && data[i][j] !== null) {
+            results[bmlCode] = {
+              value: data[i][j],
+              flag: '',
+              judgment: ''
+            };
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  return results;
+}
+
+/**
+ * 個人レポート用テンプレートをコピー
+ * @param {Object} patientInfo - 受診者情報
+ * @param {Object} options - オプション
+ * @returns {Spreadsheet|null} コピーされたスプレッドシート
+ */
+function copyIndividualTemplate(patientInfo, options) {
+  // テンプレートファイルIDを設定から取得
+  let templateFileId = getSettingValue('TEMPLATE_INDIVIDUAL_1221') ||
+                       getSettingValue('INDIVIDUAL_REPORT_TEMPLATE_ID');
+
+  if (!templateFileId) {
+    // テンプレートフォルダから探す
+    const folderId = getSettingValue('TEMPLATE_FOLDER_ID');
+    if (folderId) {
+      try {
+        const folder = DriveApp.getFolderById(folderId);
+        const files = folder.getFilesByName(INDIVIDUAL_REPORT_CONFIG.templateFileName);
+        if (files.hasNext()) {
+          templateFileId = files.next().getId();
+        }
+      } catch (e) {
+        logInfo('テンプレートフォルダからの検索に失敗: ' + e.message);
+      }
+    }
+  }
+
+  if (!templateFileId) {
+    logInfo('個人レポートテンプレートが設定されていません。新規スプレッドシートを作成します');
+    const examDate = patientInfo.examDate ? formatDate(patientInfo.examDate, 'YYYYMMDD') : formatDate(new Date(), 'YYYYMMDD');
+    return SpreadsheetApp.create(`個人レポート_${patientInfo.name}_${examDate}`);
+  }
+
+  try {
+    const templateFile = DriveApp.getFileById(templateFileId);
+    const examDate = patientInfo.examDate ? formatDate(patientInfo.examDate, 'YYYYMMDD') : formatDate(new Date(), 'YYYYMMDD');
+    const copyName = `個人レポート_${patientInfo.name}_${examDate}`;
+    const copiedFile = templateFile.makeCopy(copyName);
+
+    return SpreadsheetApp.openById(copiedFile.getId());
+  } catch (e) {
+    logInfo(`テンプレートのコピーに失敗: ${e.message}`);
+    return null;
+  }
+}
+
+/**
+ * 個人レポートにデータを転記
+ * @param {Spreadsheet} ss - スプレッドシート
+ * @param {Object} patientInfo - 受診者情報
+ * @param {Object} testResults - 検査結果
+ * @param {Object} mapping - マッピング定義
+ * @param {Object} options - オプション
+ */
+function fillIndividualReportData(ss, patientInfo, testResults, mapping, options) {
+  // 1ページ目（患者基本情報）
+  const page1 = ss.getSheetByName(INDIVIDUAL_REPORT_CONFIG.patientInfoSheet);
+  if (page1 && mapping.patientInfo) {
+    if (mapping.patientInfo.name) {
+      page1.getRange(mapping.patientInfo.name.cell).setValue(patientInfo.name || '');
+    }
+    if (mapping.patientInfo.examDate) {
+      const examDateValue = patientInfo.examDate ? formatDate(patientInfo.examDate) : '';
+      page1.getRange(mapping.patientInfo.examDate.cell).setValue(examDateValue);
+    }
+  }
+
+  // 4ページ目（検査結果）
+  const page4 = ss.getSheetByName(INDIVIDUAL_REPORT_CONFIG.testResultSheet);
+  if (page4 && mapping.testItems) {
+    for (const [bmlCode, cellMapping] of Object.entries(mapping.testItems)) {
+      const result = testResults[bmlCode];
+      if (!result) continue;
+
+      // 値を転記
+      if (cellMapping.value) {
+        page4.getRange(cellMapping.value).setValue(result.value);
+      }
+
+      // 判定を転記
+      if (cellMapping.judgment && result.judgment) {
+        page4.getRange(cellMapping.judgment).setValue(result.judgment);
+      }
+
+      // フラグを転記
+      if (cellMapping.flag && result.flag) {
+        page4.getRange(cellMapping.flag).setValue(result.flag);
+      }
+    }
+  }
+
+  logInfo(`データ転記完了: 検査項目${Object.keys(testResults).length}件`);
+}
+
+/**
+ * 個人レポートをExcelに変換
+ * @param {Spreadsheet} ss - スプレッドシート
+ * @param {Object} patientInfo - 受診者情報
+ * @param {Object} options - オプション
+ * @returns {File} Excelファイル
+ */
+function convertIndividualReportToExcel(ss, patientInfo, options) {
+  try {
+    const examDate = patientInfo.examDate ? formatDate(patientInfo.examDate, 'YYYYMMDD') : formatDate(new Date(), 'YYYYMMDD');
+    const fileName = options.fileName ||
+      `健診結果_${patientInfo.name}_${examDate}.xlsx`;
+
+    // Excelとしてエクスポート
+    const url = `https://docs.google.com/spreadsheets/d/${ss.getId()}/export?format=xlsx`;
+    const token = ScriptApp.getOAuthToken();
+
+    const response = UrlFetchApp.fetch(url, {
+      headers: { 'Authorization': 'Bearer ' + token },
+      muteHttpExceptions: true
+    });
+
+    if (response.getResponseCode() !== 200) {
+      throw new Error('Excelエクスポートに失敗: ' + response.getContentText());
+    }
+
+    const blob = response.getBlob().setName(fileName);
+
+    // 出力フォルダに保存
+    const outputFolder = getOutputFolder();
+    const file = outputFolder.createFile(blob);
+
+    // 一時スプレッドシートを削除
+    DriveApp.getFileById(ss.getId()).setTrashed(true);
+
+    return file;
+
+  } catch (e) {
+    try {
+      DriveApp.getFileById(ss.getId()).setTrashed(true);
+    } catch (deleteError) { }
+    throw e;
+  }
+}
+
+/**
+ * 複数受診者の個人レポートを一括出力
+ * @param {Array} patientIds - 受診者IDリスト
+ * @param {Object} options - オプション
+ * @returns {Object} 結果 {success, files, errors}
+ */
+function exportMultipleIndividualReports(patientIds, options) {
+  options = options || {};
+  const results = {
+    success: true,
+    files: [],
+    errors: []
+  };
+
+  for (const patientId of patientIds) {
+    const result = exportIndividualReport(patientId, options);
+    if (result.success) {
+      results.files.push({
+        patientId: patientId,
+        fileName: result.fileName,
+        fileUrl: result.fileUrl
+      });
+    } else {
+      results.errors.push({
+        patientId: patientId,
+        error: result.error
+      });
+      results.success = false;
+    }
+  }
+
+  return results;
+}
+
+/**
+ * ポータルから個人レポート出力（UI用）
+ * @param {string} patientId - 受診者ID
+ * @returns {Object} 結果
+ */
+function portalExportIndividualReport(patientId) {
+  return exportIndividualReport(patientId, {
+    templateId: 'TPL_INDIVIDUAL_1221',
+    includeJudgment: true
+  });
+}

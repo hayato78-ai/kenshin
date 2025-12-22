@@ -96,21 +96,25 @@ function normalizeKana(str) {
 // 受診者管理 API（v6 - 正規化構造対応）
 // ============================================================
 
-// 列定義（Config.gs COLUMN_DEFINITIONS 準拠）
+// 列定義（17列構造 - カルテNo追加版）
 const PATIENT_COL = {
-  PATIENT_ID: 0,   // A: 受診者ID (P-00001形式)
-  NAME: 1,         // B: 氏名
-  KANA: 2,         // C: カナ
-  BIRTHDATE: 3,    // D: 生年月日
-  GENDER: 4,       // E: 性別
-  POSTAL_CODE: 5,  // F: 郵便番号
-  ADDRESS: 6,      // G: 住所
-  PHONE: 7,        // H: 電話番号
-  EMAIL: 8,        // I: メール
-  COMPANY: 9,      // J: 所属企業
-  NOTES: 10,       // K: 備考
-  CREATED_AT: 11,  // L: 作成日時
-  UPDATED_AT: 12   // M: 更新日時
+  PATIENT_ID: 0,      // A: 受診者ID (内部ID: P-00001形式) ※UIで非表示
+  KARTE_NO: 1,        // B: カルテNo (クリニック患者ID: 6桁) ★CSV紐付け用
+  STATUS: 2,          // C: ステータス
+  VISIT_DATE: 3,      // D: 受診日
+  NAME: 4,            // E: 氏名
+  KANA: 5,            // F: カナ
+  GENDER: 6,          // G: 性別
+  BIRTHDATE: 7,       // H: 生年月日
+  AGE: 8,             // I: 年齢
+  COURSE: 9,          // J: 受診コース
+  COMPANY: 10,        // K: 事業所名
+  DEPARTMENT: 11,     // L: 所属
+  OVERALL_JUDGMENT: 12, // M: 総合判定
+  CSV_IMPORT_DATE: 13,  // N: CSV取込日時
+  UPDATED_AT: 14,     // O: 最終更新日時
+  EXPORT_DATE: 15,    // P: 出力日時
+  BML_PATIENT_ID: 16  // Q: BML患者ID（BML通信用・トレーサビリティ）
 };
 
 const VISIT_COL = {
@@ -440,65 +444,54 @@ function formatDateToString(value) {
  */
 function portalRegisterPatient(patientData) {
   try {
-    const ss = getPortalSpreadsheet();
-    const patientSheet = ss.getSheetByName('受診者マスタ');
-    const visitSheet = ss.getSheetByName('受診記録');
-
-    if (!patientSheet) {
-      return { success: false, error: '受診者マスタシートが見つかりません' };
-    }
-    if (!visitSheet) {
-      return { success: false, error: '受診記録シートが見つかりません' };
-    }
-
-    const now = new Date();
+    // === PatientService経由で受診者登録 ===
+    // 既存患者IDが指定されている場合はそれを使用
     let patientId = patientData.existingPatientId || null;
     let isNewPatient = false;
 
-    // 既存患者の指定がない場合
     if (!patientId) {
-      // 重複チェック（氏名 + 生年月日）
-      const patientDataRows = patientSheet.getDataRange().getValues();
-      const inputName = normalizeString(patientData.name || '');
-      const inputBirth = patientData.birthDate ? formatDateToString(new Date(patientData.birthDate)) : '';
-
-      for (let i = 1; i < patientDataRows.length; i++) {
-        const existingName = normalizeString(patientDataRows[i][PATIENT_COL.NAME]);
-        const existingBirth = formatDateToString(patientDataRows[i][PATIENT_COL.BIRTHDATE]);
-
-        if (inputName && existingName === inputName && existingBirth === inputBirth) {
-          // 既存患者が見つかった
-          patientId = safeString(patientDataRows[i][PATIENT_COL.PATIENT_ID]);
-          break;
+      // 氏名＋生年月日で既存患者を検索
+      if (patientData.name && patientData.birthDate) {
+        const existing = PatientDAO.getByNameAndBirthdate(patientData.name, patientData.birthDate);
+        if (existing) {
+          patientId = existing.patientId;
         }
       }
 
       // 新規患者として登録
       if (!patientId) {
-        patientId = generateNextPatientIdForPortal(patientSheet);
+        // UIMapping経由でデータ変換してPatientService経由で登録
+        const uiData = {
+          karteNo: patientData.karteNo || '',
+          status: patientData.status || '入力中',
+          visitDate: patientData.examDate,
+          name: patientData.name || '',
+          kana: patientData.nameKana || '',
+          gender: patientData.gender || '',
+          birthdate: patientData.birthDate,
+          course: patientData.course || '',
+          company: patientData.company || '',
+          department: patientData.department || '',
+          bmlPatientId: patientData.bmlPatientId || ''
+        };
+
+        const result = PatientService.registerPatient(uiData);
+        if (!result.success) {
+          return result;
+        }
+        patientId = result.patientId;
         isNewPatient = true;
-
-        const newPatientRow = [
-          patientId,                          // 受診者ID
-          patientData.name || '',             // 氏名
-          patientData.nameKana || '',         // カナ
-          patientData.birthDate ? new Date(patientData.birthDate) : '', // 生年月日
-          patientData.gender || '',           // 性別
-          patientData.postalCode || '',       // 郵便番号
-          patientData.address || '',          // 住所
-          patientData.phone || '',            // 電話番号
-          patientData.email || '',            // メール
-          patientData.company || '',          // 所属企業
-          patientData.notes || '',            // 備考
-          now,                                 // 作成日時
-          now                                  // 更新日時
-        ];
-
-        patientSheet.appendRow(newPatientRow);
       }
     }
 
-    // 受診記録を追加
+    // === 受診記録を追加（従来通り） ===
+    const ss = getPortalSpreadsheet();
+    const visitSheet = ss.getSheetByName('受診記録');
+    if (!visitSheet) {
+      return { success: false, error: '受診記録シートが見つかりません' };
+    }
+
+    const now = new Date();
     const visitDate = patientData.examDate ? new Date(patientData.examDate) : new Date();
     const visitId = generateNextVisitIdForPortal(visitSheet, visitDate);
 
@@ -604,6 +597,53 @@ function generateNextVisitIdForPortal(sheet, visitDate) {
 }
 
 /**
+ * BML患者IDで受診者を検索
+ * CSV取込時の受診者紐付けに使用
+ * @param {string} bmlPatientId - BML患者ID（例: 999991）
+ * @returns {Object|null} 受診者データまたはnull
+ */
+function portalFindPatientByBmlId(bmlPatientId) {
+  if (!bmlPatientId) return null;
+
+  try {
+    const ss = getPortalSpreadsheet();
+    const patientSheet = ss.getSheetByName('受診者マスタ');
+
+    if (!patientSheet || patientSheet.getLastRow() < 2) {
+      return null;
+    }
+
+    const data = patientSheet.getDataRange().getValues();
+    const bmlIdStr = String(bmlPatientId).trim();
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      if (!row[PATIENT_COL.PATIENT_ID]) continue;
+
+      const storedBmlId = String(row[PATIENT_COL.BML_PATIENT_ID] || '').trim();
+      if (storedBmlId && storedBmlId === bmlIdStr) {
+        return {
+          patientId: safeString(row[PATIENT_COL.PATIENT_ID]),
+          name: safeString(row[PATIENT_COL.NAME]),
+          kana: safeString(row[PATIENT_COL.KANA]),
+          birthDate: formatDateToString(row[PATIENT_COL.BIRTHDATE]),
+          gender: safeString(row[PATIENT_COL.GENDER]),
+          company: safeString(row[PATIENT_COL.COMPANY]),
+          bmlPatientId: storedBmlId,
+          rowIndex: i + 1
+        };
+      }
+    }
+
+    return null;
+
+  } catch (e) {
+    console.error('portalFindPatientByBmlId error:', e);
+    return null;
+  }
+}
+
+/**
  * 受診者情報を取得（ID指定 - v6 正規化構造対応）
  * 受診者情報と全受診履歴を取得
  * @param {string} patientId - 受診者ID (P-00001形式)
@@ -628,18 +668,21 @@ function portalGetPatient(patientId) {
         const row = patientData[i];
         patientInfo = {
           '受診者ID': safeString(row[PATIENT_COL.PATIENT_ID]),
+          'ステータス': safeString(row[PATIENT_COL.STATUS]),
+          '受診日': formatDateToString(row[PATIENT_COL.VISIT_DATE]),
           '氏名': safeString(row[PATIENT_COL.NAME]),
           'カナ': safeString(row[PATIENT_COL.KANA]),
-          '生年月日': formatDateToString(row[PATIENT_COL.BIRTHDATE]),
           '性別': safeString(row[PATIENT_COL.GENDER]),
-          '郵便番号': safeString(row[PATIENT_COL.POSTAL_CODE]),
-          '住所': safeString(row[PATIENT_COL.ADDRESS]),
-          '電話番号': safeString(row[PATIENT_COL.PHONE]),
-          'メール': safeString(row[PATIENT_COL.EMAIL]),
+          '生年月日': formatDateToString(row[PATIENT_COL.BIRTHDATE]),
+          '年齢': safeString(row[PATIENT_COL.AGE]),
+          '受診コース': safeString(row[PATIENT_COL.COURSE]),
           '所属企業': safeString(row[PATIENT_COL.COMPANY]),
-          '備考': safeString(row[PATIENT_COL.NOTES]),
-          '作成日時': formatDateToString(row[PATIENT_COL.CREATED_AT]),
-          '更新日時': formatDateToString(row[PATIENT_COL.UPDATED_AT])
+          '所属': safeString(row[PATIENT_COL.DEPARTMENT]),
+          '総合判定': safeString(row[PATIENT_COL.OVERALL_JUDGMENT]),
+          'CSV取込日時': formatDateToString(row[PATIENT_COL.CSV_IMPORT_DATE]),
+          '更新日時': formatDateToString(row[PATIENT_COL.UPDATED_AT]),
+          '出力日時': formatDateToString(row[PATIENT_COL.EXPORT_DATE]),
+          'BML患者ID': safeString(row[PATIENT_COL.BML_PATIENT_ID])
         };
         patientRowIndex = i + 1;
         break;
@@ -718,17 +761,19 @@ function portalUpdatePatient(patientId, updateData) {
 
     for (let i = 1; i < data.length; i++) {
       if (safeString(data[i][PATIENT_COL.PATIENT_ID]) === String(patientId)) {
-        // 該当行を更新
+        // 該当行を更新（旧構造に合わせた列定義）
+        if (updateData['ステータス'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.STATUS + 1).setValue(updateData['ステータス']);
+        if (updateData['受診日'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.VISIT_DATE + 1).setValue(updateData['受診日'] ? new Date(updateData['受診日']) : '');
         if (updateData['氏名'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.NAME + 1).setValue(updateData['氏名']);
         if (updateData['カナ'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.KANA + 1).setValue(updateData['カナ']);
-        if (updateData['生年月日'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.BIRTHDATE + 1).setValue(updateData['生年月日'] ? new Date(updateData['生年月日']) : '');
         if (updateData['性別'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.GENDER + 1).setValue(updateData['性別']);
-        if (updateData['郵便番号'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.POSTAL_CODE + 1).setValue(updateData['郵便番号']);
-        if (updateData['住所'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.ADDRESS + 1).setValue(updateData['住所']);
-        if (updateData['電話番号'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.PHONE + 1).setValue(updateData['電話番号']);
-        if (updateData['メール'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.EMAIL + 1).setValue(updateData['メール']);
+        if (updateData['生年月日'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.BIRTHDATE + 1).setValue(updateData['生年月日'] ? new Date(updateData['生年月日']) : '');
+        if (updateData['年齢'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.AGE + 1).setValue(updateData['年齢']);
+        if (updateData['受診コース'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.COURSE + 1).setValue(updateData['受診コース']);
         if (updateData['所属企業'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.COMPANY + 1).setValue(updateData['所属企業']);
-        if (updateData['備考'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.NOTES + 1).setValue(updateData['備考']);
+        if (updateData['所属'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.DEPARTMENT + 1).setValue(updateData['所属']);
+        if (updateData['総合判定'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.OVERALL_JUDGMENT + 1).setValue(updateData['総合判定']);
+        if (updateData['BML患者ID'] !== undefined) sheet.getRange(i + 1, PATIENT_COL.BML_PATIENT_ID + 1).setValue(updateData['BML患者ID']);
 
         // 更新日時を更新
         sheet.getRange(i + 1, PATIENT_COL.UPDATED_AT + 1).setValue(new Date());

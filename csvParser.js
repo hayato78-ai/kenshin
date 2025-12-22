@@ -441,16 +441,41 @@ function isResultCsvFile(file) {
 
 /**
  * CSVデータをスプレッドシートに保存
+ * BML患者IDで受診者を検索し、見つかれば検査結果を紐付け
  * @param {Object} patientData - 患者データ
- * @returns {string} 受診ID
+ * @returns {Object} 保存結果 {success, patientId, visitId, error}
  */
 function savePatientData(patientData) {
   const patientInfo = patientData.patientInfo;
   const testResults = patientData.testResults;
 
-  // 受診ID生成
+  // BML患者ID（requestId）で既存受診者を検索
+  const bmlPatientId = patientInfo.requestId;
+  let patient = null;
+
+  // portalFindPatientByBmlIdが存在すれば使用（ポータルAPI）
+  if (typeof portalFindPatientByBmlId === 'function') {
+    patient = portalFindPatientByBmlId(bmlPatientId);
+  }
+  // patientManager.jsのfindPatientByBmlIdも試行
+  if (!patient && typeof findPatientByBmlId === 'function') {
+    patient = findPatientByBmlId(bmlPatientId);
+  }
+
+  if (!patient) {
+    logInfo(`BML患者ID ${bmlPatientId} に対応する受診者が見つかりません（事前登録が必要）`);
+    return {
+      success: false,
+      error: `BML患者ID ${bmlPatientId} に対応する受診者が見つかりません。受診者登録時にBML患者IDを設定してください。`,
+      bmlPatientId: bmlPatientId
+    };
+  }
+
+  const patientId = patient.patientId;
+  logInfo(`BML患者ID ${bmlPatientId} → 受診者ID ${patientId} (${patient.name})`);
+
+  // 受診日
   const examDate = parseExamDate(patientInfo.examDate);
-  const patientId = patientInfo.requestId || generatePatientId(examDate);
 
   // 性別変換
   const genderCode = patientInfo.gender;
@@ -463,21 +488,42 @@ function savePatientData(patientData) {
     companyInfo = registerOrGetCompany(patientInfo.organization);
   }
 
-  // 受診者マスタに保存
-  saveToPatientMaster({
-    patientId: patientId,
-    status: CONFIG.STATUS.INPUT,
-    examDate: examDate,
-    gender: genderDisplay,
-    csvImportDate: new Date(),
-    companyId: companyInfo.companyId,
-    companyName: companyInfo.companyName
-  });
+  // 受診者マスタのCSV取込日時を更新
+  updatePatientCsvImportDate(patientId);
 
   // 血液検査に保存
   saveToBloodTest(patientId, testResults, gender);
 
-  return patientId;
+  return {
+    success: true,
+    patientId: patientId,
+    patientName: patient.name,
+    bmlPatientId: bmlPatientId,
+    examDate: examDate,
+    testCount: testResults.length
+  };
+}
+
+/**
+ * 受診者のCSV取込日時を更新
+ * @param {string} patientId - 受診者ID
+ */
+function updatePatientCsvImportDate(patientId) {
+  try {
+    const sheet = getSheet(CONFIG.SHEETS.PATIENT);
+    if (!sheet) return;
+
+    const lastRow = sheet.getLastRow();
+    const row = findPatientRow(sheet, patientId, lastRow);
+
+    if (row > 0) {
+      // CSV取込日時（13列目）と最終更新日時（14列目）を更新
+      sheet.getRange(row, 13).setValue(new Date());
+      sheet.getRange(row, 14).setValue(new Date());
+    }
+  } catch (e) {
+    logError('updatePatientCsvImportDate', e);
+  }
 }
 
 /**

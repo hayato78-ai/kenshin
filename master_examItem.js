@@ -786,6 +786,512 @@ function portalGetExamItemSubCategories(category) {
 }
 
 // ============================================
+// 人間ドック項目マッピング照合
+// ============================================
+
+/**
+ * 人間ドックテンプレート全項目リスト
+ * 1221_template_new_default.xlsm 準拠
+ *
+ * input_type:
+ *   - 'auto': BML CSVから自動転記
+ *   - 'manual': 手入力
+ *   - 'calc': 計算値（他項目から算出）
+ *
+ * page: テンプレートのページ番号
+ */
+const HUMAN_DOCK_ALL_ITEMS = {
+  // =============================================
+  // 2ページ: 所見手入力（画像診断・検査所見）
+  // =============================================
+  page2_findings: [
+    { item_code: '020001', display: '診察所見', category: '画像診断', sub_category: '診察', input_type: 'manual', data_type: 'text' },
+    { item_code: '020002', display: '胸部X線', category: '画像診断', sub_category: 'X線', input_type: 'manual', data_type: 'text' },
+    { item_code: '020003', display: '腹部X線', category: '画像診断', sub_category: 'X線', input_type: 'manual', data_type: 'text' },
+    { item_code: '020004', display: '心電図', category: '画像診断', sub_category: '生理検査', input_type: 'manual', data_type: 'text' },
+    { item_code: '020005', display: '上部消化管内視鏡検査(胃カメラ)', category: '画像診断', sub_category: '内視鏡', input_type: 'manual', data_type: 'text' },
+    { item_code: '020006', display: '下部消化管内視鏡検査(大腸カメラ)', category: '画像診断', sub_category: '内視鏡', input_type: 'manual', data_type: 'text' },
+    { item_code: '020007', display: '腹部超音波', category: '画像診断', sub_category: '超音波', input_type: 'manual', data_type: 'text' },
+    { item_code: '020008', display: '頸部超音波', category: '画像診断', sub_category: '超音波', input_type: 'manual', data_type: 'text' },
+    { item_code: '020009', display: '心臓超音波検査', category: '画像診断', sub_category: '超音波', input_type: 'manual', data_type: 'text' },
+    { item_code: '020010', display: '甲状腺超音波検査', category: '画像診断', sub_category: '超音波', input_type: 'manual', data_type: 'text' },
+    { item_code: '020011', display: '胸部CT', category: '画像診断', sub_category: 'CT', input_type: 'manual', data_type: 'text' },
+    { item_code: '020012', display: '腹部CT', category: '画像診断', sub_category: 'CT', input_type: 'manual', data_type: 'text' },
+    { item_code: '020013', display: '腹部MRI(肝胆膵)+MRCP', category: '画像診断', sub_category: 'MRI', input_type: 'manual', data_type: 'text' },
+    { item_code: '020014', display: '脳MRI', category: '画像診断', sub_category: 'MRI', input_type: 'manual', data_type: 'text' },
+    { item_code: '020015', display: '脳MRA', category: '画像診断', sub_category: 'MRI', input_type: 'manual', data_type: 'text' },
+    { item_code: '020016', display: 'DWI', category: '画像診断', sub_category: 'MRI', input_type: 'manual', data_type: 'text' },
+    { item_code: '020017', display: '頸動脈MRA', category: '画像診断', sub_category: 'MRI', input_type: 'manual', data_type: 'text' },
+    { item_code: '020018', display: '上腹部MRI', category: '画像診断', sub_category: 'MRI', input_type: 'manual', data_type: 'text' },
+    { item_code: '020019', display: 'MRCP', category: '画像診断', sub_category: 'MRI', input_type: 'manual', data_type: 'text' },
+    { item_code: '020020', display: '子宮・卵巣MRI', category: '画像診断', sub_category: 'MRI', input_type: 'manual', data_type: 'text' },
+    { item_code: '020021', display: 'マンモMRI', category: '画像診断', sub_category: 'MRI', input_type: 'manual', data_type: 'text' },
+    { item_code: '020022', display: '前立腺MRI', category: '画像診断', sub_category: 'MRI', input_type: 'manual', data_type: 'text' }
+  ],
+
+  // =============================================
+  // 3ページ: 所見手入力（身体計測・生理検査）
+  // =============================================
+  page3_physical: [
+    { item_code: '011001', display: '身長', category: '身体情報', sub_category: '身体計測', input_type: 'manual', data_type: 'numeric', unit: 'cm', decimal: 1 },
+    { item_code: '011002', display: '体重', category: '身体情報', sub_category: '身体計測', input_type: 'manual', data_type: 'numeric', unit: 'kg', decimal: 1 },
+    { item_code: '011003', display: '標準体重', category: '身体情報', sub_category: '身体計測', input_type: 'calc', data_type: 'numeric', unit: 'kg', decimal: 1 },
+    { item_code: '011004', display: 'BMI', category: '身体情報', sub_category: '身体計測', input_type: 'calc', data_type: 'numeric', unit: '', decimal: 1 },
+    { item_code: '011005', display: '体脂肪率', category: '身体情報', sub_category: '身体計測', input_type: 'manual', data_type: 'numeric', unit: '%', decimal: 1 },
+    { item_code: '011006', display: '腹囲', category: '身体情報', sub_category: '身体計測', input_type: 'manual', data_type: 'numeric', unit: 'cm', decimal: 1 },
+    { item_code: '012001', display: '血圧1回目(収縮期)', category: '身体情報', sub_category: '血圧', input_type: 'manual', data_type: 'numeric', unit: 'mmHg', decimal: 0 },
+    { item_code: '012002', display: '血圧1回目(拡張期)', category: '身体情報', sub_category: '血圧', input_type: 'manual', data_type: 'numeric', unit: 'mmHg', decimal: 0 },
+    { item_code: '012003', display: '血圧2回目(収縮期)', category: '身体情報', sub_category: '血圧', input_type: 'manual', data_type: 'numeric', unit: 'mmHg', decimal: 0 },
+    { item_code: '012004', display: '血圧2回目(拡張期)', category: '身体情報', sub_category: '血圧', input_type: 'manual', data_type: 'numeric', unit: 'mmHg', decimal: 0 },
+    { item_code: '013001', display: '視力 裸眼 右', category: '身体情報', sub_category: '眼科', input_type: 'manual', data_type: 'numeric', unit: '', decimal: 1 },
+    { item_code: '013002', display: '視力 裸眼 左', category: '身体情報', sub_category: '眼科', input_type: 'manual', data_type: 'numeric', unit: '', decimal: 1 },
+    { item_code: '013003', display: '視力 矯正 右', category: '身体情報', sub_category: '眼科', input_type: 'manual', data_type: 'numeric', unit: '', decimal: 1 },
+    { item_code: '013004', display: '視力 矯正 左', category: '身体情報', sub_category: '眼科', input_type: 'manual', data_type: 'numeric', unit: '', decimal: 1 },
+    { item_code: '013005', display: '眼圧 右', category: '身体情報', sub_category: '眼科', input_type: 'manual', data_type: 'numeric', unit: 'mmHg', decimal: 0 },
+    { item_code: '013006', display: '眼圧 左', category: '身体情報', sub_category: '眼科', input_type: 'manual', data_type: 'numeric', unit: 'mmHg', decimal: 0 },
+    { item_code: '013007', display: '眼底 右', category: '身体情報', sub_category: '眼科', input_type: 'manual', data_type: 'text' },
+    { item_code: '013008', display: '眼底 左', category: '身体情報', sub_category: '眼科', input_type: 'manual', data_type: 'text' },
+    { item_code: '014001', display: '聴力右 1000Hz', category: '身体情報', sub_category: '聴力', input_type: 'manual', data_type: 'select' },
+    { item_code: '014002', display: '聴力左 1000Hz', category: '身体情報', sub_category: '聴力', input_type: 'manual', data_type: 'select' },
+    { item_code: '014003', display: '聴力右 4000Hz', category: '身体情報', sub_category: '聴力', input_type: 'manual', data_type: 'select' },
+    { item_code: '014004', display: '聴力左 4000Hz', category: '身体情報', sub_category: '聴力', input_type: 'manual', data_type: 'select' },
+    { item_code: '015001', display: '便ヘモグロビン1回目', category: '検体検査', sub_category: '便検査', input_type: 'manual', data_type: 'select' },
+    { item_code: '015002', display: '便ヘモグロビン2回目', category: '検体検査', sub_category: '便検査', input_type: 'manual', data_type: 'select' }
+  ],
+
+  // =============================================
+  // 3ページ: 尿検査（自動転記）
+  // =============================================
+  page3_urine: [
+    { item_code: '031001', bml_code: '0000701', display: '尿糖(定性)', category: '検体検査', sub_category: '尿検査', input_type: 'auto', data_type: 'select' },
+    { item_code: '031002', bml_code: '0000703', display: '尿蛋白', category: '検体検査', sub_category: '尿検査', input_type: 'auto', data_type: 'select' },
+    { item_code: '031003', bml_code: '0000705', display: '尿潜血', category: '検体検査', sub_category: '尿検査', input_type: 'auto', data_type: 'select' },
+    { item_code: '031004', bml_code: '0000707', display: 'ウロビリノーゲン', category: '検体検査', sub_category: '尿検査', input_type: 'auto', data_type: 'select' },
+    { item_code: '031005', bml_code: '0000709', display: '尿PH', category: '検体検査', sub_category: '尿検査', input_type: 'auto', data_type: 'numeric' },
+    { item_code: '031006', bml_code: '0000711', display: '尿ビリルビン', category: '検体検査', sub_category: '尿検査', input_type: 'auto', data_type: 'select' },
+    { item_code: '031007', bml_code: '0000713', display: 'アセトン体', category: '検体検査', sub_category: '尿検査', input_type: 'auto', data_type: 'select' },
+    { item_code: '031008', bml_code: '0000721', display: '尿沈渣白血球', category: '検体検査', sub_category: '尿沈渣', input_type: 'auto', data_type: 'text' },
+    { item_code: '031009', bml_code: '0000723', display: '尿沈渣赤血球', category: '検体検査', sub_category: '尿沈渣', input_type: 'auto', data_type: 'text' },
+    { item_code: '031010', bml_code: '0000725', display: '尿沈渣扁平上皮', category: '検体検査', sub_category: '尿沈渣', input_type: 'auto', data_type: 'text' },
+    { item_code: '031011', bml_code: '0000727', display: '尿沈渣細菌', category: '検体検査', sub_category: '尿沈渣', input_type: 'auto', data_type: 'text' }
+  ],
+
+  // =============================================
+  // 4ページ: 血液検査（自動転記）- 血液学
+  // =============================================
+  page4_blood_cell: [
+    { item_code: '041001', bml_code: '0000301', display: '白血球数', category: '検体検査', sub_category: '血液学検査', input_type: 'auto', data_type: 'numeric', unit: '/μL', decimal: 0 },
+    { item_code: '041002', bml_code: '0000302', display: '赤血球数', category: '検体検査', sub_category: '血液学検査', input_type: 'auto', data_type: 'numeric', unit: '万/μL', decimal: 0 },
+    { item_code: '041003', bml_code: '0000303', display: '血色素量(ヘモグロビン)', category: '検体検査', sub_category: '血液学検査', input_type: 'auto', data_type: 'numeric', unit: 'g/dL', decimal: 1 },
+    { item_code: '041004', bml_code: '0000304', display: 'ヘマトクリット', category: '検体検査', sub_category: '血液学検査', input_type: 'auto', data_type: 'numeric', unit: '%', decimal: 1 },
+    { item_code: '041005', bml_code: '0000308', display: '血小板(PLT)', category: '検体検査', sub_category: '血液学検査', input_type: 'auto', data_type: 'numeric', unit: '万/μL', decimal: 1 },
+    { item_code: '041006', bml_code: '0000305', display: 'MCV', category: '検体検査', sub_category: '血液学検査', input_type: 'auto', data_type: 'numeric', unit: 'fL', decimal: 1 },
+    { item_code: '041007', bml_code: '0000306', display: 'MCH', category: '検体検査', sub_category: '血液学検査', input_type: 'auto', data_type: 'numeric', unit: 'pg', decimal: 1 },
+    { item_code: '041008', bml_code: '0000307', display: 'MCHC', category: '検体検査', sub_category: '血液学検査', input_type: 'auto', data_type: 'numeric', unit: '%', decimal: 1 },
+    { item_code: '041009', bml_code: '0001885', display: 'NEUT(好中球)', category: '検体検査', sub_category: '白血球像', input_type: 'auto', data_type: 'numeric', unit: '%', decimal: 1 },
+    { item_code: '041010', bml_code: '0001881', display: 'BASO(好塩基球)', category: '検体検査', sub_category: '白血球像', input_type: 'auto', data_type: 'numeric', unit: '%', decimal: 1 },
+    { item_code: '041011', bml_code: '0001882', display: 'EOS(好酸球)', category: '検体検査', sub_category: '白血球像', input_type: 'auto', data_type: 'numeric', unit: '%', decimal: 1 },
+    { item_code: '041012', bml_code: '0001889', display: 'LYMPHO(リンパ球)', category: '検体検査', sub_category: '白血球像', input_type: 'auto', data_type: 'numeric', unit: '%', decimal: 1 },
+    { item_code: '041013', bml_code: '0001886', display: 'MONO(単球)', category: '検体検査', sub_category: '白血球像', input_type: 'auto', data_type: 'numeric', unit: '%', decimal: 1 }
+  ],
+
+  // =============================================
+  // 4ページ: 血液検査（自動転記）- 凝固
+  // =============================================
+  page4_coagulation: [
+    { item_code: '042001', bml_code: '0002091', display: 'プロトロンビン時間(PT)', category: '検体検査', sub_category: '凝固', input_type: 'auto', data_type: 'numeric', unit: '秒', decimal: 1 },
+    { item_code: '042002', bml_code: '0002093', display: '活性化部分トロンボプラスチン時間(APTT)', category: '検体検査', sub_category: '凝固', input_type: 'auto', data_type: 'numeric', unit: '秒', decimal: 1 }
+  ],
+
+  // =============================================
+  // 4ページ: 血液検査（自動転記）- 生化学
+  // =============================================
+  page4_biochemistry: [
+    { item_code: '043001', bml_code: '0000401', display: '総蛋白(TP)', category: '検体検査', sub_category: '蛋白', input_type: 'auto', data_type: 'numeric', unit: 'g/dL', decimal: 1 },
+    { item_code: '043002', bml_code: '0000417', display: 'アルブミン', category: '検体検査', sub_category: '蛋白', input_type: 'auto', data_type: 'numeric', unit: 'g/dL', decimal: 1 },
+    { item_code: '043003', bml_code: '0000481', display: 'AST(GOT)', category: '検体検査', sub_category: '肝胆膵機能', input_type: 'auto', data_type: 'numeric', unit: 'U/L', decimal: 0 },
+    { item_code: '043004', bml_code: '0000482', display: 'ALT(GPT)', category: '検体検査', sub_category: '肝胆膵機能', input_type: 'auto', data_type: 'numeric', unit: 'U/L', decimal: 0 },
+    { item_code: '043005', bml_code: '0000484', display: 'γ-GTP', category: '検体検査', sub_category: '肝胆膵機能', input_type: 'auto', data_type: 'numeric', unit: 'U/L', decimal: 0 },
+    { item_code: '043006', bml_code: '0013067', display: 'ALP(IFCC)', category: '検体検査', sub_category: '肝胆膵機能', input_type: 'auto', data_type: 'numeric', unit: 'U/L', decimal: 0 },
+    { item_code: '043007', bml_code: '0000497', display: 'LDH(乳酸脱水素酵素)', category: '検体検査', sub_category: '肝胆膵機能', input_type: 'auto', data_type: 'numeric', unit: 'U/L', decimal: 0 },
+    { item_code: '043008', bml_code: '0000495', display: 'コリンエステラーゼ(Ch-E)', category: '検体検査', sub_category: '肝胆膵機能', input_type: 'auto', data_type: 'numeric', unit: 'U/L', decimal: 0 },
+    { item_code: '043009', bml_code: '0000501', display: '血清アミラーゼ', category: '検体検査', sub_category: '肝胆膵機能', input_type: 'auto', data_type: 'numeric', unit: 'U/L', decimal: 0 },
+    { item_code: '043010', bml_code: '0000472', display: '総ビリルビン(T-Bil)', category: '検体検査', sub_category: '肝胆膵機能', input_type: 'auto', data_type: 'numeric', unit: 'mg/dL', decimal: 1 }
+  ],
+
+  // =============================================
+  // 4ページ: 血液検査（自動転記）- 脂質
+  // =============================================
+  page4_lipid: [
+    { item_code: '044001', bml_code: '0000453', display: '総コレステロール', category: '検体検査', sub_category: '脂質検査', input_type: 'auto', data_type: 'numeric', unit: 'mg/dL', decimal: 0 },
+    { item_code: '044002', bml_code: '0000454', display: '中性脂肪(TG)', category: '検体検査', sub_category: '脂質検査', input_type: 'auto', data_type: 'numeric', unit: 'mg/dL', decimal: 0 },
+    { item_code: '044003', bml_code: '0000460', display: 'HDLコレステロール', category: '検体検査', sub_category: '脂質検査', input_type: 'auto', data_type: 'numeric', unit: 'mg/dL', decimal: 0 },
+    { item_code: '044004', bml_code: '0000410', display: 'LDLコレステロール', category: '検体検査', sub_category: '脂質検査', input_type: 'auto', data_type: 'numeric', unit: 'mg/dL', decimal: 0 },
+    { item_code: '044005', display: 'non HDLコレステロール', category: '検体検査', sub_category: '脂質検査', input_type: 'calc', data_type: 'numeric', unit: 'mg/dL', decimal: 0 }
+  ],
+
+  // =============================================
+  // 4ページ: 血液検査（自動転記）- 糖代謝
+  // =============================================
+  page4_diabetes: [
+    { item_code: '045001', bml_code: '0000503', display: '空腹時血糖', category: '検体検査', sub_category: '糖代謝', input_type: 'auto', data_type: 'numeric', unit: 'mg/dL', decimal: 0 },
+    { item_code: '045002', bml_code: '0003317', display: 'HbA1c', category: '検体検査', sub_category: '糖代謝', input_type: 'auto', data_type: 'numeric', unit: '%', decimal: 1 }
+  ],
+
+  // =============================================
+  // 4ページ: 血液検査（自動転記）- 腎機能
+  // =============================================
+  page4_kidney: [
+    { item_code: '046001', bml_code: '0000413', display: 'クレアチニン', category: '検体検査', sub_category: '腎機能', input_type: 'auto', data_type: 'numeric', unit: 'mg/dL', decimal: 2 },
+    { item_code: '046002', bml_code: '0000491', display: '尿素窒素(BUN)', category: '検体検査', sub_category: '腎機能', input_type: 'auto', data_type: 'numeric', unit: 'mg/dL', decimal: 1 },
+    { item_code: '046003', bml_code: '0002696', display: 'eGFR', category: '検体検査', sub_category: '腎機能', input_type: 'auto', data_type: 'numeric', unit: 'mL/min/1.73m²', decimal: 1 },
+    { item_code: '046004', bml_code: '0000407', display: '尿酸(UA)', category: '検体検査', sub_category: '腎機能', input_type: 'auto', data_type: 'numeric', unit: 'mg/dL', decimal: 1 }
+  ],
+
+  // =============================================
+  // 4ページ: 血液検査（自動転記）- その他生化学
+  // =============================================
+  page4_other_biochem: [
+    { item_code: '047001', bml_code: '0003845', display: 'クレアチニンキナーゼ(CK)', category: '検体検査', sub_category: '酵素', input_type: 'auto', data_type: 'numeric', unit: 'U/L', decimal: 0 },
+    { item_code: '047002', bml_code: '0003550', display: 'ナトリウム(Na)', category: '検体検査', sub_category: '電解質', input_type: 'auto', data_type: 'numeric', unit: 'mEq/L', decimal: 0 },
+    { item_code: '047003', bml_code: '0000421', display: 'カリウム(K)', category: '検体検査', sub_category: '電解質', input_type: 'auto', data_type: 'numeric', unit: 'mEq/L', decimal: 1 },
+    { item_code: '047004', bml_code: '0000425', display: 'クロール(Cl)', category: '検体検査', sub_category: '電解質', input_type: 'auto', data_type: 'numeric', unit: 'mEq/L', decimal: 0 },
+    { item_code: '047005', bml_code: '0000429', display: 'カルシウム(Ca)', category: '検体検査', sub_category: '電解質', input_type: 'auto', data_type: 'numeric', unit: 'mg/dL', decimal: 1 },
+    { item_code: '047006', bml_code: '0000433', display: '血清鉄(Fe)', category: '検体検査', sub_category: '鉄代謝', input_type: 'auto', data_type: 'numeric', unit: 'μg/dL', decimal: 0 },
+    { item_code: '047007', bml_code: '0000435', display: '総鉄結合能(TIBC)', category: '検体検査', sub_category: '鉄代謝', input_type: 'auto', data_type: 'numeric', unit: 'μg/dL', decimal: 0 },
+    { item_code: '047008', bml_code: '0000658', display: 'CRP定量', category: '検体検査', sub_category: '炎症マーカー', input_type: 'auto', data_type: 'numeric', unit: 'mg/dL', decimal: 2 },
+    { item_code: '047009', bml_code: '0002117', display: 'リウマトイド因子定量', category: '検体検査', sub_category: '自己抗体', input_type: 'auto', data_type: 'numeric', unit: 'IU/mL', decimal: 0 }
+  ],
+
+  // =============================================
+  // 5ページ: 腫瘍マーカー
+  // =============================================
+  page5_tumor_markers: [
+    { item_code: '051001', bml_code: '0005005', display: 'PSA', category: '検体検査', sub_category: '腫瘍マーカー', input_type: 'auto', data_type: 'numeric', unit: 'ng/mL', decimal: 2 },
+    { item_code: '051002', bml_code: '0005001', display: 'CEA', category: '検体検査', sub_category: '腫瘍マーカー', input_type: 'auto', data_type: 'numeric', unit: 'ng/mL', decimal: 1 },
+    { item_code: '051003', bml_code: '0005003', display: 'CA19-9', category: '検体検査', sub_category: '腫瘍マーカー', input_type: 'auto', data_type: 'numeric', unit: 'U/mL', decimal: 1 },
+    { item_code: '051004', bml_code: '0005007', display: 'CA125', category: '検体検査', sub_category: '腫瘍マーカー', input_type: 'auto', data_type: 'numeric', unit: 'U/mL', decimal: 1 },
+    { item_code: '051005', bml_code: '0005009', display: 'NSE', category: '検体検査', sub_category: '腫瘍マーカー', input_type: 'auto', data_type: 'numeric', unit: 'ng/mL', decimal: 1 },
+    { item_code: '051006', bml_code: '0005011', display: 'エラスターゼ1', category: '検体検査', sub_category: '腫瘍マーカー', input_type: 'auto', data_type: 'numeric', unit: 'ng/dL', decimal: 0 },
+    { item_code: '051007', bml_code: '0005013', display: '抗p53抗体', category: '検体検査', sub_category: '腫瘍マーカー', input_type: 'auto', data_type: 'numeric', unit: 'U/mL', decimal: 1 },
+    { item_code: '051008', bml_code: '0005015', display: 'CYFRA21-1', category: '検体検査', sub_category: '腫瘍マーカー', input_type: 'auto', data_type: 'numeric', unit: 'ng/mL', decimal: 1 },
+    { item_code: '051009', bml_code: '0005017', display: 'SCC', category: '検体検査', sub_category: '腫瘍マーカー', input_type: 'auto', data_type: 'numeric', unit: 'ng/mL', decimal: 1 },
+    { item_code: '051010', bml_code: '0005019', display: 'ProGRP', category: '検体検査', sub_category: '腫瘍マーカー', input_type: 'auto', data_type: 'numeric', unit: 'pg/mL', decimal: 1 },
+    { item_code: '051011', bml_code: '0005021', display: 'AFP', category: '検体検査', sub_category: '腫瘍マーカー', input_type: 'auto', data_type: 'numeric', unit: 'ng/mL', decimal: 1 },
+    { item_code: '051012', bml_code: '0005023', display: 'PIVKA II', category: '検体検査', sub_category: '腫瘍マーカー', input_type: 'auto', data_type: 'numeric', unit: 'mAU/mL', decimal: 0 }
+  ],
+
+  // =============================================
+  // 5ページ: 感染症
+  // =============================================
+  page5_infectious: [
+    { item_code: '052001', bml_code: '0006001', display: 'TPHA', category: '検体検査', sub_category: '感染症', input_type: 'auto', data_type: 'select' },
+    { item_code: '052002', bml_code: '0006003', display: 'RPR定性', category: '検体検査', sub_category: '感染症', input_type: 'auto', data_type: 'select' },
+    { item_code: '052003', bml_code: '0006005', display: 'HBs抗原', category: '検体検査', sub_category: '感染症', input_type: 'auto', data_type: 'select' },
+    { item_code: '052004', bml_code: '0006007', display: 'HBs抗体', category: '検体検査', sub_category: '感染症', input_type: 'auto', data_type: 'select' },
+    { item_code: '052005', bml_code: '0006009', display: 'HCV抗体', category: '検体検査', sub_category: '感染症', input_type: 'auto', data_type: 'select' },
+    { item_code: '052006', bml_code: '0006011', display: 'HIV-1抗体', category: '検体検査', sub_category: '感染症', input_type: 'auto', data_type: 'select' }
+  ],
+
+  // =============================================
+  // 5ページ: 心臓・甲状腺
+  // =============================================
+  page5_cardiac_thyroid: [
+    { item_code: '053001', bml_code: '0004001', display: 'NT-proBNP', category: '検体検査', sub_category: '心臓マーカー', input_type: 'auto', data_type: 'numeric', unit: 'pg/mL', decimal: 0 },
+    { item_code: '053002', bml_code: '0004003', display: 'FT3', category: '検体検査', sub_category: '甲状腺', input_type: 'auto', data_type: 'numeric', unit: 'pg/mL', decimal: 2 },
+    { item_code: '053003', bml_code: '0004005', display: 'FT4', category: '検体検査', sub_category: '甲状腺', input_type: 'auto', data_type: 'numeric', unit: 'ng/dL', decimal: 2 },
+    { item_code: '053004', bml_code: '0004007', display: 'TSH', category: '検体検査', sub_category: '甲状腺', input_type: 'auto', data_type: 'numeric', unit: 'μIU/mL', decimal: 2 }
+  ],
+
+  // =============================================
+  // 5ページ: 血液型・その他
+  // =============================================
+  page5_blood_type: [
+    { item_code: '054001', bml_code: '0007001', display: '血液型 ABO式', category: '検体検査', sub_category: '血液型', input_type: 'auto', data_type: 'text' },
+    { item_code: '054002', bml_code: '0007003', display: '血液型 Rho・D', category: '検体検査', sub_category: '血液型', input_type: 'auto', data_type: 'text' }
+  ],
+
+  // =============================================
+  // 5ページ: 呼吸器・その他検査
+  // =============================================
+  page5_respiratory: [
+    { item_code: '055001', display: '喀痰細胞診', category: '検体検査', sub_category: '細胞診', input_type: 'manual', data_type: 'text' },
+    { item_code: '055002', display: '肺活量', category: '生理検査', sub_category: '呼吸機能', input_type: 'manual', data_type: 'numeric', unit: 'L', decimal: 2 },
+    { item_code: '055003', display: '1秒量', category: '生理検査', sub_category: '呼吸機能', input_type: 'manual', data_type: 'numeric', unit: 'L', decimal: 2 },
+    { item_code: '055004', display: '%肺活量', category: '生理検査', sub_category: '呼吸機能', input_type: 'manual', data_type: 'numeric', unit: '%', decimal: 1 },
+    { item_code: '055005', display: '1秒率', category: '生理検査', sub_category: '呼吸機能', input_type: 'manual', data_type: 'numeric', unit: '%', decimal: 1 },
+    { item_code: '055006', display: '%1秒量', category: '生理検査', sub_category: '呼吸機能', input_type: 'manual', data_type: 'numeric', unit: '%', decimal: 1 }
+  ],
+
+  // =============================================
+  // 5ページ: ピロリ菌関連
+  // =============================================
+  page5_pylori: [
+    { item_code: '056001', bml_code: '0008001', display: '尿素呼気試験', category: '検体検査', sub_category: 'ピロリ菌', input_type: 'auto', data_type: 'numeric' },
+    { item_code: '056002', display: 'ウレアーゼ試験検査', category: '検体検査', sub_category: 'ピロリ菌', input_type: 'manual', data_type: 'select' },
+    { item_code: '056003', bml_code: '0008003', display: 'ピロリ抗体', category: '検体検査', sub_category: 'ピロリ菌', input_type: 'auto', data_type: 'numeric' }
+  ],
+
+  // =============================================
+  // 5ページ: その他
+  // =============================================
+  page5_others: [
+    { item_code: '057001', display: '色覚検査', category: '生理検査', sub_category: '眼科', input_type: 'manual', data_type: 'text' },
+    { item_code: '057002', display: '末梢血液一般', category: '検体検査', sub_category: '血液学検査', input_type: 'manual', data_type: 'text' },
+    { item_code: '057003', bml_code: '0006013', display: 'STS定性', category: '検体検査', sub_category: '感染症', input_type: 'auto', data_type: 'select' },
+    { item_code: '057004', bml_code: '0006015', display: '梅毒トレポネーマ抗体定性', category: '検体検査', sub_category: '感染症', input_type: 'auto', data_type: 'select' }
+  ]
+};
+
+/**
+ * 全項目をフラット配列に変換（BMLコード付きのみ抽出可能）
+ */
+function getAllHumanDockItems(bmlOnly) {
+  const all = [];
+  for (const category of Object.values(HUMAN_DOCK_ALL_ITEMS)) {
+    for (const item of category) {
+      if (bmlOnly && !item.bml_code) continue;
+      all.push(item);
+    }
+  }
+  return all;
+}
+
+/**
+ * 旧互換: BMLコード付き項目のみ（元の配列形式）
+ */
+const HUMAN_DOCK_REQUIRED_ITEMS = getAllHumanDockItems(true);
+
+/**
+ * 人間ドック必要項目とマスタを照合（全項目版）
+ * GASエディタから実行して確認
+ *
+ * @param {boolean} bmlOnly - BMLコード付き項目のみチェック（デフォルト: false）
+ * @returns {Object} {success, registered, missing, total, report}
+ */
+function verifyHumanDockItems(bmlOnly) {
+  console.log('=== 人間ドック検査項目照合（' + (bmlOnly ? 'BMLのみ' : '全項目') + '） ===');
+
+  try {
+    const ss = getPortalSpreadsheet();
+    const sheet = ss.getSheetByName(M_EXAM_ITEM_SHEET_NAME);
+
+    if (!sheet) {
+      return {
+        success: false,
+        error: M_EXAM_ITEM_SHEET_NAME + 'シートが見つかりません。setupExamItemMasterSheet()を実行してください。'
+      };
+    }
+
+    const data = sheet.getDataRange().getValues();
+
+    // マスタのBMLコード・項目コードを収集
+    const masterBmlCodes = new Map();
+    const masterItemCodes = new Map();
+    for (let i = 1; i < data.length; i++) {
+      const bmlCode = safeString(data[i][M_EXAM_ITEM_COL.LAB_CODE_BML]);
+      const itemCode = safeString(data[i][M_EXAM_ITEM_COL.ITEM_CODE]);
+      const itemName = safeString(data[i][M_EXAM_ITEM_COL.ITEM_NAME]);
+      if (bmlCode) {
+        masterBmlCodes.set(bmlCode, { itemCode, itemName, rowIndex: i + 1 });
+      }
+      if (itemCode) {
+        masterItemCodes.set(itemCode, { itemName, rowIndex: i + 1 });
+      }
+    }
+
+    console.log('マスタ登録数: BMLコード=' + masterBmlCodes.size + ', 項目コード=' + masterItemCodes.size);
+
+    // 対象項目取得
+    const allItems = getAllHumanDockItems(bmlOnly || false);
+    console.log('照合対象項目数: ' + allItems.length);
+
+    const registered = [];
+    const missing = [];
+
+    // 必要項目と照合
+    for (const required of allItems) {
+      let found = null;
+
+      // BMLコードで照合
+      if (required.bml_code) {
+        found = masterBmlCodes.get(required.bml_code);
+      }
+
+      // 項目コードで照合（BMLコードがない場合）
+      if (!found && required.item_code) {
+        const byCode = masterItemCodes.get(required.item_code);
+        if (byCode) {
+          found = { itemCode: required.item_code, itemName: byCode.itemName, rowIndex: byCode.rowIndex };
+        }
+      }
+
+      if (found) {
+        registered.push({
+          item_code: required.item_code,
+          bml_code: required.bml_code || '',
+          required_name: required.display,
+          master_item_code: found.itemCode,
+          master_item_name: found.itemName,
+          row: found.rowIndex,
+          input_type: required.input_type
+        });
+      } else {
+        missing.push({
+          item_code: required.item_code,
+          bml_code: required.bml_code || '',
+          display: required.display,
+          category: required.category,
+          sub_category: required.sub_category,
+          input_type: required.input_type,
+          data_type: required.data_type,
+          unit: required.unit || ''
+        });
+      }
+    }
+
+    // レポート生成
+    console.log('\n=== 照合結果 ===');
+    console.log('必要項目数: ' + allItems.length);
+    console.log('登録済み: ' + registered.length);
+    console.log('未登録: ' + missing.length);
+
+    // カテゴリ別集計
+    const missingByCategory = {};
+    for (const item of missing) {
+      const cat = item.sub_category || item.category;
+      if (!missingByCategory[cat]) missingByCategory[cat] = [];
+      missingByCategory[cat].push(item);
+    }
+
+    if (missing.length > 0) {
+      console.log('\n【未登録項目一覧（カテゴリ別）】');
+      for (const [cat, items] of Object.entries(missingByCategory)) {
+        console.log('\n  [' + cat + '] ' + items.length + '件');
+        for (const item of items) {
+          const codeInfo = item.bml_code ? 'BML:' + item.bml_code : 'ID:' + item.item_code;
+          console.log('    - ' + codeInfo + ' ' + item.display + ' (' + item.input_type + ')');
+        }
+      }
+    }
+
+    return {
+      success: true,
+      total: allItems.length,
+      registeredCount: registered.length,
+      missingCount: missing.length,
+      registered: registered,
+      missing: missing,
+      missingByCategory: missingByCategory,
+      report: {
+        summary: '必要' + allItems.length + '項目中、登録済み' + registered.length + '件、未登録' + missing.length + '件',
+        allRegistered: missing.length === 0
+      }
+    };
+
+  } catch (error) {
+    console.error('verifyHumanDockItems error:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * BMLコード付き項目のみ照合（簡易版）
+ */
+function verifyHumanDockBmlItems() {
+  return verifyHumanDockItems(true);
+}
+
+/**
+ * 人間ドック不足項目を一括登録
+ * GASエディタから実行（verifyHumanDockItems()で不足確認後）
+ *
+ * @param {boolean} bmlOnly - BMLコード付き項目のみ登録
+ * @returns {Object} {success, addedCount, results}
+ */
+function registerMissingHumanDockItems(bmlOnly) {
+  console.log('=== 人間ドック不足項目登録（' + (bmlOnly ? 'BMLのみ' : '全項目') + '） ===');
+
+  try {
+    // まず照合
+    const verifyResult = verifyHumanDockItems(bmlOnly);
+    if (!verifyResult.success) {
+      return verifyResult;
+    }
+
+    if (verifyResult.missingCount === 0) {
+      console.log('不足項目はありません');
+      return {
+        success: true,
+        message: '全項目登録済み',
+        addedCount: 0
+      };
+    }
+
+    const results = [];
+    let addedCount = 0;
+
+    // 不足項目を登録
+    for (const item of verifyResult.missing) {
+      // 定義済みの項目コードを使用
+      const itemCode = item.item_code;
+
+      const itemData = {
+        item_code: itemCode,
+        item_name: item.display,
+        item_name_kana: '',
+        category: item.category,
+        sub_category: item.sub_category,
+        data_type: item.data_type || 'numeric',
+        decimal_places: item.decimal || 1,
+        unit: item.unit || '',
+        lab_code_bml: item.bml_code || '',
+        is_active: true,
+        notes: '人間ドック用項目（自動登録・' + item.input_type + '）'
+      };
+
+      const saveResult = portalSaveExamItem(itemData);
+      const codeInfo = item.bml_code ? 'BML:' + item.bml_code : 'ID:' + itemCode;
+
+      results.push({
+        item_code: itemCode,
+        bml_code: item.bml_code || '',
+        item_name: item.display,
+        input_type: item.input_type,
+        success: saveResult.success,
+        message: saveResult.message || saveResult.error
+      });
+
+      if (saveResult.success) {
+        addedCount++;
+        console.log('✓ 登録: ' + codeInfo + ' ' + item.display);
+      } else {
+        console.log('✗ 失敗: ' + codeInfo + ' - ' + saveResult.error);
+      }
+    }
+
+    console.log('\n登録完了: ' + addedCount + '/' + verifyResult.missingCount + '件');
+
+    return {
+      success: true,
+      addedCount: addedCount,
+      totalMissing: verifyResult.missingCount,
+      results: results
+    };
+
+  } catch (error) {
+    console.error('registerMissingHumanDockItems error:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+// ============================================
 // テスト関数
 // ============================================
 

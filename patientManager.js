@@ -34,7 +34,7 @@ const PATIENT_MANAGER_CONFIG = {
   REQUIRED_FIELDS: ['name', 'examDate', 'courseId'],
 
   // 検索可能フィールド
-  SEARCHABLE_FIELDS: ['name', 'nameKana', 'companyName', 'patientId']
+  SEARCHABLE_FIELDS: ['name', 'nameKana', 'companyName', 'patientId', 'karteNo', 'bmlPatientId']
 };
 
 // ============================================
@@ -60,20 +60,25 @@ function searchPatients_legacy(criteria) {
     const headers = data[0];
     const results = [];
 
-    // ヘッダーのインデックスを取得
+    // ヘッダーのインデックスを取得（17列構造 - カルテNo追加版）
     const colIndex = {
-      patientId: 0,
-      status: 1,
-      examDate: 2,
-      name: 3,
-      nameKana: 4,
-      gender: 5,
-      birthDate: 6,
-      age: 7,
-      course: 8,
-      company: 9,
-      department: 10,
-      overallJudgment: 11
+      patientId: 0,      // A: 受診者ID
+      karteNo: 1,        // B: カルテNo（クリニック患者ID）★追加
+      status: 2,         // C: ステータス
+      examDate: 3,       // D: 受診日
+      name: 4,           // E: 氏名
+      nameKana: 5,       // F: カナ
+      gender: 6,         // G: 性別
+      birthDate: 7,      // H: 生年月日
+      age: 8,            // I: 年齢
+      course: 9,         // J: 受診コース
+      company: 10,       // K: 事業所名
+      department: 11,    // L: 所属
+      overallJudgment: 12, // M: 総合判定
+      csvImportDate: 13, // N: CSV取込日時
+      lastUpdated: 14,   // O: 最終更新日時
+      exportDate: 15,    // P: 出力日時
+      bmlPatientId: 16   // Q: BML患者ID
     };
 
     for (let i = 1; i < data.length; i++) {
@@ -87,6 +92,7 @@ function searchPatients_legacy(criteria) {
 
       results.push({
         patientId: row[colIndex.patientId],
+        karteNo: row[colIndex.karteNo] || '',  // ★カルテNo追加
         status: row[colIndex.status],
         examDate: row[colIndex.examDate] ? formatDate(row[colIndex.examDate]) : '',
         name: row[colIndex.name],
@@ -98,6 +104,7 @@ function searchPatients_legacy(criteria) {
         company: row[colIndex.company],
         department: row[colIndex.department],
         overallJudgment: row[colIndex.overallJudgment],
+        bmlPatientId: row[colIndex.bmlPatientId] || '',
         rowIndex: i + 1
       });
 
@@ -179,9 +186,9 @@ function matchesCriteria(row, colIndex, criteria) {
     }
   }
 
-  // 受診者IDフィルタ（完全一致）
-  if (criteria.patientId) {
-    if (row[colIndex.patientId] !== criteria.patientId) {
+  // カルテNoフィルタ（完全一致）★追加
+  if (criteria.karteNo) {
+    if (String(row[colIndex.karteNo] || '') !== String(criteria.karteNo)) {
       return false;
     }
   }
@@ -189,6 +196,13 @@ function matchesCriteria(row, colIndex, criteria) {
   // コースフィルタ
   if (criteria.courseId) {
     if (row[colIndex.course] !== criteria.courseId) {
+      return false;
+    }
+  }
+
+  // BML患者IDフィルタ（完全一致）
+  if (criteria.bmlPatientId) {
+    if (String(row[colIndex.bmlPatientId] || '') !== String(criteria.bmlPatientId)) {
       return false;
     }
   }
@@ -227,19 +241,22 @@ function getPatientDetail(patientId) {
       return null;
     }
 
+    // 17列構造（カルテNo追加版）
     const patient = {
-      patientId: patientRow[0],
-      status: patientRow[1],
-      examDate: patientRow[2] ? formatDate(patientRow[2]) : '',
-      name: patientRow[3],
-      nameKana: patientRow[4],
-      gender: patientRow[5],
-      birthDate: patientRow[6] ? formatDate(patientRow[6]) : '',
-      age: patientRow[7],
-      course: patientRow[8],
-      company: patientRow[9],
-      department: patientRow[10],
-      overallJudgment: patientRow[11],
+      patientId: patientRow[0],      // A: 受診者ID
+      karteNo: patientRow[1] || '',  // B: カルテNo ★追加
+      status: patientRow[2],         // C: ステータス
+      examDate: patientRow[3] ? formatDate(patientRow[3]) : '',  // D: 受診日
+      name: patientRow[4],           // E: 氏名
+      nameKana: patientRow[5],       // F: カナ
+      gender: patientRow[6],         // G: 性別
+      birthDate: patientRow[7] ? formatDate(patientRow[7]) : '',  // H: 生年月日
+      age: patientRow[8],            // I: 年齢
+      course: patientRow[9],         // J: 受診コース
+      company: patientRow[10],       // K: 事業所名
+      department: patientRow[11],    // L: 所属
+      overallJudgment: patientRow[12],  // M: 総合判定
+      bmlPatientId: patientRow[16] || '',  // Q: BML患者ID
       rowIndex: rowIndex,
       physical: {},
       blood: {}
@@ -327,23 +344,25 @@ function registerNewPatient(data) {
       age = calculateAge(new Date(data.birthDate), new Date(data.examDate));
     }
 
-    // 新規行を追加
+    // 新規行を追加（17列構造 - カルテNo追加版）
     const newRow = [
-      patientId,                                    // 受診ID
-      PATIENT_MANAGER_CONFIG.STATUS.INPUT,          // ステータス
-      new Date(data.examDate),                      // 受診日
-      data.name,                                    // 氏名
-      data.nameKana || '',                          // カナ
-      data.gender || '',                            // 性別
-      data.birthDate ? new Date(data.birthDate) : '', // 生年月日
-      age,                                          // 年齢
-      data.courseName || data.courseId || '',       // 受診コース
-      data.companyName || data.companyId || '',     // 事業所名
-      data.department || '',                        // 所属
-      '',                                           // 総合判定
-      '',                                           // CSV取込日時
-      new Date(),                                   // 最終更新日時
-      ''                                            // 出力日時
+      patientId,                                    // A: 受診者ID
+      data.karteNo || '',                           // B: カルテNo ★追加
+      PATIENT_MANAGER_CONFIG.STATUS.INPUT,          // C: ステータス
+      new Date(data.examDate),                      // D: 受診日
+      data.name,                                    // E: 氏名
+      data.nameKana || '',                          // F: カナ
+      data.gender || '',                            // G: 性別
+      data.birthDate ? new Date(data.birthDate) : '', // H: 生年月日
+      age,                                          // I: 年齢
+      data.courseName || data.courseId || '',       // J: 受診コース
+      data.companyName || data.companyId || '',     // K: 事業所名
+      data.department || '',                        // L: 所属
+      '',                                           // M: 総合判定
+      '',                                           // N: CSV取込日時
+      new Date(),                                   // O: 最終更新日時
+      '',                                           // P: 出力日時
+      data.bmlPatientId || ''                       // Q: BML患者ID
     ];
 
     patientSheet.appendRow(newRow);
@@ -458,25 +477,28 @@ function updatePatient(patientId, data) {
       throw new Error('受診者が見つかりません: ' + patientId);
     }
 
-    // 更新する列
-    if (data.name !== undefined) patientSheet.getRange(rowIndex, 4).setValue(data.name);
-    if (data.nameKana !== undefined) patientSheet.getRange(rowIndex, 5).setValue(data.nameKana);
-    if (data.gender !== undefined) patientSheet.getRange(rowIndex, 6).setValue(data.gender);
-    if (data.birthDate !== undefined) patientSheet.getRange(rowIndex, 7).setValue(data.birthDate ? new Date(data.birthDate) : '');
-    if (data.course !== undefined) patientSheet.getRange(rowIndex, 9).setValue(data.course);
-    if (data.company !== undefined) patientSheet.getRange(rowIndex, 10).setValue(data.company);
-    if (data.department !== undefined) patientSheet.getRange(rowIndex, 11).setValue(data.department);
-    if (data.status !== undefined) patientSheet.getRange(rowIndex, 2).setValue(data.status);
+    // 更新する列（17列構造 - カルテNo追加版）
+    // 列番号: A=1, B=2(カルテNo), C=3(ステータス), D=4(受診日), E=5(氏名), F=6(カナ), G=7(性別), H=8(生年月日), I=9(年齢), J=10(コース), K=11(事業所), L=12(所属), M=13(総合判定), N=14(CSV取込), O=15(最終更新), P=16(出力), Q=17(BML患者ID)
+    if (data.karteNo !== undefined) patientSheet.getRange(rowIndex, 2).setValue(data.karteNo);  // B: カルテNo
+    if (data.status !== undefined) patientSheet.getRange(rowIndex, 3).setValue(data.status);   // C: ステータス
+    if (data.name !== undefined) patientSheet.getRange(rowIndex, 5).setValue(data.name);       // E: 氏名
+    if (data.nameKana !== undefined) patientSheet.getRange(rowIndex, 6).setValue(data.nameKana); // F: カナ
+    if (data.gender !== undefined) patientSheet.getRange(rowIndex, 7).setValue(data.gender);   // G: 性別
+    if (data.birthDate !== undefined) patientSheet.getRange(rowIndex, 8).setValue(data.birthDate ? new Date(data.birthDate) : ''); // H: 生年月日
+    if (data.course !== undefined) patientSheet.getRange(rowIndex, 10).setValue(data.course);  // J: コース
+    if (data.company !== undefined) patientSheet.getRange(rowIndex, 11).setValue(data.company); // K: 事業所
+    if (data.department !== undefined) patientSheet.getRange(rowIndex, 12).setValue(data.department); // L: 所属
+    if (data.bmlPatientId !== undefined) patientSheet.getRange(rowIndex, 17).setValue(data.bmlPatientId); // Q: BML患者ID
 
-    // 最終更新日時を更新
-    patientSheet.getRange(rowIndex, 14).setValue(new Date());
+    // 最終更新日時を更新 (O列 = 15番目)
+    patientSheet.getRange(rowIndex, 15).setValue(new Date());
 
     // 年齢を再計算
     if (data.birthDate !== undefined) {
-      const examDate = patientSheet.getRange(rowIndex, 3).getValue();
+      const examDate = patientSheet.getRange(rowIndex, 4).getValue();  // D列 = 受診日
       if (examDate && data.birthDate) {
         const age = calculateAge(new Date(data.birthDate), new Date(examDate));
-        patientSheet.getRange(rowIndex, 8).setValue(age);
+        patientSheet.getRange(rowIndex, 9).setValue(age);  // I列 = 年齢
       }
     }
 
@@ -493,6 +515,103 @@ function updatePatient(patientId, data) {
       success: false,
       error: e.message
     };
+  }
+}
+
+// ============================================
+// BML患者ID関連関数
+// ============================================
+
+/**
+ * BML患者IDで受診者を検索（17列構造対応）
+ * @param {string} bmlPatientId - BML患者ID（例: 999991）
+ * @returns {Object|null} 受診者データまたはnull
+ */
+function findPatientByBmlId(bmlPatientId) {
+  if (!bmlPatientId) return null;
+
+  logInfo('BML患者IDで検索: ' + bmlPatientId);
+
+  try {
+    const patientSheet = getSheet(CONFIG.SHEETS.PATIENT);
+    if (!patientSheet) {
+      throw new Error('受診者マスタシートが見つかりません');
+    }
+
+    const data = patientSheet.getDataRange().getValues();
+    const bmlIdCol = 16; // Q列: BML患者ID列（0始まり）★16に変更
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      // 空行スキップ
+      if (!row[0]) continue;
+
+      // BML患者IDで照合（文字列比較）
+      if (String(row[bmlIdCol] || '') === String(bmlPatientId)) {
+        logInfo('BML患者ID一致: ' + row[0]);
+        // 17列構造（カルテNo追加版）
+        return {
+          patientId: row[0],       // A: 受診者ID
+          karteNo: row[1] || '',   // B: カルテNo ★追加
+          status: row[2],          // C: ステータス
+          examDate: row[3] ? formatDate(row[3]) : '',  // D: 受診日
+          name: row[4],            // E: 氏名
+          nameKana: row[5],        // F: カナ
+          gender: row[6],          // G: 性別
+          birthDate: row[7] ? formatDate(row[7]) : '',  // H: 生年月日
+          age: row[8],             // I: 年齢
+          course: row[9],          // J: 受診コース
+          company: row[10],        // K: 事業所名
+          department: row[11],     // L: 所属
+          overallJudgment: row[12], // M: 総合判定
+          bmlPatientId: row[bmlIdCol] || '',  // Q: BML患者ID
+          rowIndex: i + 1
+        };
+      }
+    }
+
+    logInfo('BML患者ID該当なし: ' + bmlPatientId);
+    return null;
+
+  } catch (e) {
+    logError('findPatientByBmlId', e);
+    throw e;
+  }
+}
+
+/**
+ * BML患者IDの重複チェック（17列構造対応）
+ * @param {string} bmlPatientId - チェックするBML患者ID
+ * @param {string} excludePatientId - 除外する受診者ID（更新時用）
+ * @returns {boolean} 重複している場合true
+ */
+function isBmlPatientIdDuplicate(bmlPatientId, excludePatientId) {
+  if (!bmlPatientId) return false;
+
+  try {
+    const patientSheet = getSheet(CONFIG.SHEETS.PATIENT);
+    if (!patientSheet) return false;
+
+    const data = patientSheet.getDataRange().getValues();
+    const bmlIdCol = 16;  // Q列: BML患者ID（0始まり）★16に変更
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      if (!row[0]) continue;
+
+      // 自分自身は除外
+      if (excludePatientId && row[0] === excludePatientId) continue;
+
+      if (String(row[bmlIdCol] || '') === String(bmlPatientId)) {
+        return true;
+      }
+    }
+
+    return false;
+
+  } catch (e) {
+    logError('isBmlPatientIdDuplicate', e);
+    return false;
   }
 }
 
@@ -739,8 +858,8 @@ function getPatientSearchDialogHtml() {
         <input type="date" id="searchDateTo">
       </div>
       <div class="search-field">
-        <label>受診者ID</label>
-        <input type="text" id="searchPatientId" placeholder="P00001">
+        <label>カルテNo</label>
+        <input type="text" id="searchKarteNo" placeholder="999999">
       </div>
     </div>
     <div class="btn-row">
@@ -787,7 +906,7 @@ function getPatientSearchDialogHtml() {
         status: document.getElementById('searchStatus').value,
         dateFrom: document.getElementById('searchDateFrom').value,
         dateTo: document.getElementById('searchDateTo').value,
-        patientId: document.getElementById('searchPatientId').value
+        karteNo: document.getElementById('searchKarteNo').value  // ★カルテNoで検索
       };
 
       document.getElementById('resultsBody').innerHTML =
@@ -812,8 +931,9 @@ function getPatientSearchDialogHtml() {
         return;
       }
 
+      // ★内部ID（受診者ID）は非表示、カルテNoを表示
       let html = '<table class="results-table"><thead><tr>' +
-        '<th>受診ID</th><th>氏名</th><th>企業</th><th>受診日</th>' +
+        '<th>カルテNo</th><th>氏名</th><th>企業</th><th>受診日</th>' +
         '<th>コース</th><th>判定</th><th>ステータス</th><th>操作</th>' +
         '</tr></thead><tbody>';
 
@@ -822,8 +942,9 @@ function getPatientSearchDialogHtml() {
                            p.status === '保留' ? 'status-pending' : 'status-input';
         const judgmentClass = p.overallJudgment ? 'judgment-' + p.overallJudgment : '';
 
-        html += '<tr onclick="selectRow(' + idx + ')" data-idx="' + idx + '">' +
-          '<td>' + p.patientId + '</td>' +
+        // ★カルテNoを表示（内部IDはdata属性に保持）
+        html += '<tr onclick="selectRow(' + idx + ')" data-idx="' + idx + '" data-patient-id="' + p.patientId + '">' +
+          '<td>' + (p.karteNo || '-') + '</td>' +
           '<td><strong>' + p.name + '</strong><br><small style="color:#666">' + (p.nameKana || '') + '</small></td>' +
           '<td>' + (p.company || '-') + '</td>' +
           '<td>' + (p.examDate || '-') + '</td>' +
@@ -855,7 +976,7 @@ function getPatientSearchDialogHtml() {
       document.getElementById('searchStatus').value = 'all';
       document.getElementById('searchDateFrom').value = '';
       document.getElementById('searchDateTo').value = '';
-      document.getElementById('searchPatientId').value = '';
+      document.getElementById('searchKarteNo').value = '';  // ★カルテNo
     }
 
     function openNewRegistration() {
@@ -1098,6 +1219,19 @@ function getNewPatientDialogHtml() {
         </div>
       </div>
 
+      <div class="form-row">
+        <div class="form-group">
+          <label>カルテNo</label>
+          <input type="text" id="karteNo" placeholder="999999" maxlength="6">
+          <div class="hint">※ クリニックの患者番号（6桁）- CSV取込時の主キー</div>
+        </div>
+        <div class="form-group">
+          <label>BML患者ID</label>
+          <input type="text" id="bmlPatientId" placeholder="457973">
+          <div class="hint">※ BML検査所の患者ID（トレーサビリティ用）</div>
+        </div>
+      </div>
+
       <div class="hint">※ 検査結果は登録後に入力できます</div>
     </div>
   </div>
@@ -1177,7 +1311,9 @@ function getNewPatientDialogHtml() {
         courseName: courseSelect.selectedOptions[0]?.dataset?.name || courseSelect.value,
         companyId: companySelect.value,
         companyName: companySelect.selectedOptions[0]?.dataset?.name || companySelect.value,
-        department: document.getElementById('department').value.trim()
+        department: document.getElementById('department').value.trim(),
+        karteNo: document.getElementById('karteNo').value.trim(),  // ★カルテNo追加
+        bmlPatientId: document.getElementById('bmlPatientId').value.trim()
       };
 
       showLoading(true);

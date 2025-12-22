@@ -193,17 +193,19 @@ const SHEET_DEFINITIONS = {
   // 既存マスタ
   // ============================================
 
-  // 受診者マスタ
+  // 受診者マスタ（17列構造: Config.js COLUMN_DEFINITIONS.PATIENT_MASTER準拠）
+  // ※年度内1回受診のため、受診情報も含む非正規化構造
+  // ※カルテNo = クリニック患者ID（CSV取込の主キー）
   '受診者マスタ': {
     headers: [
-      '受診ID', 'ステータス', '受診日', '氏名', 'カナ', '性別',
-      '生年月日', '年齢', '受診コース', '事業所名', '所属',
-      '総合判定', 'CSV取込日時', '最終更新日時', '出力日時'
+      '受診者ID', 'カルテNo', 'ステータス', '受診日', '氏名', 'カナ',
+      '性別', '生年月日', '年齢', '受診コース', '事業所名',
+      '所属', '総合判定', 'CSV取込日時', '最終更新日時', '出力日時', 'BML患者ID'
     ],
     columnWidths: {
-      A: 150, B: 80, C: 100, D: 100, E: 120, F: 50,
-      G: 100, H: 50, I: 100, J: 120, K: 80,
-      L: 70, M: 150, N: 150, O: 150
+      A: 100, B: 80, C: 80, D: 100, E: 100, F: 120,
+      G: 50, H: 100, I: 50, J: 150, K: 150,
+      L: 100, M: 80, N: 150, O: 150, P: 150, Q: 100
     }
   },
 
@@ -895,4 +897,375 @@ function runFullSetup() {
   logInfo('1. 設定シートにフォルダIDを入力してください');
   logInfo('2. template.xlsmのレイアウトを出力用シートにコピーしてください');
   logInfo('3. テストCSVで動作確認してください');
+}
+
+// ============================================
+// 個人レポートマッピング設定（1221_template_new_default.xlsm用）
+// ============================================
+
+/**
+ * 個人レポート用マッピングデータ定義
+ * mapping_template_new.json から変換
+ */
+const INDIVIDUAL_REPORT_MAPPING = {
+  templateId: 'TPL_INDIVIDUAL_1221',
+  templateName: '1221_template_new_default.xlsm',
+  patientInfoSheet: '1ページ',
+  testResultSheet: '４ページ',
+
+  // 患者基本情報
+  patientInfo: {
+    name: { cell: 'C8', dataType: 'TEXT' },
+    examDate: { cell: 'I11', dataType: 'DATE' }
+  },
+
+  // 検査項目マッピング（BMLコード → セル位置）
+  testItems: {
+    // === 血液一般 ===
+    '0000301': { name: 'WBC', display: '白血球数', row: 6, value: 'M6', judgment: 'K6', flag: 'O6' },
+    '0000302': { name: 'RBC', display: '赤血球数', row: 7, value: 'M7', judgment: 'K7', flag: 'O7' },
+    '0000303': { name: 'Hb', display: '血色素量', row: 8, value: 'M8', judgment: 'K8', flag: 'O8' },
+    '0000304': { name: 'Ht', display: 'ヘマトクリット', row: 9, value: 'M9', judgment: 'K9', flag: 'O9' },
+    '0000308': { name: 'PLT', display: '血小板', row: 10, value: 'M10', judgment: 'K10', flag: 'O10' },
+    '0000305': { name: 'MCV', display: 'MCV', row: 11, value: 'M11', judgment: 'K11', flag: 'O11' },
+    '0000306': { name: 'MCH', display: 'MCH', row: 12, value: 'M12', judgment: 'K12', flag: 'O12' },
+    '0000307': { name: 'MCHC', display: 'MCHC', row: 13, value: 'M13', judgment: 'K13', flag: 'O13' },
+
+    // === 白血球像 ===
+    '0001885': { name: 'NEUT', display: '好中球', row: 15, value: 'M15', judgment: 'K15', flag: 'O15' },
+    '0001881': { name: 'BASO', display: '好塩基球', row: 16, value: 'M16', judgment: 'K16', flag: 'O16' },
+    '0001882': { name: 'EOS', display: '好酸球', row: 17, value: 'M17', judgment: 'K17', flag: 'O17' },
+    '0001889': { name: 'LYMPHO', display: 'リンパ球', row: 18, value: 'M18', judgment: 'K18', flag: 'O18' },
+    '0001886': { name: 'MONO', display: '単球', row: 19, value: 'M19', judgment: 'K19', flag: 'O19' },
+
+    // === 生化学 ===
+    '0000401': { name: 'TP', display: '総蛋白', row: 22, value: 'M22', judgment: 'K22', flag: 'O22' },
+    '0000417': { name: 'ALB', display: 'アルブミン', row: 23, value: 'M23', judgment: 'K23', flag: 'O23' },
+    '0000481': { name: 'AST', display: 'AST(GOT)', row: 24, value: 'M24', judgment: 'K24', flag: 'O24' },
+    '0000482': { name: 'ALT', display: 'ALT(GPT)', row: 25, value: 'M25', judgment: 'K25', flag: 'O25' },
+    '0000484': { name: 'GGT', display: 'γ-GTP', row: 26, value: 'M26', judgment: 'K26', flag: 'O26' },
+    '0013067': { name: 'ALP', display: 'ALP(IFCC)', row: 27, value: 'M27', judgment: 'K27', flag: 'O27' },
+    '0000497': { name: 'LDH', display: 'LDH', row: 28, value: 'M28', judgment: 'K28', flag: 'O28' },
+    '0000472': { name: 'T-Bil', display: '総ビリルビン', row: 31, value: 'M31', judgment: 'K31', flag: 'O31' },
+
+    // === 脂質 ===
+    '0000453': { name: 'TC', display: '総コレステロール', row: 32, value: 'M32', judgment: 'K32', flag: 'O32' },
+    '0000454': { name: 'TG', display: '中性脂肪', row: 33, value: 'M33', judgment: 'K33', flag: 'O33' },
+    '0000460': { name: 'HDL', display: 'HDLコレステロール', row: 34, value: 'M34', judgment: 'K34', flag: 'O34' },
+    '0000410': { name: 'LDL', display: 'LDLコレステロール', row: 35, value: 'M35', judgment: 'K35', flag: 'O35' },
+
+    // === 糖代謝 ===
+    '0000503': { name: 'FBS', display: '空腹時血糖', row: 38, value: 'M38', judgment: 'K38', flag: 'O38' },
+    '0003317': { name: 'HbA1c', display: 'HbA1c', row: 39, value: 'M39', judgment: 'K39', flag: 'O39' },
+
+    // === 腎機能 ===
+    '0000413': { name: 'Cre', display: 'クレアチニン', row: 41, value: 'M41', judgment: 'K41', flag: 'O41' },
+    '0000491': { name: 'BUN', display: '尿素窒素', row: 42, value: 'M42', judgment: 'K42', flag: 'O42' },
+    '0002696': { name: 'eGFR', display: 'eGFR', row: 43, value: 'M43', judgment: 'K43', flag: 'O43' },
+
+    // === その他 ===
+    '0000407': { name: 'UA', display: '尿酸', row: 45, value: 'M45', judgment: 'K45', flag: 'O45' },
+    '0003845': { name: 'CK', display: 'CK', row: 46, value: 'M46', judgment: 'K46', flag: 'O46' },
+    '0003550': { name: 'Na', display: 'ナトリウム', row: 47, value: 'M47', judgment: 'K47', flag: 'O47' },
+    '0000421': { name: 'K', display: 'カリウム', row: 48, value: 'M48', judgment: 'K48', flag: 'O48' },
+    '0000425': { name: 'Cl', display: 'クロール', row: 49, value: 'M49', judgment: 'K49', flag: 'O49' },
+    '0000658': { name: 'CRP', display: 'CRP定量', row: 54, value: 'M54', judgment: 'K54', flag: 'O54' }
+  }
+};
+
+/**
+ * 個人レポートマッピングをM_ReportMappingシートに登録
+ * @returns {Object} 結果 {success, message, count}
+ */
+function setupIndividualReportMapping() {
+  logInfo('===== 個人レポートマッピング設定開始 =====');
+
+  const ss = getSpreadsheet();
+  let sheet = ss.getSheetByName('M_ReportMapping');
+
+  if (!sheet) {
+    logInfo('M_ReportMappingシートが存在しないため作成します');
+    sheet = ss.insertSheet('M_ReportMapping');
+    // ヘッダー設定
+    const headers = ['マッピングID', 'テンプレートID', 'フィールド名', 'セル位置',
+                     'データ型', 'フォーマット', '備考', '有効フラグ',
+                     '作成日時', '更新日時'];
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#4285f4').setFontColor('#ffffff');
+    sheet.setFrozenRows(1);
+  }
+
+  const templateId = INDIVIDUAL_REPORT_MAPPING.templateId;
+  const now = new Date();
+  const newRows = [];
+  let mapIndex = 1;
+
+  // 患者基本情報のマッピング
+  for (const [fieldName, info] of Object.entries(INDIVIDUAL_REPORT_MAPPING.patientInfo)) {
+    const mappingId = `MAP_IND_P${String(mapIndex).padStart(3, '0')}`;
+    newRows.push([
+      mappingId,
+      templateId,
+      `patient_${fieldName}`,
+      info.cell,
+      info.dataType,
+      '',
+      `患者情報 - ${fieldName}（${INDIVIDUAL_REPORT_MAPPING.patientInfoSheet}）`,
+      true,
+      now,
+      now
+    ]);
+    mapIndex++;
+  }
+
+  // 検査項目のマッピング（value, judgment, flag それぞれ）
+  for (const [bmlCode, item] of Object.entries(INDIVIDUAL_REPORT_MAPPING.testItems)) {
+    // value mapping
+    const valueMapId = `MAP_IND_V${String(mapIndex).padStart(3, '0')}`;
+    newRows.push([
+      valueMapId,
+      templateId,
+      bmlCode,
+      item.value,
+      'value',
+      '',
+      `${item.display}（${item.name}）- 値`,
+      true,
+      now,
+      now
+    ]);
+    mapIndex++;
+
+    // judgment mapping
+    const judgmentMapId = `MAP_IND_J${String(mapIndex).padStart(3, '0')}`;
+    newRows.push([
+      judgmentMapId,
+      templateId,
+      bmlCode,
+      item.judgment,
+      'judgment',
+      '',
+      `${item.display}（${item.name}）- 判定`,
+      true,
+      now,
+      now
+    ]);
+    mapIndex++;
+
+    // flag mapping
+    const flagMapId = `MAP_IND_F${String(mapIndex).padStart(3, '0')}`;
+    newRows.push([
+      flagMapId,
+      templateId,
+      bmlCode,
+      item.flag,
+      'flag',
+      '',
+      `${item.display}（${item.name}）- フラグ`,
+      true,
+      now,
+      now
+    ]);
+    mapIndex++;
+  }
+
+  // 既存の同テンプレートIDのデータを削除
+  const existingData = sheet.getDataRange().getValues();
+  const rowsToDelete = [];
+  for (let i = existingData.length - 1; i >= 1; i--) {
+    if (existingData[i][1] === templateId) {
+      rowsToDelete.push(i + 1);
+    }
+  }
+
+  // 後ろから削除（インデックスがずれないように）
+  for (const rowNum of rowsToDelete) {
+    sheet.deleteRow(rowNum);
+  }
+
+  // 新しいデータを追加
+  if (newRows.length > 0) {
+    const lastRow = sheet.getLastRow();
+    sheet.getRange(lastRow + 1, 1, newRows.length, newRows[0].length).setValues(newRows);
+  }
+
+  logInfo(`個人レポートマッピング登録完了: ${newRows.length}件`);
+  logInfo('===== 個人レポートマッピング設定完了 =====');
+
+  return {
+    success: true,
+    message: `${templateId}のマッピングを${newRows.length}件登録しました`,
+    count: newRows.length
+  };
+}
+
+/**
+ * 個人レポートマッピングを取得
+ * @param {string} templateId - テンプレートID（省略時はTPL_INDIVIDUAL_1221）
+ * @returns {Object} マッピング定義 {patientInfo, testItems}
+ */
+function getIndividualReportMapping(templateId) {
+  templateId = templateId || 'TPL_INDIVIDUAL_1221';
+
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName('M_ReportMapping');
+
+  if (!sheet) {
+    logInfo('M_ReportMappingシートがないため、デフォルト定義を使用');
+    return INDIVIDUAL_REPORT_MAPPING;
+  }
+
+  const data = sheet.getDataRange().getValues();
+  const result = {
+    templateId: templateId,
+    patientInfo: {},
+    testItems: {}
+  };
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const rowTemplateId = row[1];
+    const fieldName = row[2];
+    const cell = row[3];
+    const dataType = row[4];
+    const isActive = row[7];
+
+    if (rowTemplateId !== templateId || !isActive) continue;
+
+    // 患者情報
+    if (fieldName.startsWith('patient_')) {
+      const key = fieldName.replace('patient_', '');
+      result.patientInfo[key] = { cell: cell, dataType: dataType };
+      continue;
+    }
+
+    // 検査項目（BMLコード）
+    if (/^\d{7}$/.test(fieldName)) {
+      if (!result.testItems[fieldName]) {
+        result.testItems[fieldName] = {};
+      }
+      // dataType が value/judgment/flag のいずれか
+      result.testItems[fieldName][dataType] = cell;
+    }
+  }
+
+  return result;
+}
+
+// ============================================
+// 汎用シートセットアップ機能
+// Config.js の COLUMN_DEFINITIONS を参照して自動設定
+// ============================================
+
+/**
+ * Config.jsの定義に基づいてシートのヘッダーと列幅を設定
+ * @param {string} sheetKey - COLUMN_DEFINITIONSのキー（例: 'PATIENT_MASTER'）
+ * @param {boolean} resetData - trueの場合、既存データを削除してリセット
+ * @returns {Object} 結果 {success, message}
+ */
+function setupSheetFromConfig(sheetKey, resetData = false) {
+  const definition = COLUMN_DEFINITIONS[sheetKey];
+  if (!definition) {
+    return { success: false, message: `定義が見つかりません: ${sheetKey}` };
+  }
+
+  // シート名をDB_CONFIG.SHEETSから取得
+  const sheetNameMap = {
+    'PATIENT_MASTER': DB_CONFIG.SHEETS.PATIENT_MASTER,
+    'VISIT_RECORD': DB_CONFIG.SHEETS.VISIT_RECORD,
+    'TEST_RESULT': DB_CONFIG.SHEETS.TEST_RESULT,
+    'ITEM_MASTER': DB_CONFIG.SHEETS.ITEM_MASTER
+  };
+
+  const sheetName = sheetNameMap[sheetKey] || sheetKey;
+  logInfo(`===== ${sheetName} セットアップ開始 =====`);
+
+  const ss = getSpreadsheet();
+  let sheet = ss.getSheetByName(sheetName);
+
+  // リセットモードの場合、既存シートを削除
+  if (resetData && sheet) {
+    ss.deleteSheet(sheet);
+    sheet = null;
+    logInfo(`既存の${sheetName}シートを削除しました`);
+  }
+
+  // シートがなければ作成
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    logInfo(`${sheetName}シートを作成しました`);
+  }
+
+  const headers = definition.headers;
+  const columnWidths = definition.columnWidths;
+
+  // ヘッダー設定
+  const headerRange = sheet.getRange(1, 1, 1, headers.length);
+  headerRange.setValues([headers]);
+  headerRange.setFontWeight('bold');
+  headerRange.setBackground('#4285f4');
+  headerRange.setFontColor('#ffffff');
+
+  // 列幅設定（A=1, B=2, ...）
+  if (columnWidths) {
+    for (const [col, width] of Object.entries(columnWidths)) {
+      const colIndex = col.length === 1
+        ? col.charCodeAt(0) - 64  // A=1, B=2, ...
+        : (col.charCodeAt(0) - 64) * 26 + (col.charCodeAt(1) - 64); // AA=27, etc
+      sheet.setColumnWidth(colIndex, width);
+    }
+  }
+
+  // 1行目を固定
+  sheet.setFrozenRows(1);
+
+  logInfo(`===== ${sheetName} セットアップ完了（${headers.length}列）=====`);
+
+  return {
+    success: true,
+    message: `${sheetName}を${headers.length}列構造で設定しました`
+  };
+}
+
+/**
+ * 受診者マスタをConfig.jsの定義でセットアップ（ヘッダーのみ更新）
+ */
+function setupPatientMaster() {
+  return setupSheetFromConfig('PATIENT_MASTER', false);
+}
+
+/**
+ * 受診者マスタをConfig.jsの定義でリセット（データ削除）
+ */
+function resetPatientMaster() {
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.alert(
+    '受診者マスタリセット確認',
+    '受診者マスタの全データを削除してConfig.jsの定義で再作成します。\nこの操作は取り消せません。続行しますか？',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) {
+    return { success: false, message: 'キャンセルされました' };
+  }
+
+  return setupSheetFromConfig('PATIENT_MASTER', true);
+}
+
+/**
+ * メニューから実行: 受診者マスタヘッダー更新
+ */
+function menuSetupPatientMaster() {
+  const result = setupPatientMaster();
+  const ui = SpreadsheetApp.getUi();
+  ui.alert(result.success ? '完了' : 'エラー', result.message, ui.ButtonSet.OK);
+}
+
+/**
+ * メニューから実行: 受診者マスタリセット
+ */
+function menuResetPatientMaster() {
+  const result = resetPatientMaster();
+  const ui = SpreadsheetApp.getUi();
+  ui.alert(result.success ? '完了' : 'エラー', result.message, ui.ButtonSet.OK);
 }

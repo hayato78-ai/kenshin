@@ -29,8 +29,8 @@ function initializePortal() {
     });
   }
 
-  // カナ氏名の全角カタカナ自動変換
-  setupKanaAutoConvert();
+  // カナ氏名の全角カタカナ自動変換（無効化: 通常のIME入力を使用）
+  // setupKanaAutoConvert();
 
   // 生年月日の自動フォーカス移動
   setupBirthDateAutoFocus();
@@ -685,6 +685,7 @@ function registerNewPatientFull() {
   const patientData = {
     // 個人情報（受診者マスタ用）
     karteNo: karteNo,
+    bmlPatientId: karteNo,  // カルテNoをBML患者IDとして使用（CSV取込用）
     name: fullName,
     nameKana: fullNameKana,
     gender: document.getElementById('newPatientGender').value,
@@ -847,34 +848,81 @@ function showCsvPreview(content) {
   const previewContainer = document.getElementById('csvPreview');
   const previewTable = document.getElementById('csvPreviewTable');
 
-  if (lines.length < 2) {
+  if (lines.length < 1) {
     showNotification('CSVデータが空です', 'error');
     return;
   }
 
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-  const previewRows = lines.slice(1, Math.min(6, lines.length));
+  // BML 1行形式判定: 1行目の最初が施設コード（数字6桁）で始まる
+  const firstFields = lines[0].split(',');
+  const isBmlFormat = /^\d{6}$/.test(firstFields[0]) && /^\d+$/.test(firstFields[1]);
 
-  let html = '<table class="results-table"><thead><tr>';
-  headers.forEach(h => {
-    html += '<th>' + escapeHtml(h) + '</th>';
-  });
-  html += '</tr></thead><tbody>';
+  let html = '<table class="results-table">';
 
-  previewRows.forEach(line => {
-    const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-    html += '<tr>';
-    values.forEach(v => {
-      html += '<td>' + escapeHtml(v) + '</td>';
+  if (isBmlFormat) {
+    // BML 1行形式: ヘッダーなし、各行が1患者のデータ
+    html += '<thead><tr><th>施設CD</th><th>患者ID</th><th>受診日</th><th>性別</th><th>検査項目数</th></tr></thead><tbody>';
+
+    lines.slice(0, Math.min(10, lines.length)).forEach(line => {
+      const fields = line.split(',');
+      const facilityCode = fields[0] || '';
+      const patientId = fields[1] || '';
+      const examDate = formatBmlDate(fields[2] || '');
+      const gender = fields[6] === '1' ? '男' : (fields[6] === '2' ? '女' : '-');
+      // 検査項目数を概算（11以降、4フィールドごとに1項目）
+      const testCount = Math.floor((fields.length - 11) / 4);
+
+      html += '<tr>';
+      html += '<td>' + escapeHtml(facilityCode) + '</td>';
+      html += '<td><strong>' + escapeHtml(patientId) + '</strong></td>';
+      html += '<td>' + escapeHtml(examDate) + '</td>';
+      html += '<td>' + escapeHtml(gender) + '</td>';
+      html += '<td>' + testCount + '項目</td>';
+      html += '</tr>';
     });
-    html += '</tr>';
-  });
 
-  html += '</tbody></table>';
-  html += '<p>全 ' + (lines.length - 1) + ' 件</p>';
+    html += '</tbody></table>';
+    html += '<p class="info">BML 1行形式 - ' + lines.length + ' 件検出</p>';
+    html += '<p class="info">※ 患者ID（カルテNo）で受診者を自動紐付けします</p>';
+  } else {
+    // 通常CSV形式（ヘッダー + データ行）
+    if (lines.length < 2) {
+      showNotification('CSVデータが空です（ヘッダー行のみ）', 'error');
+      return;
+    }
+
+    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+    const previewRows = lines.slice(1, Math.min(6, lines.length));
+
+    html += '<thead><tr>';
+    headers.forEach(h => {
+      html += '<th>' + escapeHtml(h) + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+
+    previewRows.forEach(line => {
+      const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+      html += '<tr>';
+      values.forEach(v => {
+        html += '<td>' + escapeHtml(v) + '</td>';
+      });
+      html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+    html += '<p>全 ' + (lines.length - 1) + ' 件</p>';
+  }
 
   previewTable.innerHTML = html;
   previewContainer.style.display = 'block';
+}
+
+/**
+ * BML日付形式（YYYYMMDD）を表示用に変換
+ */
+function formatBmlDate(dateStr) {
+  if (!dateStr || dateStr.length !== 8) return dateStr;
+  return dateStr.substring(0, 4) + '/' + dateStr.substring(4, 6) + '/' + dateStr.substring(6, 8);
 }
 
 function executeCsvImport() {
@@ -1495,7 +1543,164 @@ function navigatePatient(direction) {
 // ============================================================
 function generateReport() {
   const reportType = document.getElementById('reportType').value;
-  showNotification('帳票出力機能は開発中です', 'info');
+  const reportTarget = document.getElementById('reportTarget').value;
+
+  if (reportType === 'individual') {
+    // 個人結果報告書
+    if (reportTarget === 'selected') {
+      // 選択した患者の出力
+      const selectedPatients = getSelectedReportPatients();
+      if (selectedPatients.length === 0) {
+        showNotification('出力対象を選択してください', 'warning');
+        return;
+      }
+      exportIndividualReports(selectedPatients);
+    } else if (reportTarget === 'all') {
+      // 全員（入力完了分）
+      loadAndExportAllCompletedPatients();
+    } else {
+      showNotification('企業別出力は今後対応予定です', 'info');
+    }
+  } else if (reportType === 'company') {
+    // 企業一覧表
+    showNotification('企業一覧表出力は今後対応予定です', 'info');
+  } else {
+    showNotification('集計表出力は今後対応予定です', 'info');
+  }
+}
+
+/**
+ * 選択された帳票出力対象患者を取得
+ */
+function getSelectedReportPatients() {
+  const checkboxes = document.querySelectorAll('#reportPatientList input[type="checkbox"]:checked');
+  const patientIds = [];
+  checkboxes.forEach(cb => {
+    patientIds.push(cb.value);
+  });
+  return patientIds;
+}
+
+/**
+ * 個人レポートを出力
+ * @param {Array} patientIds - 受診者IDリスト
+ */
+function exportIndividualReports(patientIds) {
+  if (patientIds.length === 0) {
+    showNotification('出力対象がありません', 'warning');
+    return;
+  }
+
+  const resultContainer = document.getElementById('reportResult');
+  resultContainer.style.display = 'block';
+  resultContainer.innerHTML = '<p>出力中...</p>';
+
+  showLoading('Excel出力中...');
+
+  // 1件ずつ出力（複数の場合）
+  if (patientIds.length === 1) {
+    // 単一患者
+    google.script.run
+      .withSuccessHandler(function(result) {
+        hideLoading();
+        handleReportResult([result], resultContainer);
+      })
+      .withFailureHandler(function(error) {
+        hideLoading();
+        resultContainer.innerHTML = '<p class="error">出力エラー: ' + error.message + '</p>';
+      })
+      .portalExportIndividualReport(patientIds[0]);
+  } else {
+    // 複数患者
+    google.script.run
+      .withSuccessHandler(function(result) {
+        hideLoading();
+        handleMultipleReportResult(result, resultContainer);
+      })
+      .withFailureHandler(function(error) {
+        hideLoading();
+        resultContainer.innerHTML = '<p class="error">出力エラー: ' + error.message + '</p>';
+      })
+      .exportMultipleIndividualReports(patientIds, {});
+  }
+}
+
+/**
+ * 単一レポート結果を表示
+ */
+function handleReportResult(results, container) {
+  let html = '<h4>出力結果</h4><ul class="report-result-list">';
+
+  results.forEach(result => {
+    if (result.success) {
+      html += '<li class="success">';
+      html += '<span>✅ ' + (result.patientName || result.patientId) + '</span>';
+      html += '<a href="' + result.fileUrl + '" target="_blank" class="btn btn-sm btn-primary">ダウンロード</a>';
+      html += '</li>';
+    } else {
+      html += '<li class="error">';
+      html += '<span>❌ ' + result.patientId + ': ' + result.error + '</span>';
+      html += '</li>';
+    }
+  });
+
+  html += '</ul>';
+  container.innerHTML = html;
+  showNotification('出力完了', 'success');
+}
+
+/**
+ * 複数レポート結果を表示
+ */
+function handleMultipleReportResult(result, container) {
+  let html = '<h4>出力結果</h4>';
+
+  if (result.files && result.files.length > 0) {
+    html += '<p class="success">✅ ' + result.files.length + '件出力成功</p>';
+    html += '<ul class="report-result-list">';
+    result.files.forEach(file => {
+      html += '<li>';
+      html += '<span>' + file.fileName + '</span>';
+      html += '<a href="' + file.fileUrl + '" target="_blank" class="btn btn-sm btn-primary">ダウンロード</a>';
+      html += '</li>';
+    });
+    html += '</ul>';
+  }
+
+  if (result.errors && result.errors.length > 0) {
+    html += '<p class="error">❌ ' + result.errors.length + '件エラー</p>';
+    html += '<ul class="error-list">';
+    result.errors.forEach(err => {
+      html += '<li>' + err.patientId + ': ' + err.error + '</li>';
+    });
+    html += '</ul>';
+  }
+
+  container.innerHTML = html;
+  showNotification('出力処理完了', result.success ? 'success' : 'warning');
+}
+
+/**
+ * 入力完了分を全件出力
+ */
+function loadAndExportAllCompletedPatients() {
+  showLoading('完了分データ取得中...');
+
+  google.script.run
+    .withSuccessHandler(function(patients) {
+      hideLoading();
+      if (patients.length === 0) {
+        showNotification('入力完了の受診者がいません', 'info');
+        return;
+      }
+      const patientIds = patients.map(p => p.patientId);
+      exportIndividualReports(patientIds);
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showNotification('データ取得エラー: ' + error.message, 'error');
+    })
+    .portalSearchPatients({ status: '完了' });
 }
 
 // ============================================================

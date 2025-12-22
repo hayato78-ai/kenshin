@@ -94,6 +94,16 @@ const BML_COLUMN_MAPPING = {
   '受付番号': 'RECEPTION_NO',
   '受診番号': 'RECEPTION_NO',
 
+  // ★カルテNo・BML患者ID（CSV紐付け用キー）
+  'カルテNo': 'KARTE_NO',
+  'カルテ番号': 'KARTE_NO',
+  '患者番号': 'KARTE_NO',
+  'ID': 'KARTE_NO',
+  '患者ID': 'KARTE_NO',
+  'BML患者ID': 'BML_PATIENT_ID',
+  'BML番号': 'BML_PATIENT_ID',
+  'BML_ID': 'BML_PATIENT_ID',
+
   // 身体測定
   '身長': 'HEIGHT',
   '身長(cm)': 'HEIGHT',
@@ -1168,14 +1178,25 @@ function importBmlTestResults(csvContent, options = {}) {
 
     for (const record of recordsToImport) {
       try {
-        // 受診者を特定（氏名 + 生年月日）
-        const patient = findPatientByNameAndBirth(record.NAME, record.BIRTHDATE);
+        // 受診者を特定（優先: カルテNo → フォールバック: 氏名+生年月日）
+        let patient = null;
+
+        // 1. カルテNoで検索（BML CSVの主要な紐付けキー）
+        if (record.KARTE_NO) {
+          patient = findPatientByKarteNo(record.KARTE_NO);
+        }
+
+        // 2. カルテNoで見つからない場合、氏名+生年月日で検索
+        if (!patient && record.NAME && record.BIRTHDATE) {
+          patient = findPatientByNameAndBirth(record.NAME, record.BIRTHDATE);
+        }
+
         if (!patient && !options.createPatient) {
           importResults.skipped++;
           importResults.details.push({
-            name: record.NAME,
+            name: record.NAME || `カルテNo:${record.KARTE_NO}`,
             status: 'skipped',
-            reason: '受診者が見つかりません'
+            reason: '受診者が見つかりません（カルテNo/氏名+生年月日で検索）'
           });
           continue;
         }
@@ -1188,6 +1209,8 @@ function importBmlTestResults(csvContent, options = {}) {
             nameKana: record.NAME_KANA || '',
             birthDate: record.BIRTHDATE,
             gender: record.SEX,
+            karteNo: record.KARTE_NO || '',        // ★カルテNo追加
+            bmlPatientId: record.BML_PATIENT_ID || '', // ★BML患者ID追加
             companyId: options.companyId || ''
           });
           if (!createResult.success) {
@@ -1488,15 +1511,24 @@ function findPatientByNameAndBirth(name, birthDate) {
 
     const normalizedBirth = normalizeBirthDate(birthDate);
 
+    // 列インデックス（17列構造: Config.js COLUMN_DEFINITIONS.PATIENT_MASTER準拠 - カルテNo追加版）
+    const COL = {
+      PATIENT_ID: 0,  // A: 受診者ID
+      KARTE_NO: 1,    // B: カルテNo（クリニック患者ID）★追加
+      NAME: 4,        // E: 氏名（Dから1列シフト）
+      BIRTHDATE: 7    // H: 生年月日（Gから1列シフト）
+    };
+
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
-      if (row[1] === name) {
-        const rowBirth = normalizeBirthDate(row[3]);
+      if (row[COL.NAME] === name) {
+        const rowBirth = normalizeBirthDate(row[COL.BIRTHDATE]);
         if (rowBirth === normalizedBirth) {
           return {
-            patientId: row[0],
-            name: row[1],
-            birthDate: row[3]
+            patientId: row[COL.PATIENT_ID],
+            karteNo: row[COL.KARTE_NO],
+            name: row[COL.NAME],
+            birthDate: row[COL.BIRTHDATE]
           };
         }
       }
@@ -1505,6 +1537,51 @@ function findPatientByNameAndBirth(name, birthDate) {
     return null;
   } catch (e) {
     logError('findPatientByNameAndBirth', e);
+    return null;
+  }
+}
+
+/**
+ * カルテNoで受診者を検索（CSV取込用メイン関数）
+ * BML CSVのカルテNo（6桁クリニック患者ID）で受診者を特定
+ * @param {string} karteNo - カルテNo
+ * @returns {Object|null} 受診者情報またはnull
+ */
+function findPatientByKarteNo(karteNo) {
+  try {
+    const sheet = getSheet(CONFIG.SHEETS.PATIENT);
+    const data = sheet.getDataRange().getValues();
+
+    // 列インデックス（17列構造: Config.js COLUMN_DEFINITIONS.PATIENT_MASTER準拠）
+    const COL = {
+      PATIENT_ID: 0,  // A: 受診者ID
+      KARTE_NO: 1,    // B: カルテNo（クリニック患者ID）★CSV紐付け用
+      NAME: 4,        // E: 氏名
+      BIRTHDATE: 7,   // H: 生年月日
+      BML_PATIENT_ID: 16  // Q: BML患者ID
+    };
+
+    const searchKarteNo = String(karteNo).trim();
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const rowKarteNo = String(row[COL.KARTE_NO] || '').trim();
+
+      if (rowKarteNo === searchKarteNo) {
+        return {
+          rowIndex: i + 1,  // シート上の行番号（1-indexed）
+          patientId: row[COL.PATIENT_ID],
+          karteNo: row[COL.KARTE_NO],
+          name: row[COL.NAME],
+          birthDate: row[COL.BIRTHDATE],
+          bmlPatientId: row[COL.BML_PATIENT_ID]
+        };
+      }
+    }
+
+    return null;
+  } catch (e) {
+    logError('findPatientByKarteNo', e);
     return null;
   }
 }

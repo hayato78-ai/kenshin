@@ -33,7 +33,9 @@ const DB_CONFIG = {
     ORGANIZATION_MASTER: 'M_団体マスタ',     // 企業・団体情報
     COURSE_ITEM: 'M_コース項目マスタ',       // コースと検査項目の関連
     JUDGMENT_RESULT: 'T_判定結果',           // 3レベル判定結果
-    FINDINGS: 'T_所見'                       // 所見記録
+    FINDINGS: 'T_所見',                      // 所見記録
+    // Phase 3追加: 帳票マッピング（検査項目とは分離）
+    REPORT_MAPPING: 'M_ReportMapping'        // 検診種別×テンプレート→セル位置
   },
 
   // ステータス定義（設計書4.2準拠）
@@ -81,32 +83,38 @@ const DB_CONFIG = {
 // ============================================
 
 const COLUMN_DEFINITIONS = {
-  // 受診者マスタ（設計書4.1）
+  // 受診者マスタ（17列構造）
+  // ※年度内1回受診のため、受診情報も含む非正規化構造
+  // ※カルテNo = クリニック患者ID（CSV取込の主キー）
   PATIENT_MASTER: {
     headers: [
-      '受診者ID', '氏名', 'カナ', '生年月日', '性別',
-      '郵便番号', '住所', '電話番号', 'メール', '所属企業',
-      '備考', '作成日時', '更新日時'
+      '受診者ID', 'カルテNo', 'ステータス', '受診日', '氏名', 'カナ',
+      '性別', '生年月日', '年齢', '受診コース', '事業所名',
+      '所属', '総合判定', 'CSV取込日時', '最終更新日時', '出力日時', 'BML患者ID'
     ],
     columns: {
-      PATIENT_ID: 0,    // A: 受診者ID
-      NAME: 1,          // B: 氏名
-      KANA: 2,          // C: カナ
-      BIRTHDATE: 3,     // D: 生年月日
-      GENDER: 4,        // E: 性別 (M/F)
-      POSTAL_CODE: 5,   // F: 郵便番号
-      ADDRESS: 6,       // G: 住所
-      PHONE: 7,         // H: 電話番号
-      EMAIL: 8,         // I: メール
-      COMPANY: 9,       // J: 所属企業
-      NOTES: 10,        // K: 備考
-      CREATED_AT: 11,   // L: 作成日時
-      UPDATED_AT: 12    // M: 更新日時
+      PATIENT_ID: 0,      // A: 受診者ID (内部ID: P-00001形式) ※UIで非表示
+      KARTE_NO: 1,        // B: カルテNo (クリニック患者ID: 6桁) ★CSV紐付け用
+      STATUS: 2,          // C: ステータス
+      VISIT_DATE: 3,      // D: 受診日
+      NAME: 4,            // E: 氏名
+      KANA: 5,            // F: カナ
+      GENDER: 6,          // G: 性別
+      BIRTHDATE: 7,       // H: 生年月日
+      AGE: 8,             // I: 年齢
+      COURSE: 9,          // J: 受診コース
+      COMPANY: 10,        // K: 事業所名
+      DEPARTMENT: 11,     // L: 所属
+      OVERALL_JUDGMENT: 12, // M: 総合判定
+      CSV_IMPORT_DATE: 13,  // N: CSV取込日時
+      UPDATED_AT: 14,     // O: 最終更新日時
+      EXPORT_DATE: 15,    // P: 出力日時
+      BML_PATIENT_ID: 16  // Q: BML患者ID（BML通信用・トレーサビリティ）
     },
     columnWidths: {
-      A: 100, B: 100, C: 120, D: 100, E: 50,
-      F: 80, G: 200, H: 120, I: 150, J: 150,
-      K: 200, L: 150, M: 150
+      A: 100, B: 80, C: 80, D: 100, E: 100, F: 120,
+      G: 50, H: 100, I: 50, J: 150, K: 150,
+      L: 100, M: 80, N: 150, O: 150, P: 150, Q: 100
     }
   },
 
@@ -669,6 +677,52 @@ const JUDGMENT_CATEGORIES = [
   { id: 'ecg', name: '心電図', items: ['心電図'] },
   { id: 'chest', name: '胸部', items: ['胸部X線'] }
 ];
+
+// ============================================
+// M_ReportMapping（帳票マッピング）
+// 設計原則: 検査項目マスタと分離
+// - 単一責任: 項目定義は項目マスタ、出力位置はマッピングテーブル
+// - 疎結合: 検診種別追加時に項目マスタ変更不要
+// - 正規化: 項目ID参照でDRY原則遵守
+// ============================================
+const REPORT_MAPPING_DEF = {
+  headers: [
+    'mapping_id',    // A: マッピングID（PK）
+    'exam_type',     // B: 検診種別（DOCK/REGULAR/EMPLOY/ROSAI）
+    'template_id',   // C: テンプレートID（template_new_default等）
+    'sheet_name',    // D: シート名（1ページ/4ページ等）
+    'item_id',       // E: 項目ID（M_検査項目のitem_code FK）
+    'bml_code',      // F: BMLコード（照合用）
+    'value_cell',    // G: 値セル（M6等）
+    'judgment_cell', // H: 判定セル（K6等）
+    'flag_cell',     // I: フラグセル（O6等）
+    'format',        // J: 出力形式（numeric/text/date）
+    'decimal_places',// K: 小数桁数
+    'notes',         // L: 備考
+    'is_active'      // M: 有効フラグ
+  ],
+  columns: {
+    MAPPING_ID: 0,
+    EXAM_TYPE: 1,
+    TEMPLATE_ID: 2,
+    SHEET_NAME: 3,
+    ITEM_ID: 4,
+    BML_CODE: 5,
+    VALUE_CELL: 6,
+    JUDGMENT_CELL: 7,
+    FLAG_CELL: 8,
+    FORMAT: 9,
+    DECIMAL_PLACES: 10,
+    NOTES: 11,
+    IS_ACTIVE: 12
+  },
+  columnWidths: {
+    A: 100, B: 80, C: 150, D: 80, E: 100,
+    F: 80, G: 60, H: 60, I: 60, J: 80,
+    K: 60, L: 200, M: 60
+  }
+};
+
 // Auto-deploy test: 2025-12-18 07:21:10
 // Workflow test: 2025-12-18 07:28:47
 // Re-deploy: 2025-12-18 13:04:08

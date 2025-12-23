@@ -101,8 +101,9 @@ function normalizeKana(str) {
 // ============================================================
 
 /**
- * 検査結果シートの列構造
- * BMLコード → システムID → 表示名 のマッピング
+ * 検査結果シートの列定義
+ * ※ BMLコードはmapping_template_new.jsonと完全一致
+ * 更新日: 2025-12-23
  */
 const LAB_RESULT_COLUMNS = {
   // 基本情報（固定列）
@@ -113,67 +114,70 @@ const LAB_RESULT_COLUMNS = {
     { col: 3, id: 'BML_PATIENT_ID', name: 'BML患者ID', type: 'info' },
     { col: 4, id: 'CSV_IMPORT_DATE', name: 'CSV取込日時', type: 'datetime' }
   ],
-  // 検査項目（BMLコードマッピング対応、カテゴリはTAB_CATEGORIESと一致）
+  // 検査項目（BMLコードはmapping_template_new.json準拠）
   ITEMS: [
-    // 身体測定
-    { id: 'HEIGHT', name: '身長', bmlCode: '0000401', unit: 'cm', category: '身体測定' },
-    { id: 'WEIGHT', name: '体重', bmlCode: '0000402', unit: 'kg', category: '身体測定' },
-    { id: 'BMI', name: 'BMI', bmlCode: '0000403', unit: '', category: '身体測定' },
-    { id: 'WAIST_M', name: '腹囲', bmlCode: '0000404', unit: 'cm', category: '身体測定' },
-    // 血圧
-    { id: 'BP_SYSTOLIC_1', name: '収縮期血圧', bmlCode: '0000411', unit: 'mmHg', category: '血圧' },
-    { id: 'BP_DIASTOLIC_1', name: '拡張期血圧', bmlCode: '0000412', unit: 'mmHg', category: '血圧' },
-    { id: 'PULSE', name: '脈拍', bmlCode: '0000413', unit: 'bpm', category: '血圧' },
-    // 尿検査
+    // ===== 血液一般 =====
+    { id: 'WBC', name: '白血球数', bmlCode: '0000301', unit: '/μL', category: '血液学検査' },
+    { id: 'RBC', name: '赤血球数', bmlCode: '0000302', unit: '万/μL', category: '血液学検査' },
+    { id: 'HEMOGLOBIN', name: '血色素量', bmlCode: '0000303', unit: 'g/dL', category: '血液学検査' },
+    { id: 'HEMATOCRIT', name: 'ヘマトクリット', bmlCode: '0000304', unit: '%', category: '血液学検査' },
+    { id: 'PLATELET', name: '血小板', bmlCode: '0000308', unit: '万/μL', category: '血液学検査' },
+    { id: 'MCV', name: 'MCV', bmlCode: '0000305', unit: 'fL', category: '血液学検査' },
+    { id: 'MCH', name: 'MCH', bmlCode: '0000306', unit: 'pg', category: '血液学検査' },
+    { id: 'MCHC', name: 'MCHC', bmlCode: '0000307', unit: '%', category: '血液学検査' },
+    // ===== 白血球像 =====
+    { id: 'NEUT', name: '好中球', bmlCode: '0001885', unit: '%', category: '血液学検査' },
+    { id: 'BASO', name: '好塩基球', bmlCode: '0001881', unit: '%', category: '血液学検査' },
+    { id: 'EOS', name: '好酸球', bmlCode: '0001882', unit: '%', category: '血液学検査' },
+    { id: 'LYMPHO', name: 'リンパ球', bmlCode: '0001889', unit: '%', category: '血液学検査' },
+    { id: 'MONO', name: '単球', bmlCode: '0001886', unit: '%', category: '血液学検査' },
+    // ===== 生化学 =====
+    { id: 'TOTAL_PROTEIN', name: '総蛋白', bmlCode: '0000401', unit: 'g/dL', category: '肝胆膵機能' },
+    { id: 'ALBUMIN', name: 'アルブミン', bmlCode: '0000417', unit: 'g/dL', category: '肝胆膵機能' },
+    { id: 'AST', name: 'AST(GOT)', bmlCode: '0000481', unit: 'U/L', category: '肝胆膵機能' },
+    { id: 'ALT', name: 'ALT(GPT)', bmlCode: '0000482', unit: 'U/L', category: '肝胆膵機能' },
+    { id: 'GGT', name: 'γ-GTP', bmlCode: '0000484', unit: 'U/L', category: '肝胆膵機能' },
+    { id: 'ALP', name: 'ALP(IFCC)', bmlCode: '0013067', unit: 'U/L', category: '肝胆膵機能' },
+    { id: 'LDH', name: 'LDH', bmlCode: '0000497', unit: 'U/L', category: '肝胆膵機能' },
+    { id: 'T_BIL', name: '総ビリルビン', bmlCode: '0000472', unit: 'mg/dL', category: '肝胆膵機能' },
+    // ===== 脂質 =====
+    { id: 'TOTAL_CHOLESTEROL', name: '総コレステロール', bmlCode: '0000453', unit: 'mg/dL', category: '脂質検査' },
+    { id: 'TG', name: '中性脂肪', bmlCode: '0000454', unit: 'mg/dL', category: '脂質検査' },
+    { id: 'HDL_C', name: 'HDLコレステロール', bmlCode: '0000460', unit: 'mg/dL', category: '脂質検査' },
+    { id: 'LDL_C', name: 'LDLコレステロール', bmlCode: '0000410', unit: 'mg/dL', category: '脂質検査' },
+    // ===== 糖代謝 =====
+    { id: 'FBS', name: '空腹時血糖', bmlCode: '0000503', unit: 'mg/dL', category: '糖代謝' },
+    { id: 'HBA1C', name: 'HbA1c', bmlCode: '0003317', unit: '%', category: '糖代謝' },
+    // ===== 腎機能 =====
+    { id: 'CREATININE', name: 'クレアチニン', bmlCode: '0000413', unit: 'mg/dL', category: '腎機能' },
+    { id: 'BUN', name: '尿素窒素', bmlCode: '0000491', unit: 'mg/dL', category: '腎機能' },
+    { id: 'EGFR', name: 'eGFR', bmlCode: '0002696', unit: 'mL/min', category: '腎機能' },
+    // ===== その他 =====
+    { id: 'UA', name: '尿酸', bmlCode: '0000407', unit: 'mg/dL', category: '腎機能' },
+    { id: 'CK', name: 'CK', bmlCode: '0003845', unit: 'U/L', category: '肝胆膵機能' },
+    { id: 'NA', name: 'Na', bmlCode: '0003550', unit: 'mEq/L', category: '腎機能' },
+    { id: 'K', name: 'K', bmlCode: '0000421', unit: 'mEq/L', category: '腎機能' },
+    { id: 'CL', name: 'Cl', bmlCode: '0000425', unit: 'mEq/L', category: '腎機能' },
+    { id: 'CRP', name: 'CRP定量', bmlCode: '0000658', unit: 'mg/dL', category: '血液学検査' },
+    // ===== 身体測定（手入力） =====
+    { id: 'HEIGHT', name: '身長', bmlCode: null, unit: 'cm', category: '身体測定' },
+    { id: 'WEIGHT', name: '体重', bmlCode: null, unit: 'kg', category: '身体測定' },
+    { id: 'BMI', name: 'BMI', bmlCode: null, unit: '', category: '身体測定' },
+    { id: 'WAIST_M', name: '腹囲', bmlCode: null, unit: 'cm', category: '身体測定' },
+    // ===== 血圧（手入力） =====
+    { id: 'BP_SYSTOLIC_1', name: '収縮期血圧', bmlCode: null, unit: 'mmHg', category: '血圧' },
+    { id: 'BP_DIASTOLIC_1', name: '拡張期血圧', bmlCode: null, unit: 'mmHg', category: '血圧' },
+    { id: 'PULSE', name: '脈拍', bmlCode: null, unit: 'bpm', category: '血圧' },
+    // ===== 尿検査 =====
     { id: 'URINE_PROTEIN', name: '尿蛋白', bmlCode: '0003891', unit: '', category: '尿検査' },
     { id: 'URINE_GLUCOSE', name: '尿糖', bmlCode: '0003892', unit: '', category: '尿検査' },
     { id: 'URINE_OCCULT_BLOOD', name: '尿潜血', bmlCode: '0003893', unit: '', category: '尿検査' },
-    // 血液学検査
-    { id: 'WBC', name: '白血球', bmlCode: '0000301', unit: '/μL', category: '血液学検査' },
-    { id: 'RBC', name: '赤血球', bmlCode: '0000302', unit: '万/μL', category: '血液学検査' },
-    { id: 'HEMOGLOBIN', name: 'ヘモグロビン', bmlCode: '0000303', unit: 'g/dL', category: '血液学検査' },
-    { id: 'HEMATOCRIT', name: 'ヘマトクリット', bmlCode: '0000304', unit: '%', category: '血液学検査' },
-    { id: 'PLATELET', name: '血小板', bmlCode: '0000313', unit: '万/μL', category: '血液学検査' },
-    { id: 'MCV', name: 'MCV', bmlCode: '0000308', unit: 'fL', category: '血液学検査' },
-    // 肝機能
-    { id: 'AST', name: 'AST(GOT)', bmlCode: '0000482', unit: 'U/L', category: '肝胆膵機能' },
-    { id: 'ALT', name: 'ALT(GPT)', bmlCode: '0000484', unit: 'U/L', category: '肝胆膵機能' },
-    { id: 'GGT', name: 'γ-GTP', bmlCode: '0000501', unit: 'U/L', category: '肝胆膵機能' },
-    { id: 'ALP', name: 'ALP', bmlCode: '0000481', unit: 'U/L', category: '肝胆膵機能' },
-    { id: 'LDH', name: 'LDH', bmlCode: '0000491', unit: 'U/L', category: '肝胆膵機能' },
-    // 蛋白
-    { id: 'TOTAL_PROTEIN', name: '総蛋白', bmlCode: '0000407', unit: 'g/dL', category: '肝胆膵機能' },
-    { id: 'ALBUMIN', name: 'アルブミン', bmlCode: '0000409', unit: 'g/dL', category: '肝胆膵機能' },
-    { id: 'A_G_RATIO', name: 'A/G比', bmlCode: '0000410', unit: '', category: '肝胆膵機能' },
-    // 脂質
-    { id: 'TOTAL_CHOLESTEROL', name: '総コレステロール', bmlCode: '0000453', unit: 'mg/dL', category: '脂質検査' },
-    { id: 'TG', name: '中性脂肪', bmlCode: '0000454', unit: 'mg/dL', category: '脂質検査' },
-    { id: 'HDL_C', name: 'HDLコレステロール', bmlCode: '0003845', unit: 'mg/dL', category: '脂質検査' },
-    { id: 'LDL_C', name: 'LDLコレステロール', bmlCode: '0003317', unit: 'mg/dL', category: '脂質検査' },
-    // 糖代謝
-    { id: 'FBS', name: '空腹時血糖', bmlCode: '0000497', unit: 'mg/dL', category: '糖代謝' },
-    { id: 'HBA1C', name: 'HbA1c', bmlCode: '0002696', unit: '%', category: '糖代謝' },
-    // 腎機能
-    { id: 'CREATININE', name: 'クレアチニン', bmlCode: '0000413', unit: 'mg/dL', category: '腎機能' },
-    { id: 'BUN', name: '尿素窒素', bmlCode: '0000417', unit: 'mg/dL', category: '腎機能' },
-    { id: 'EGFR', name: 'eGFR', bmlCode: '0000460', unit: 'mL/min', category: '腎機能' },
-    { id: 'UA', name: '尿酸', bmlCode: '0000472', unit: 'mg/dL', category: '腎機能' },
-    // 電解質
-    { id: 'NA', name: 'Na', bmlCode: '0000421', unit: 'mEq/L', category: '腎機能' },
-    { id: 'K', name: 'K', bmlCode: '0000423', unit: 'mEq/L', category: '腎機能' },
-    { id: 'CL', name: 'Cl', bmlCode: '0000425', unit: 'mEq/L', category: '腎機能' },
-    // 炎症
-    { id: 'CRP', name: 'CRP', bmlCode: '0000658', unit: 'mg/dL', category: '血液学検査' },
-    // 便潜血
+    // ===== 便潜血 =====
     { id: 'FOBT_1', name: '便潜血1回目', bmlCode: '0000905', unit: '', category: '消化器' },
     { id: 'FOBT_2', name: '便潜血2回目', bmlCode: '0000911', unit: '', category: '消化器' },
-    // 感染症
+    // ===== 感染症 =====
     { id: 'HBS_AG', name: 'HBs抗原', bmlCode: '0004821', unit: '', category: '感染症' },
-    { id: 'HCV_AB', name: 'HCV抗体', bmlCode: '0004822', unit: '', category: '感染症' },
-    // 腫瘍マーカー
-    { id: 'PSA', name: 'PSA', bmlCode: '0003550', unit: 'ng/mL', category: '腫瘍マーカー' },
-    // 鉄
-    { id: 'FE', name: '血清鉄', bmlCode: '0000503', unit: 'μg/dL', category: '血液学検査' }
+    { id: 'HCV_AB', name: 'HCV抗体', bmlCode: '0004822', unit: '', category: '感染症' }
   ]
 };
 

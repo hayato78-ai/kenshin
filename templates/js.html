@@ -2993,7 +2993,8 @@ document.addEventListener('DOMContentLoaded', function() {
 // ============================================================
 
 // 現在の入力モード（idheart / simple）
-let currentInputMode = 'idheart';
+// ※ iD-Heart形式はレイアウト崩れのため、simpleをデフォルトに設定
+let currentInputMode = 'simple';
 
 // 現在選択中の受診者
 let currentVisitorData = null;

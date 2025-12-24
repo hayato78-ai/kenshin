@@ -1,0 +1,228 @@
+{
+  "version": "3.0.0",
+  "description": "人間ドック用 BMLコード→セルマッピング（template_new_default.xlsm用）",
+  "template": "1221_template_new_default.xlsm",
+  "created_at": "2024-12-24",
+  "note": "列構成: K列=判定, M列=値(今回), Q列=前回, W列=前々回",
+
+  "sheets": {
+    "page1": { "name": "1ページ", "content": "総合判定・総合所見・項目別判定一覧" },
+    "page3": { "name": "３ページ", "content": "身体測定、血圧、眼科、聴力、尿検査、便検査" },
+    "page4": { "name": "４ページ", "content": "血液学検査、肝胆膵、脂質、糖代謝、腎機能、生化学、血清学" },
+    "page5": { "name": "５ページ", "content": "腫瘍マーカー、感染症、内分泌、血液型、肺機能" }
+  },
+
+  "patient_info": {
+    "comment": "患者基本情報（1ページ）",
+    "sheet": "1ページ",
+    "fields": {
+      "name": { "cell": "C8", "comment": "氏名" },
+      "exam_date": { "cell": "I11", "comment": "受診日（今回）" },
+      "gender": { "cell": null, "comment": "性別（要確認）" }
+    }
+  },
+
+  "test_items": {
+    "comment": "検査項目マッピング（BMLコード → セル位置）",
+
+    "items": {
+      "_comment_page3": "===== ３ページ: 身体測定・血圧・尿検査・便検査 =====",
+
+      "_身体測定": {
+        "HEIGHT": { "name": "身長", "sheet": "３ページ", "value_cell": "M6", "judgment_cell": "K6", "bmlCode": null },
+        "WEIGHT": { "name": "体重", "sheet": "３ページ", "value_cell": "M7", "judgment_cell": "K7", "bmlCode": null },
+        "STANDARD_WEIGHT": { "name": "標準体重", "sheet": "３ページ", "value_cell": "M8", "judgment_cell": "K8", "bmlCode": null },
+        "BMI": { "name": "BMI", "sheet": "３ページ", "value_cell": "M9", "judgment_cell": "K9", "bmlCode": null },
+        "BODY_FAT": { "name": "体脂肪率", "sheet": "３ページ", "value_cell": "M10", "judgment_cell": "K10", "bmlCode": null },
+        "WAIST": { "name": "腹囲", "sheet": "３ページ", "value_cell": "M11", "judgment_cell": "K11", "bmlCode": null }
+      },
+
+      "_血圧": {
+        "BP_SYSTOLIC_1": { "name": "血圧1回目(収縮期)", "sheet": "３ページ", "value_cell": "M12", "judgment_cell": "K12", "bmlCode": null },
+        "BP_DIASTOLIC_1": { "name": "血圧1回目(拡張期)", "sheet": "３ページ", "value_cell": "M13", "judgment_cell": "K13", "bmlCode": null },
+        "BP_SYSTOLIC_2": { "name": "血圧2回目(収縮期)", "sheet": "３ページ", "value_cell": "M14", "judgment_cell": "K14", "bmlCode": null },
+        "BP_DIASTOLIC_2": { "name": "血圧2回目(拡張期)", "sheet": "３ページ", "value_cell": "M15", "judgment_cell": "K15", "bmlCode": null }
+      },
+
+      "_尿検査_３ページ": {
+        "0003892": { "name": "尿糖(定性)", "sheet": "３ページ", "value_cell": "M28", "judgment_cell": "K28" },
+        "0003891": { "name": "尿蛋白", "sheet": "３ページ", "value_cell": "M29", "judgment_cell": "K29" },
+        "0003893": { "name": "尿潜血", "sheet": "３ページ", "value_cell": "M30", "judgment_cell": "K30" },
+        "UROBILINOGEN": { "name": "ウロビリノーゲン", "sheet": "３ページ", "value_cell": "M31", "judgment_cell": "K31", "bmlCode": null },
+        "URINE_PH": { "name": "尿PH", "sheet": "３ページ", "value_cell": "M32", "judgment_cell": "K32", "bmlCode": null },
+        "URINE_BILIRUBIN": { "name": "尿ビリルビン", "sheet": "３ページ", "value_cell": "M33", "judgment_cell": "K33", "bmlCode": null },
+        "ACETONE": { "name": "アセトン体", "sheet": "３ページ", "value_cell": "M34", "judgment_cell": "K34", "bmlCode": null },
+        "URINE_WBC": { "name": "尿沈渣白血球", "sheet": "３ページ", "value_cell": "M35", "judgment_cell": "K35", "bmlCode": null },
+        "URINE_RBC": { "name": "尿沈渣赤血球", "sheet": "３ページ", "value_cell": "M36", "judgment_cell": "K36", "bmlCode": null },
+        "URINE_EPITHELIAL": { "name": "尿沈渣扁平上皮", "sheet": "３ページ", "value_cell": "M37", "judgment_cell": "K37", "bmlCode": null },
+        "URINE_BACTERIA": { "name": "尿沈渣細菌", "sheet": "３ページ", "value_cell": "M38", "judgment_cell": "K38", "bmlCode": null }
+      },
+
+      "_便検査_３ページ": {
+        "0000905": { "name": "便ヘモグロビン1回目", "sheet": "３ページ", "value_cell": "M39", "judgment_cell": "K39" },
+        "0000911": { "name": "便ヘモグロビン2回目", "sheet": "３ページ", "value_cell": "M40", "judgment_cell": "K40" }
+      },
+
+      "_comment_page4": "===== ４ページ: 血液学・肝胆膵・脂質・糖代謝・腎機能・生化学・血清学 =====",
+
+      "_血液学検査_４ページ": {
+        "0000301": { "name": "白血球数(WBC)", "sheet": "４ページ", "value_cell": "M6", "judgment_cell": "K6" },
+        "0000302": { "name": "赤血球数(RBC)", "sheet": "４ページ", "value_cell": "M7", "judgment_cell": "K7" },
+        "0000303": { "name": "血色素量(Hb)", "sheet": "４ページ", "value_cell": "M8", "judgment_cell": "K8" },
+        "0000304": { "name": "ヘマトクリット(Ht)", "sheet": "４ページ", "value_cell": "M9", "judgment_cell": "K9" },
+        "0000308": { "name": "血小板(PLT)", "sheet": "４ページ", "value_cell": "M10", "judgment_cell": "K10" },
+        "0000305": { "name": "MCV", "sheet": "４ページ", "value_cell": "M11", "judgment_cell": "K11" },
+        "0000306": { "name": "MCH", "sheet": "４ページ", "value_cell": "M12", "judgment_cell": "K12" },
+        "0000307": { "name": "MCHC", "sheet": "４ページ", "value_cell": "M13", "judgment_cell": "K13" },
+        "0001885": { "name": "好中球(NEUT)", "sheet": "４ページ", "value_cell": "M15", "judgment_cell": "K15" },
+        "0001881": { "name": "好塩基球(BASO)", "sheet": "４ページ", "value_cell": "M16", "judgment_cell": "K16" },
+        "0001882": { "name": "好酸球(EOS)", "sheet": "４ページ", "value_cell": "M17", "judgment_cell": "K17" },
+        "0001889": { "name": "リンパ球(LYMPHO)", "sheet": "４ページ", "value_cell": "M18", "judgment_cell": "K18" },
+        "0001886": { "name": "単球(MONO)", "sheet": "４ページ", "value_cell": "M19", "judgment_cell": "K19" }
+      },
+
+      "_肝胆膵機能_４ページ": {
+        "0000401": { "name": "総蛋白(TP)", "sheet": "４ページ", "value_cell": "M22", "judgment_cell": "K22" },
+        "0000417": { "name": "アルブミン", "sheet": "４ページ", "value_cell": "M23", "judgment_cell": "K23" },
+        "0000481": { "name": "AST(GOT)", "sheet": "４ページ", "value_cell": "M24", "judgment_cell": "K24" },
+        "0000482": { "name": "ALT(GPT)", "sheet": "４ページ", "value_cell": "M25", "judgment_cell": "K25" },
+        "0000484": { "name": "γ-GTP", "sheet": "４ページ", "value_cell": "M26", "judgment_cell": "K26" },
+        "0013067": { "name": "ALP(IFCC)", "sheet": "４ページ", "value_cell": "M27", "judgment_cell": "K27" },
+        "0000497": { "name": "LDH", "sheet": "４ページ", "value_cell": "M28", "judgment_cell": "K28" },
+        "CHE": { "name": "Ch-E", "sheet": "４ページ", "value_cell": "M29", "judgment_cell": "K29", "bmlCode": null },
+        "0000501": { "name": "血清アミラーゼ", "sheet": "４ページ", "value_cell": "M30", "judgment_cell": "K30" },
+        "0000472": { "name": "T-Bil", "sheet": "４ページ", "value_cell": "M31", "judgment_cell": "K31" }
+      },
+
+      "_脂質検査_４ページ": {
+        "0000453": { "name": "総コレステロール", "sheet": "４ページ", "value_cell": "M32", "judgment_cell": "K32" },
+        "0000454": { "name": "中性脂肪(TG)", "sheet": "４ページ", "value_cell": "M33", "judgment_cell": "K33" },
+        "0000460": { "name": "HDLコレステロール", "sheet": "４ページ", "value_cell": "M34", "judgment_cell": "K34" },
+        "0000410": { "name": "LDLコレステロール", "sheet": "４ページ", "value_cell": "M35", "judgment_cell": "K35" },
+        "NON_HDL": { "name": "non-HDLコレステロール", "sheet": "４ページ", "value_cell": "M36", "judgment_cell": "K36", "bmlCode": null }
+      },
+
+      "_糖代謝_４ページ": {
+        "0000503": { "name": "空腹時血糖(FBS)", "sheet": "４ページ", "value_cell": "M38", "judgment_cell": "K38" },
+        "0003317": { "name": "HbA1c", "sheet": "４ページ", "value_cell": "M39", "judgment_cell": "K39" }
+      },
+
+      "_腎機能_４ページ": {
+        "0000413": { "name": "クレアチニン(Cre)", "sheet": "４ページ", "value_cell": "M41", "judgment_cell": "K41" },
+        "0000491": { "name": "尿素窒素(BUN)", "sheet": "４ページ", "value_cell": "M42", "judgment_cell": "K42" },
+        "0002696": { "name": "eGFR", "sheet": "４ページ", "value_cell": "M43", "judgment_cell": "K43" }
+      },
+
+      "_生化学検査_４ページ": {
+        "0000407": { "name": "尿酸(UA)", "sheet": "４ページ", "value_cell": "M45", "judgment_cell": "K45" },
+        "0003845": { "name": "CK", "sheet": "４ページ", "value_cell": "M46", "judgment_cell": "K46" },
+        "0003550": { "name": "Na", "sheet": "４ページ", "value_cell": "M47", "judgment_cell": "K47" },
+        "0000421": { "name": "K", "sheet": "４ページ", "value_cell": "M48", "judgment_cell": "K48" },
+        "0000425": { "name": "Cl", "sheet": "４ページ", "value_cell": "M49", "judgment_cell": "K49" },
+        "0000427": { "name": "Ca", "sheet": "４ページ", "value_cell": "M50", "judgment_cell": "K50" },
+        "FE": { "name": "Fe", "sheet": "４ページ", "value_cell": "M51", "judgment_cell": "K51", "bmlCode": null },
+        "TIBC": { "name": "TIBC", "sheet": "４ページ", "value_cell": "M52", "judgment_cell": "K52", "bmlCode": null }
+      },
+
+      "_血清学_４ページ": {
+        "0000658": { "name": "CRP定量", "sheet": "４ページ", "value_cell": "M54", "judgment_cell": "K54" },
+        "RF": { "name": "リウマトイド因子定量", "sheet": "４ページ", "value_cell": "M55", "judgment_cell": "K55", "bmlCode": null }
+      },
+
+      "_comment_page5": "===== ５ページ: 腫瘍マーカー・感染症・内分泌・血液型・肺機能 =====",
+
+      "_腫瘍マーカー_５ページ": {
+        "PSA": { "name": "PSA", "sheet": "５ページ", "value_cell": "M6", "judgment_cell": "K6", "bmlCode": null },
+        "CEA": { "name": "CEA", "sheet": "５ページ", "value_cell": "M7", "judgment_cell": "K7", "bmlCode": null },
+        "CA19_9": { "name": "CA19-9", "sheet": "５ページ", "value_cell": "M8", "judgment_cell": "K8", "bmlCode": null },
+        "CA125": { "name": "CA125", "sheet": "５ページ", "value_cell": "M9", "judgment_cell": "K9", "bmlCode": null },
+        "NSE": { "name": "NSE", "sheet": "５ページ", "value_cell": "M10", "judgment_cell": "K10", "bmlCode": null },
+        "ELASTASE1": { "name": "エラスターゼ1", "sheet": "５ページ", "value_cell": "M11", "judgment_cell": "K11", "bmlCode": null },
+        "P53_AB": { "name": "抗p53抗体", "sheet": "５ページ", "value_cell": "M12", "judgment_cell": "K12", "bmlCode": null },
+        "CYFRA21_1": { "name": "CYFRA21-1", "sheet": "５ページ", "value_cell": "M13", "judgment_cell": "K13", "bmlCode": null },
+        "SCC": { "name": "SCC", "sheet": "５ページ", "value_cell": "M14", "judgment_cell": "K14", "bmlCode": null },
+        "PROGRP": { "name": "ProGRP", "sheet": "５ページ", "value_cell": "M15", "judgment_cell": "K15", "bmlCode": null },
+        "AFP": { "name": "AFP", "sheet": "５ページ", "value_cell": "M16", "judgment_cell": "K16", "bmlCode": null },
+        "PIVKA_II": { "name": "PIVKA II", "sheet": "５ページ", "value_cell": "M17", "judgment_cell": "K17", "bmlCode": null }
+      },
+
+      "_感染症_５ページ": {
+        "TPHA": { "name": "TPHA", "sheet": "５ページ", "value_cell": "M18", "judgment_cell": "K18", "bmlCode": null },
+        "RPR": { "name": "RPR定性", "sheet": "５ページ", "value_cell": "M19", "judgment_cell": "K19", "bmlCode": null },
+        "0004821": { "name": "HBs抗原", "sheet": "５ページ", "value_cell": "M20", "judgment_cell": "K20" },
+        "HBS_AB": { "name": "HBs抗体", "sheet": "５ページ", "value_cell": "M21", "judgment_cell": "K21", "bmlCode": null },
+        "0004822": { "name": "HCV抗体", "sheet": "５ページ", "value_cell": "M22", "judgment_cell": "K22" },
+        "HIV1_AB": { "name": "HIV-1抗体", "sheet": "５ページ", "value_cell": "M23", "judgment_cell": "K23", "bmlCode": null }
+      },
+
+      "_内分泌_５ページ": {
+        "NT_PROBNP": { "name": "NT-proBNP", "sheet": "５ページ", "value_cell": "M25", "judgment_cell": "K25", "bmlCode": null },
+        "FT3": { "name": "FT3", "sheet": "５ページ", "value_cell": "M26", "judgment_cell": "K26", "bmlCode": null },
+        "FT4": { "name": "FT4", "sheet": "５ページ", "value_cell": "M27", "judgment_cell": "K27", "bmlCode": null },
+        "TSH": { "name": "TSH", "sheet": "５ページ", "value_cell": "M28", "judgment_cell": "K28", "bmlCode": null }
+      },
+
+      "_血液型_５ページ": {
+        "ABO": { "name": "ABO式", "sheet": "５ページ", "value_cell": "M30", "judgment_cell": "K30", "bmlCode": null },
+        "RH_D": { "name": "Rh(D)", "sheet": "５ページ", "value_cell": "M31", "judgment_cell": "K31", "bmlCode": null }
+      },
+
+      "_肺機能_５ページ": {
+        "VC": { "name": "肺活量", "sheet": "５ページ", "value_cell": "M36", "judgment_cell": "K36", "bmlCode": null },
+        "FEV1": { "name": "1秒量", "sheet": "５ページ", "value_cell": "M37", "judgment_cell": "K37", "bmlCode": null },
+        "VC_PERCENT": { "name": "%肺活量", "sheet": "５ページ", "value_cell": "M38", "judgment_cell": "K38", "bmlCode": null },
+        "FEV1_PERCENT": { "name": "1秒率", "sheet": "５ページ", "value_cell": "M39", "judgment_cell": "K39", "bmlCode": null },
+        "FEV1_PREDICTED": { "name": "%1秒量", "sheet": "５ページ", "value_cell": "M40", "judgment_cell": "K40", "bmlCode": null }
+      }
+    }
+  },
+
+  "bml_code_map": {
+    "comment": "BMLコード→項目IDの逆引きマップ（Python処理用）",
+    "0000301": "WBC",
+    "0000302": "RBC",
+    "0000303": "HB",
+    "0000304": "HT",
+    "0000305": "MCV",
+    "0000306": "MCH",
+    "0000307": "MCHC",
+    "0000308": "PLT",
+    "0001881": "BASO",
+    "0001882": "EOS",
+    "0001885": "NEUT",
+    "0001886": "MONO",
+    "0001889": "LYMPHO",
+    "0000401": "TP",
+    "0000407": "UA",
+    "0000410": "LDL",
+    "0000413": "CRE",
+    "0000417": "ALB",
+    "0000421": "K",
+    "0000425": "CL",
+    "0000427": "CA",
+    "0000453": "TC",
+    "0000454": "TG",
+    "0000460": "HDL",
+    "0000472": "TBIL",
+    "0000481": "AST",
+    "0000482": "ALT",
+    "0000484": "GGT",
+    "0000491": "BUN",
+    "0000497": "LDH",
+    "0000501": "AMY",
+    "0000503": "FBS",
+    "0000658": "CRP",
+    "0000905": "FOBT1",
+    "0000911": "FOBT2",
+    "0002696": "EGFR",
+    "0003317": "HBA1C",
+    "0003550": "NA",
+    "0003845": "CK",
+    "0003891": "URINE_PROTEIN",
+    "0003892": "URINE_GLUCOSE",
+    "0003893": "URINE_OCCULT_BLOOD",
+    "0004821": "HBS_AG",
+    "0004822": "HCV_AB",
+    "0013067": "ALP"
+  }
+}

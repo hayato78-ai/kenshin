@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+*.log
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary
+*.tmp
+*.bak
+
+# Output files
+python/output/
+python/processed/
+python/error/
+python/pending/
+
+# Credentials
+.env
+*.json.bak

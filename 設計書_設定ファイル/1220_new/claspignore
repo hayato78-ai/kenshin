@@ -1,0 +1,26 @@
+# ドキュメント（GASにpushしない）
+*.md
+docs/
+
+# 設定・マッピングファイル
+mapping*.json
+rosai_mapping.json
+test*.json
+settings.yaml
+
+# Python関連
+*.py
+*.bat
+requirements.txt
+
+# テンプレート（Excel）
+*.xlsm
+*.xlsx
+
+# PDF
+*.pdf
+
+# その他
+.git/
+.gitignore
+.claspignore

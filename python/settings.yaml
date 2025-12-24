@@ -1,0 +1,114 @@
+# 健診結果Excel出力システム 設定ファイル
+# バージョン: 1.0
+# 作成日: 2025-12-09
+
+# =============================================================================
+# 基本設定
+# =============================================================================
+
+# 基準ディレクトリ（相対パスの起点）
+base_dir: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/20_人間ドック/結果入力/python
+
+# =============================================================================
+# フォルダ設定
+# =============================================================================
+folders:
+  # GASからのリクエストJSONが置かれるフォルダ
+  # このフォルダを監視し、新規JSONを検出して処理
+  pending: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/20_人間ドック/結果入力/python/pending
+
+  # 処理完了したJSONを移動するフォルダ
+  processed: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/20_人間ドック/結果入力/python/processed
+
+  # エラー発生時にJSONを移動するフォルダ
+  error: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/20_人間ドック/結果入力/python/error
+
+# =============================================================================
+# 出力設定
+# =============================================================================
+
+# Excel出力先ディレクトリ
+output_dir: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/20_人間ドック/結果入力/02_出力フォルダ
+
+# ログ出力先
+log_dir: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/20_人間ドック/結果入力/05_ログ
+
+# =============================================================================
+# テンプレート・マッピング設定
+# =============================================================================
+
+# Excelテンプレートディレクトリ
+templates_dir: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/20_人間ドック/結果入力/結果入力テンプレ
+
+# セルマッピング定義ディレクトリ
+mappings_dir: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/20_人間ドック/結果入力/python/config
+
+# =============================================================================
+# 監視設定
+# =============================================================================
+
+# フォルダ監視間隔（秒）
+poll_interval: 2.0
+
+# =============================================================================
+# 検査種別設定
+# =============================================================================
+exam_types:
+  # 労災二次検診
+  ROSAI_SECONDARY:
+    name: 労災二次検診
+    template: kenshin_idheart.xlsx
+    mapping: idheart_cell_mapping.yaml
+    sheet_name: 入力用
+    # 労災二次検診用の別パス（既存システムと共有）
+    template_path: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/40_労災二次検診/30_共通資料/81_結果入力/kenshin_idheart.xlsx
+    mapping_path: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/40_労災二次検診/30_共通資料/81_結果入力/config/idheart_cell_mapping.yaml
+
+  # 人間ドック（新テンプレート - 複数シート対応）
+  HUMAN_DOCK:
+    name: 人間ドック
+    template: 1221_template_new_default.xlsm
+    mapping: human_dock_cell_mapping.json
+    # 複数シート対応のためsheet_nameは削除（各項目のsheet属性で動的取得）
+    # 人間ドック用パス（新テンプレート: M列=値, K列=判定）
+    template_path: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/05_development/templates/10_doc/1221_template_new_default.xlsm
+    mapping_path: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/05_development/設計書_設定ファイル/human_dock_cell_mapping.json
+
+  # 定期検診
+  REGULAR_CHECKUP:
+    name: 定期検診
+    template: regular_checkup_template.xlsx
+    mapping: regular_checkup_cell_mapping.yaml
+    sheet_name: 入力シート
+
+# =============================================================================
+# Claude API設定（GAS側で使用）
+# =============================================================================
+claude_api:
+  # モデル
+  model: claude-sonnet-4-20250514
+
+  # 保健指導生成用プロンプト
+  guidance_prompt: |
+    あなたは経験豊富な保健師です。
+    以下の健診結果に基づいて、受診者への保健指導文を作成してください。
+
+    【要件】
+    - 異常値がある項目について具体的なアドバイス
+    - 生活習慣改善のための実践的な提案
+    - 医療機関受診の必要性がある場合は明記
+    - 丁寧で分かりやすい表現
+    - 300〜500文字程度
+
+# =============================================================================
+# デバッグ設定
+# =============================================================================
+debug:
+  # デバッグモード（詳細ログ出力）
+  enabled: false
+
+  # テスト用ダミーデータ使用
+  use_dummy_data: false
+
+  # 処理後にJSONを削除しない
+  keep_json: false

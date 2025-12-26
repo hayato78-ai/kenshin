@@ -1,0 +1,133 @@
+{
+  "request_id": "REQ_P-00001_1766669419710",
+  "exam_type": "HUMAN_DOCK",
+  "patient_id": "P-00001",
+  "patient_info": {
+    "patientId": "P-00001",
+    "name": "遠藤 颯闘",
+    "nameKana": "エンドウ ハヤト",
+    "gender": "男",
+    "birthDate": "1992/07/08",
+    "examDate": "2025/12/24",
+    "course": "生活習慣病ドック",
+    "company": "渋谷",
+    "bmlPatientId": "457973"
+  },
+  "test_results": {
+    "0000301": {
+      "value": 4950,
+      "flag": "",
+      "judgment": ""
+    },
+    "0000302": {
+      "value": 401,
+      "flag": "",
+      "judgment": ""
+    },
+    "0000304": {
+      "value": 40.3,
+      "flag": "",
+      "judgment": ""
+    },
+    "0000401": {
+      "value": 7.5,
+      "flag": "",
+      "judgment": ""
+    },
+    "0000417": {
+      "value": 4,
+      "flag": "",
+      "judgment": ""
+    },
+    "0000484": {
+      "value": 20,
+      "flag": "",
+      "judgment": ""
+    },
+    "0000497": {
+      "value": 55,
+      "flag": "",
+      "judgment": ""
+    },
+    "0000472": {
+      "value": 0.8,
+      "flag": "",
+      "judgment": ""
+    },
+    "0000453": {
+      "value": 212,
+      "flag": "",
+      "judgment": ""
+    },
+    "0000454": {
+      "value": 109,
+      "flag": "",
+      "judgment": ""
+    },
+    "0000460": {
+      "value": 61,
+      "flag": "",
+      "judgment": ""
+    },
+    "0000410": {
+      "value": 75,
+      "flag": "",
+      "judgment": ""
+    },
+    "0000503": {
+      "value": 85,
+      "flag": "",
+      "judgment": ""
+    },
+    "0003317": {
+      "value": 6.1,
+      "flag": "",
+      "judgment": ""
+    },
+    "0000413": {
+      "value": 0.82,
+      "flag": "",
+      "judgment": ""
+    },
+    "0000491": {
+      "value": 435,
+      "flag": "",
+      "judgment": ""
+    },
+    "0002696": {
+      "value": 69.3,
+      "flag": "",
+      "judgment": ""
+    },
+    "0000407": {
+      "value": 3.5,
+      "flag": "",
+      "judgment": ""
+    },
+    "0003845": {
+      "value": 131,
+      "flag": "",
+      "judgment": ""
+    },
+    "0003550": {
+      "value": 122,
+      "flag": "",
+      "judgment": ""
+    },
+    "0000421": {
+      "value": 143,
+      "flag": "",
+      "judgment": ""
+    },
+    "0000425": {
+      "value": 104,
+      "flag": "",
+      "judgment": ""
+    }
+  },
+  "options": {
+    "templateId": "TPL_INDIVIDUAL_1221",
+    "includeJudgment": true
+  },
+  "created_at": "2025-12-25T13:30:19.710Z"
+}

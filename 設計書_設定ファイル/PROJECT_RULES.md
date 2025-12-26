@@ -276,5 +276,5 @@ graph LR
 
 ## 参考資料
 - `ROAD_MAP.md` - プロジェクトスケジュール
-- `SYSTEM_DESIGN.md` - システム設計
+- `1220_new/SYSTEM_DESIGN_SPECIFICATION.md` - システム設計（正本）
 - `01_ドキュメント/` - 各種技術ドキュメント

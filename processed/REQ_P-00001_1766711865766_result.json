@@ -1,0 +1,10 @@
+{
+  "request_id": "REQ_P-00001_1766711865766",
+  "status": "completed",
+  "completed_at": "2025-12-26T10:18:01.941661",
+  "result": {
+    "success": true,
+    "output_path": "/Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/05_development/output/result_20251225_REQ_P-00001_1766711865766.xlsm",
+    "count": 44
+  }
+}

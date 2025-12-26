@@ -855,15 +855,15 @@ const HUMAN_DOCK_ALL_ITEMS = {
     { item_code: '014002', display: '聴力左 1000Hz', category: '身体情報', sub_category: '聴力', input_type: 'manual', data_type: 'select' },
     { item_code: '014003', display: '聴力右 4000Hz', category: '身体情報', sub_category: '聴力', input_type: 'manual', data_type: 'select' },
     { item_code: '014004', display: '聴力左 4000Hz', category: '身体情報', sub_category: '聴力', input_type: 'manual', data_type: 'select' },
-    { item_code: '015001', display: '便ヘモグロビン1回目', category: '検体検査', sub_category: '便検査', input_type: 'manual', data_type: 'select' },
-    { item_code: '015002', display: '便ヘモグロビン2回目', category: '検体検査', sub_category: '便検査', input_type: 'manual', data_type: 'select' }
+    { item_code: '015001', bml_code: '0002151',display: '便ヘモグロビン1回目', category: '検体検査', sub_category: '便検査', input_type: 'auto', data_type: 'select' },
+    { item_code: '015002',bml_code: '0002152', display: '便ヘモグロビン2回目', category: '検体検査', sub_category: '便検査', input_type: 'auto', data_type: 'select' }
   ],
 
   // =============================================
   // 3ページ: 尿検査（自動転記）
   // =============================================
   page3_urine: [
-    { item_code: '031001', bml_code: '0000701', display: '尿糖(定性)', category: '検体検査', sub_category: '尿検査', input_type: 'auto', data_type: 'select' },
+    { item_code: '031001', bml_code: '0000911', display: '尿糖(定性)', category: '検体検査', sub_category: '尿検査', input_type: 'auto', data_type: 'select' },
     { item_code: '031002', bml_code: '0000703', display: '尿蛋白', category: '検体検査', sub_category: '尿検査', input_type: 'auto', data_type: 'select' },
     { item_code: '031003', bml_code: '0000705', display: '尿潜血', category: '検体検査', sub_category: '尿検査', input_type: 'auto', data_type: 'select' },
     { item_code: '031004', bml_code: '0000707', display: 'ウロビリノーゲン', category: '検体検査', sub_category: '尿検査', input_type: 'auto', data_type: 'select' },

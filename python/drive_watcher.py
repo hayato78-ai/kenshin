@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Google Drive監視モジュール
+Google Drive監視モジュール（ポーリング方式）
 GASからのExcel出力リクエスト（JSON）を検知して処理を実行
+
+Google Drive for Desktop の同期はwatchdogのファイル作成イベントを発火しないため、
+ポーリング方式（定期的にpendingフォルダをスキャン）で監視する。
 
 使い方:
     from drive_watcher import DriveWatcher
 
     watcher = DriveWatcher(settings_path='settings.yaml')
-    watcher.start()  # 監視開始
+    watcher.start()  # 監視開始（5秒ごとにpendingフォルダをスキャン）
 """
 
 import os
@@ -19,9 +22,7 @@ import logging
 import shutil
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Optional, Callable
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler, FileCreatedEvent
+from typing import Dict, List, Optional, Callable, Set
 
 # ロギング設定
 logging.basicConfig(
@@ -35,9 +36,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class ExportRequestHandler(FileSystemEventHandler):
+class ExportRequestHandler:
     """
-    JSONファイル作成イベントを処理するハンドラ
+    JSONファイルを処理するハンドラ（ポーリング方式用）
     """
 
     def __init__(
@@ -56,7 +57,6 @@ class ExportRequestHandler(FileSystemEventHandler):
             error_folder: エラーフォルダ
             processor: 処理関数（JSONデータを受け取り結果を返す）
         """
-        super().__init__()
         self.pending_folder = Path(pending_folder)
         self.processed_folder = Path(processed_folder)
         self.error_folder = Path(error_folder)
@@ -66,28 +66,6 @@ class ExportRequestHandler(FileSystemEventHandler):
         self.pending_folder.mkdir(parents=True, exist_ok=True)
         self.processed_folder.mkdir(parents=True, exist_ok=True)
         self.error_folder.mkdir(parents=True, exist_ok=True)
-
-    def on_created(self, event):
-        """ファイル作成イベント"""
-        if event.is_directory:
-            return
-
-        file_path = Path(event.src_path)
-
-        # JSONファイルのみ処理
-        if file_path.suffix.lower() != '.json':
-            return
-
-        # _result.json（処理結果ファイル）は無視
-        if file_path.stem.endswith('_result'):
-            return
-
-        logger.info(f"📥 新規リクエスト検知: {file_path.name}")
-
-        # 少し待機（ファイル書き込み完了を待つ）
-        time.sleep(1)
-
-        self._process_request(file_path)
 
     def _process_request(self, json_path: Path):
         """
@@ -165,8 +143,11 @@ class ExportRequestHandler(FileSystemEventHandler):
 
 class DriveWatcher:
     """
-    Google Drive監視クラス
-    pendingフォルダを監視し、新規JSONファイルを検知して処理
+    Google Drive監視クラス（ポーリング方式）
+    pendingフォルダを定期的にスキャンし、新規JSONファイルを検知して処理
+
+    Google Drive for Desktopの同期はwatchdogのファイル作成イベントを発火しないため、
+    ポーリング方式で監視する。
     """
 
     def __init__(
@@ -175,7 +156,7 @@ class DriveWatcher:
         processed_folder: str,
         error_folder: str,
         processor: Callable[[Dict], Dict],
-        poll_interval: float = 2.0
+        poll_interval: float = 5.0
     ):
         """
         初期化
@@ -185,7 +166,7 @@ class DriveWatcher:
             processed_folder: 処理済みフォルダパス
             error_folder: エラーフォルダパス
             processor: 処理関数
-            poll_interval: 監視間隔（秒）
+            poll_interval: ポーリング間隔（秒）- デフォルト5秒
         """
         self.pending_folder = Path(pending_folder)
         self.processed_folder = Path(processed_folder)
@@ -193,9 +174,9 @@ class DriveWatcher:
         self.processor = processor
         self.poll_interval = poll_interval
 
-        self.observer = None
         self.handler = None
         self._running = False
+        self._processed_files: Set[str] = set()  # 処理済みファイル追跡用
 
     @classmethod
     def from_settings(cls, settings_path: str, processor: Callable[[Dict], Dict]) -> 'DriveWatcher':
@@ -221,40 +202,22 @@ class DriveWatcher:
             processed_folder=folders.get('processed', './processed'),
             error_folder=folders.get('error', './error'),
             processor=processor,
-            poll_interval=settings.get('poll_interval', 2.0)
+            poll_interval=settings.get('poll_interval', 5.0)
         )
-
-    def process_existing(self):
-        """
-        起動時に既存のJSONファイルを処理
-        """
-        logger.info("🔍 既存リクエストをチェック中...")
-
-        existing_files = list(self.pending_folder.glob('*.json'))
-
-        # _result.json を除外
-        existing_files = [f for f in existing_files if not f.stem.endswith('_result')]
-
-        if existing_files:
-            logger.info(f"📋 {len(existing_files)}件の未処理リクエストを検出")
-
-            for json_file in existing_files:
-                self.handler._process_request(json_file)
-        else:
-            logger.info("✅ 未処理リクエストなし")
 
     def start(self, process_existing: bool = True):
         """
-        監視開始
+        監視開始（ポーリング方式）
 
         Args:
-            process_existing: 起動時に既存ファイルを処理するか
+            process_existing: 起動時に既存ファイルを処理するか（常にTrue扱い）
         """
         logger.info("=" * 60)
-        logger.info("🚀 Drive Watcher 起動")
+        logger.info("🚀 Drive Watcher 起動（ポーリング方式）")
         logger.info(f"   監視フォルダ: {self.pending_folder}")
         logger.info(f"   処理済み: {self.processed_folder}")
         logger.info(f"   エラー: {self.error_folder}")
+        logger.info(f"   ポーリング間隔: {self.poll_interval}秒")
         logger.info("=" * 60)
 
         # ハンドラ作成
@@ -265,38 +228,55 @@ class DriveWatcher:
             processor=self.processor
         )
 
-        # 既存ファイル処理
-        if process_existing:
-            self.process_existing()
-
-        # オブザーバー作成・開始
-        self.observer = Observer()
-        self.observer.schedule(
-            self.handler,
-            str(self.pending_folder),
-            recursive=False
-        )
-
-        self.observer.start()
         self._running = True
-
         logger.info("👁️ 監視中... (Ctrl+C で終了)")
 
         try:
             while self._running:
+                # ポーリング: pendingフォルダをスキャン
+                self._poll_pending_folder()
                 time.sleep(self.poll_interval)
         except KeyboardInterrupt:
             self.stop()
+
+    def _poll_pending_folder(self):
+        """
+        pendingフォルダをスキャンして新規ファイルを処理
+        """
+        try:
+            # JSONファイルを取得
+            existing_files = list(self.pending_folder.glob('*.json'))
+
+            # _result.json を除外
+            json_files = [f for f in existing_files if not f.stem.endswith('_result')]
+
+            for json_file in json_files:
+                # ファイル名で重複処理を防止
+                file_key = json_file.name
+                if file_key in self._processed_files:
+                    continue
+
+                logger.info(f"📥 新規リクエスト検知: {json_file.name}")
+
+                # 処理中としてマーク（処理完了後に移動されるので削除不要）
+                self._processed_files.add(file_key)
+
+                # 少し待機（ファイル書き込み完了を待つ）
+                time.sleep(0.5)
+
+                # 処理実行
+                self.handler._process_request(json_file)
+
+                # 処理済みリストから削除（ファイルは移動されているはず）
+                self._processed_files.discard(file_key)
+
+        except Exception as e:
+            logger.error(f"❌ ポーリングエラー: {e}")
 
     def stop(self):
         """監視停止"""
         logger.info("🛑 監視停止中...")
         self._running = False
-
-        if self.observer:
-            self.observer.stop()
-            self.observer.join()
-
         logger.info("👋 Drive Watcher 終了")
 
 

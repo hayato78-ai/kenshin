@@ -437,12 +437,80 @@ class HumanDockTranscriber:
         Returns:
             {'success': bool, 'output_path': str, 'count': int}
         """
+        # CSV パス指定の場合
         csv_path = data.get('csv_path')
         if csv_path:
             return self.transcribe_from_csv(csv_path, output_path)
 
-        # CSV パスがない場合はエラー
-        return {'success': False, 'error': 'csv_path が指定されていません'}
+        # JSON直接データの場合（GAS方式）
+        patient_info = data.get('patient_info')
+        test_results_dict = data.get('test_results')
+
+        if patient_info and isinstance(patient_info, dict) and len(patient_info) > 0:
+            try:
+                logger.info(f"📋 JSON直接処理モード: {patient_info.get('name', 'UNKNOWN')}")
+
+                # test_results を辞書形式からリスト形式に変換
+                # {"0000301": {"value": 4950, ...}} → [{"code": "0000301", "value": 4950, ...}]
+                test_results_list = []
+                if test_results_dict and isinstance(test_results_dict, dict):
+                    for code, values in test_results_dict.items():
+                        if isinstance(values, dict):
+                            item = {'code': code, **values}
+                        else:
+                            item = {'code': code, 'value': values}
+                        test_results_list.append(item)
+                    logger.info(f"  検査結果: {len(test_results_list)}項目")
+
+                # テンプレート読み込み（VBA保持）
+                wb = load_workbook(self.template_path, keep_vba=True)
+                self.sheet_cache = {}  # キャッシュクリア
+
+                count = 0
+
+                # 性別判定（GASからの形式に対応）
+                gender_raw = patient_info.get('gender', '')
+                if gender_raw in ['男', 'M', '1']:
+                    gender = 'M'
+                elif gender_raw in ['女', 'F', '2']:
+                    gender = 'F'
+                else:
+                    gender = self.GENDER_CODE_TO_INTERNAL.get(gender_raw, 'M')
+
+                # 患者情報転記
+                count += self._transfer_patient_info(wb, patient_info, gender)
+
+                # 検査結果転記
+                count += self._transfer_test_results(wb, test_results_list, gender)
+
+                # 出力パス決定
+                if not output_path:
+                    self.output_dir.mkdir(parents=True, exist_ok=True)
+                    request_id = data.get('request_id', 'unknown')
+                    exam_date = patient_info.get('examDate', datetime.now().strftime('%Y%m%d'))
+                    # 日付フォーマットを調整（2025/12/24 → 20251224）
+                    if '/' in str(exam_date):
+                        exam_date = exam_date.replace('/', '')
+                    output_path = self.output_dir / f"result_{exam_date}_{request_id}.xlsm"
+
+                # 保存
+                wb.save(output_path)
+                logger.info(f"✅ 転記完了: {count}項目 → {output_path}")
+
+                return {
+                    'success': True,
+                    'output_path': str(output_path),
+                    'count': count
+                }
+
+            except Exception as e:
+                logger.error(f"❌ JSON直接処理エラー: {e}")
+                import traceback
+                traceback.print_exc()
+                return {'success': False, 'error': str(e)}
+
+        # データがない場合はエラー
+        return {'success': False, 'error': 'csv_path または patient_info が指定されていません'}
 
     def _transfer_patient_info(self, wb, patient_info: Dict, gender: str) -> int:
         """患者基本情報を転記（複数シート対応）"""
@@ -555,11 +623,22 @@ if __name__ == '__main__':
     parser.add_argument('--output', help='出力パス')
     parser.add_argument('--type', choices=['ROSAI_SECONDARY', 'HUMAN_DOCK'],
                         default='ROSAI_SECONDARY', help='検査種別')
+    parser.add_argument('--watch', action='store_true',
+                        help='監視モード: pendingフォルダを監視して自動処理')
+    parser.add_argument('--settings', default='settings.yaml',
+                        help='設定ファイルパス（監視モード用）')
 
     args = parser.parse_args()
 
+    # 監視モード
+    if args.watch:
+        from drive_watcher import DriveWatcher
+        print("🚀 監視モード起動")
+        watcher = DriveWatcher.from_settings(args.settings, process_export_request)
+        watcher.start()
+        sys.exit(0)  # 監視終了後は正常終了
     # CSVモード（人間ドック直接実行）
-    if args.csv:
+    elif args.csv:
         transcriber = HumanDockTranscriber()
         result = transcriber.transcribe_from_csv(args.csv, args.output)
     # JSONモード

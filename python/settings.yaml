@@ -7,7 +7,7 @@
 # =============================================================================
 
 # 基準ディレクトリ（相対パスの起点）
-base_dir: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/20_人間ドック/結果入力/python
+base_dir: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/05_development
 
 # =============================================================================
 # フォルダ設定
@@ -15,20 +15,20 @@ base_dir: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedic
 folders:
   # GASからのリクエストJSONが置かれるフォルダ
   # このフォルダを監視し、新規JSONを検出して処理
-  pending: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/20_人間ドック/結果入力/python/pending
+  pending: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/05_development/pending
 
   # 処理完了したJSONを移動するフォルダ
-  processed: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/20_人間ドック/結果入力/python/processed
+  processed: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/05_development/processed
 
   # エラー発生時にJSONを移動するフォルダ
-  error: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/20_人間ドック/結果入力/python/error
+  error: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/05_development/error
 
 # =============================================================================
 # 出力設定
 # =============================================================================
 
 # Excel出力先ディレクトリ
-output_dir: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/20_人間ドック/結果入力/02_出力フォルダ
+output_dir: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/05_development/output
 
 # ログ出力先
 log_dir: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/20_人間ドック/結果入力/05_ログ
@@ -44,11 +44,13 @@ templates_dir: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cd
 mappings_dir: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-buskenshin@cdmedical.jp/マイドライブ/50_健診結果入力/20_人間ドック/結果入力/python/config
 
 # =============================================================================
-# 監視設定
+# 監視設定（ポーリング方式）
 # =============================================================================
 
 # フォルダ監視間隔（秒）
-poll_interval: 2.0
+# Google Drive for Desktop は watchdog のファイル作成イベントを発火しないため、
+# ポーリング方式で定期的にpendingフォルダをスキャンする
+poll_interval: 5
 
 # =============================================================================
 # 検査種別設定

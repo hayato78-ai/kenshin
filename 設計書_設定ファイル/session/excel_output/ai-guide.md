@@ -7,6 +7,7 @@ GAS（Web UI）からExcel帳票を出力する機能。GAS → Google Drive →
 | 日付 | セッション | 変更内容 |
 |------|------------|----------|
 | 2025-12-26 | #1 | 初版作成。ポーリング方式実装、フォルダID直接参照修正 |
+| 2025-12-26 | #2 | クロスプラットフォーム対応（macOS/Windows）追加 |
 
 ## ナレッジベース
 
@@ -21,6 +22,29 @@ GAS（Web UI）からExcel帳票を出力する機能。GAS → Google Drive →
 **原因**: `pendingFolder.getParents().next()` で取得した親フォルダが期待と異なる
 **解決策**: フォルダIDを設定シートに直接登録し、`DriveApp.getFolderById()` で参照
 **学び**: 親フォルダ経由の検索は信頼性が低い。フォルダIDを直接指定すべき
+
+### [2025-12-26] クロスプラットフォーム対応（macOS/Windows）
+**課題**: macOS と Windows でGoogle Driveのパスが異なる
+**パス例**:
+- macOS: `/Users/{user}/Library/CloudStorage/GoogleDrive-xxx/マイドライブ`
+- Windows: `G:\マイドライブ` または `C:\Users\{user}\Google Drive\マイドライブ`
+
+**解決策**: テンプレート方式
+1. `settings_template.yaml` - `${GOOGLE_DRIVE_BASE}` プレースホルダー使用
+2. `setup.sh` (macOS) / `setup.ps1` (Windows) - 環境検出＆設定生成
+3. `settings.yaml` は `.gitignore` で除外（環境固有）
+
+**セットアップ手順**:
+```bash
+# macOS
+cd python && bash setup.sh
+
+# Windows (PowerShell)
+cd python
+.\setup.ps1
+```
+
+**学び**: 環境固有設定はテンプレート＋セットアップスクリプトで管理
 
 ## 実装パターン
 
@@ -51,7 +75,10 @@ python3 unified_transcriber.py --watch
 | `gas/excelExportBridge.js` | Python連携ブリッジ |
 | `python/drive_watcher.py` | フォルダ監視（ポーリング） |
 | `python/unified_transcriber.py` | Excel転記エンジン |
-| `python/settings.yaml` | Python側設定 |
+| `python/settings.yaml` | Python側設定（.gitignore対象） |
+| `python/settings_template.yaml` | 設定テンプレート（Git管理） |
+| `python/setup.sh` | macOSセットアップスクリプト |
+| `python/setup.ps1` | Windowsセットアップスクリプト |
 
 ## 設計書との乖離記録
 | 検出日 | 乖離内容 | 対応状況 |

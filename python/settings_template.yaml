@@ -1,0 +1,109 @@
+# 健診結果Excel出力システム 設定ファイル（テンプレート）
+# バージョン: 1.1
+#
+# 使い方:
+#   macOS:   bash setup.sh
+#   Windows: powershell setup.ps1
+#
+# ${GOOGLE_DRIVE_BASE} が環境に応じたパスに置換されます
+
+# =============================================================================
+# 基本設定
+# =============================================================================
+
+# 基準ディレクトリ（相対パスの起点）
+base_dir: ${GOOGLE_DRIVE_BASE}/50_健診結果入力/05_development
+
+# =============================================================================
+# フォルダ設定
+# =============================================================================
+folders:
+  # GASからのリクエストJSONが置かれるフォルダ
+  pending: ${GOOGLE_DRIVE_BASE}/50_健診結果入力/05_development/pending
+
+  # 処理完了したJSONを移動するフォルダ
+  processed: ${GOOGLE_DRIVE_BASE}/50_健診結果入力/05_development/processed
+
+  # エラー発生時にJSONを移動するフォルダ
+  error: ${GOOGLE_DRIVE_BASE}/50_健診結果入力/05_development/error
+
+# =============================================================================
+# 出力設定
+# =============================================================================
+
+# Excel出力先ディレクトリ
+output_dir: ${GOOGLE_DRIVE_BASE}/50_健診結果入力/05_development/output
+
+# ログ出力先
+log_dir: ${GOOGLE_DRIVE_BASE}/50_健診結果入力/20_人間ドック/結果入力/05_ログ
+
+# =============================================================================
+# テンプレート・マッピング設定
+# =============================================================================
+
+# Excelテンプレートディレクトリ
+templates_dir: ${GOOGLE_DRIVE_BASE}/50_健診結果入力/20_人間ドック/結果入力/結果入力テンプレ
+
+# セルマッピング定義ディレクトリ
+mappings_dir: ${GOOGLE_DRIVE_BASE}/50_健診結果入力/20_人間ドック/結果入力/python/config
+
+# =============================================================================
+# 監視設定（ポーリング方式）
+# =============================================================================
+
+# フォルダ監視間隔（秒）
+# Google Drive for Desktop は watchdog のファイル作成イベントを発火しないため、
+# ポーリング方式で定期的にpendingフォルダをスキャンする
+poll_interval: 5
+
+# =============================================================================
+# 検査種別設定
+# =============================================================================
+exam_types:
+  # 労災二次検診
+  ROSAI_SECONDARY:
+    name: 労災二次検診
+    template: kenshin_idheart.xlsx
+    mapping: idheart_cell_mapping.yaml
+    sheet_name: 入力用
+    template_path: ${GOOGLE_DRIVE_BASE}/40_労災二次検診/30_共通資料/81_結果入力/kenshin_idheart.xlsx
+    mapping_path: ${GOOGLE_DRIVE_BASE}/40_労災二次検診/30_共通資料/81_結果入力/config/idheart_cell_mapping.yaml
+
+  # 人間ドック（新テンプレート - 複数シート対応）
+  HUMAN_DOCK:
+    name: 人間ドック
+    template: 1221_template_new_default.xlsm
+    mapping: human_dock_cell_mapping.json
+    template_path: ${GOOGLE_DRIVE_BASE}/50_健診結果入力/05_development/templates/10_doc/1221_template_new_default.xlsm
+    mapping_path: ${GOOGLE_DRIVE_BASE}/50_健診結果入力/05_development/設計書_設定ファイル/human_dock_cell_mapping.json
+
+  # 定期検診
+  REGULAR_CHECKUP:
+    name: 定期検診
+    template: regular_checkup_template.xlsx
+    mapping: regular_checkup_cell_mapping.yaml
+    sheet_name: 入力シート
+
+# =============================================================================
+# Claude API設定（GAS側で使用）
+# =============================================================================
+claude_api:
+  model: claude-sonnet-4-20250514
+  guidance_prompt: |
+    あなたは経験豊富な保健師です。
+    以下の健診結果に基づいて、受診者への保健指導文を作成してください。
+
+    【要件】
+    - 異常値がある項目について具体的なアドバイス
+    - 生活習慣改善のための実践的な提案
+    - 医療機関受診の必要性がある場合は明記
+    - 丁寧で分かりやすい表現
+    - 300〜500文字程度
+
+# =============================================================================
+# デバッグ設定
+# =============================================================================
+debug:
+  enabled: false
+  use_dummy_data: false
+  keep_json: false

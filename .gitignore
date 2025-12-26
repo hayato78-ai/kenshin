@@ -24,3 +24,6 @@ python/pending/
 # Credentials
 .env
 *.json.bak
+
+# 環境固有設定（テンプレートから生成）
+python/settings.yaml

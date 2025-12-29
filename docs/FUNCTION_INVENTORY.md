@@ -139,11 +139,11 @@ Claude AIを活用した保健指導文生成
 
 | 機能ID | 機能名 | 概要 | 使用状況 | 関連ファイル | 依存関係 | 移植判定 | 備考 |
 |--------|--------|------|----------|--------------|----------|----------|------|
-| F037 | 労災ケース管理 | ケース一覧取得、フォルダ管理 | 使用中 | gas/rosaiSecondary.js | - | △ | 労災専用モジュール |
-| F038 | 労災入力シート生成 | 個別入力シートの自動作成 | 使用中 | gas/rosaiSecondary.js | - | △ | 労災専用モジュール |
-| F039 | 超音波所見入力 | 心臓・頸動脈の超音波所見テンプレート選択 | 使用中 | gas/rosaiSecondary.js | - | △ | 労災専用モジュール |
-| F040 | 労災総合所見生成 | 判定に応じた総合所見の自動生成 | 使用中 | gas/rosaiSecondary.js | F006 | △ | 労災専用モジュール |
-| F041 | 労災Excel出力 | 労災専用テンプレートへの転記 | 使用中 | gas/rosaiSecondary.js, python/unified_transcriber.py | F012 | △ | 労災専用モジュール |
+| F037 | 労災ケース管理 | ケース一覧取得、フォルダ管理 | 使用中 | gas/rosaiSecondary.js | - | ○ | examTypeとして統合 |
+| F038 | 労災入力シート生成 | 個別入力シートの自動作成 | 使用中 | gas/rosaiSecondary.js | - | ○ | examTypeとして統合 |
+| F039 | 超音波所見入力 | 心臓・頸動脈の超音波所見テンプレート選択 | 使用中 | gas/rosaiSecondary.js | - | ○ | examTypeとして統合 |
+| F040 | 労災総合所見生成 | 判定に応じた総合所見の自動生成 | 使用中 | gas/rosaiSecondary.js | F006 | ○ | examTypeとして統合 |
+| F041 | 労災Excel出力 | 労災専用テンプレートへの転記 | 使用中 | gas/rosaiSecondary.js, python/unified_transcriber.py | F012 | ○ | examTypeとして統合 |
 
 ---
 

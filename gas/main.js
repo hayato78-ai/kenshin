@@ -324,14 +324,7 @@ function getPatientList(status) {
   return patients;
 }
 
-/**
- * 患者詳細を取得（collectPatientDataへの委譲）
- * @param {string} patientId - 受診ID
- * @returns {Object|null} 患者詳細
- */
-function getPatientDetail(patientId) {
-  return collectPatientData(patientId);
-}
+// getPatientDetail() は patientManager.js に統一済み（重複削除）
 
 // ============================================
 // カルテNO指定処理

@@ -1,0 +1,255 @@
+<!--
+  健診結果DB 統合システム - メニュー画面 (SCR-002)
+
+  @description UI設計書: 健診結果DB_UI設計書_v1.md 2.2章
+  @version 1.0.0
+  @date 2025-12-14
+-->
+
+<div id="screen-menu" class="screen">
+  <div class="main-content">
+    <!-- ウェルカムメッセージ -->
+    <div class="mb-lg">
+      <h1 style="font-size: var(--font-size-xxl); color: var(--color-text);">
+        ようこそ、<span id="menu-user-name">ユーザー</span>さん
+      </h1>
+    </div>
+
+    <!-- メニューグリッド -->
+    <div class="menu-grid">
+      <a href="javascript:void(0)" class="menu-card" onclick="App.navigate('search')">
+        <div class="menu-card-icon">🔍</div>
+        <div class="menu-card-title">受診者検索</div>
+      </a>
+
+      <a href="javascript:void(0)" class="menu-card" onclick="App.navigate('register')">
+        <div class="menu-card-icon">📝</div>
+        <div class="menu-card-title">新規登録</div>
+      </a>
+
+      <a href="javascript:void(0)" class="menu-card" onclick="App.navigate('report')">
+        <div class="menu-card-icon">📊</div>
+        <div class="menu-card-title">レポート</div>
+      </a>
+
+      <a href="javascript:void(0)" class="menu-card" onclick="App.navigate('master')">
+        <div class="menu-card-icon">⚙️</div>
+        <div class="menu-card-title">マスタ管理</div>
+      </a>
+
+      <a href="javascript:void(0)" class="menu-card" onclick="App.navigate('import')">
+        <div class="menu-card-icon">📥</div>
+        <div class="menu-card-title">CSVインポート</div>
+      </a>
+
+      <a href="javascript:void(0)" class="menu-card" onclick="App.navigate('template')">
+        <div class="menu-card-icon">📄</div>
+        <div class="menu-card-title">テンプレート管理</div>
+      </a>
+    </div>
+
+    <!-- セパレーター -->
+    <hr style="border: none; border-top: 1px solid var(--color-border); margin: var(--spacing-lg) 0;">
+
+    <!-- 本日のサマリー -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">本日のサマリー</span>
+        <button class="btn btn-sm btn-outline" onclick="Menu.refreshSummary()">更新</button>
+      </div>
+      <div class="card-body">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-md);">
+          <div class="summary-card">
+            <div class="summary-title">本日の受診予定</div>
+            <div class="summary-value" id="summary-today-visits">-</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-title">入力待ち</div>
+            <div class="summary-value" id="summary-pending-input">-</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-title">期限超過</div>
+            <div class="summary-value summary-warning" id="summary-overdue">
+              <span id="summary-overdue-count">-</span>
+              <span id="summary-overdue-warning" class="hidden" style="font-size: var(--font-size-md);"> ⚠️</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 最近の受診 -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">最近の受診</span>
+        <a href="javascript:void(0)" class="btn btn-sm btn-outline" onclick="App.navigate('search')">すべて表示</a>
+      </div>
+      <div class="card-body">
+        <div class="table-container">
+          <table class="table" id="recent-visits-table">
+            <thead>
+              <tr>
+                <th>受診日</th>
+                <th>受診者ID</th>
+                <th>氏名</th>
+                <th>検診種別</th>
+                <th>総合判定</th>
+                <th>ステータス</th>
+              </tr>
+            </thead>
+            <tbody id="recent-visits-body">
+              <tr>
+                <td colspan="6" class="text-center text-secondary">読み込み中...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/**
+ * メニュー画面の処理
+ */
+const Menu = {
+  /**
+   * 初期化
+   */
+  init: function() {
+    console.log('Menu.init');
+    this.loadSummary();
+    this.loadRecentVisits();
+
+    // ユーザー名を表示
+    const userNameEl = document.getElementById('menu-user-name');
+    const headerUserName = document.getElementById('current-user-name');
+    if (userNameEl && headerUserName) {
+      userNameEl.textContent = headerUserName.textContent.replace(' 様', '');
+    }
+  },
+
+  /**
+   * サマリーを更新
+   */
+  refreshSummary: function() {
+    this.loadSummary();
+    this.loadRecentVisits();
+  },
+
+  /**
+   * サマリー情報を読み込み
+   */
+  loadSummary: function() {
+    const self = this;
+
+    google.script.run
+      .withSuccessHandler(function(data) {
+        self.renderSummary(data);
+      })
+      .withFailureHandler(function(error) {
+        console.error('Failed to load summary:', error);
+        self.renderSummary({ todayVisits: 0, pendingInput: 0, overdue: 0 });
+      })
+      .getDashboardSummary();
+  },
+
+  /**
+   * サマリーを描画
+   * @param {Object} data - サマリーデータ
+   */
+  renderSummary: function(data) {
+    document.getElementById('summary-today-visits').textContent =
+      (data.todayVisits || 0) + '名';
+    document.getElementById('summary-pending-input').textContent =
+      (data.pendingInput || 0) + '件';
+    document.getElementById('summary-overdue-count').textContent =
+      (data.overdue || 0) + '件';
+
+    // 期限超過があれば警告アイコンを表示
+    const warningEl = document.getElementById('summary-overdue-warning');
+    if (data.overdue > 0) {
+      warningEl.classList.remove('hidden');
+    } else {
+      warningEl.classList.add('hidden');
+    }
+  },
+
+  /**
+   * 最近の受診を読み込み
+   */
+  loadRecentVisits: function() {
+    const self = this;
+
+    google.script.run
+      .withSuccessHandler(function(visits) {
+        self.renderRecentVisits(visits);
+      })
+      .withFailureHandler(function(error) {
+        console.error('Failed to load recent visits:', error);
+        self.renderRecentVisits([]);
+      })
+      .getRecentVisits(5);
+  },
+
+  /**
+   * 最近の受診を描画
+   * @param {Array} visits - 受診リスト
+   */
+  renderRecentVisits: function(visits) {
+    const tbody = document.getElementById('recent-visits-body');
+    if (!tbody) return;
+
+    if (!visits || visits.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-secondary">データがありません</td></tr>';
+      return;
+    }
+
+    let html = '';
+    visits.forEach(function(visit) {
+      html += '<tr class="clickable" onclick="App.navigate(\'detail\', { patientId: \'' + visit.patientId + '\' })">';
+      html += '<td>' + App.formatDate(visit.visitDate) + '</td>';
+      html += '<td>' + (visit.patientId || '') + '</td>';
+      html += '<td>' + (visit.patientName || '') + '</td>';
+      html += '<td>' + (visit.examTypeName || '') + '</td>';
+      html += '<td>' + App.getJudgmentBadge(visit.overallJudgment) + '</td>';
+      html += '<td>' + Menu.getStatusBadge(visit.status) + '</td>';
+      html += '</tr>';
+    });
+
+    tbody.innerHTML = html;
+  },
+
+  /**
+   * ステータスバッジを取得
+   * @param {string} status - ステータス
+   * @returns {string} HTML
+   */
+  getStatusBadge: function(status) {
+    let cls = 'alert-info';
+    let label = status || '';
+
+    switch (status) {
+      case 'INPUTTING':
+        cls = 'alert-warning';
+        label = '入力中';
+        break;
+      case 'CONFIRMED':
+        cls = 'alert-success';
+        label = '確定';
+        break;
+      case 'REPORTED':
+        cls = 'alert-info';
+        label = '報告済';
+        break;
+    }
+
+    return '<span style="padding: 2px 8px; border-radius: 4px; font-size: 12px; ' +
+           'background-color: var(--color-' + cls.replace('alert-', '') + '); color: white;">' +
+           label + '</span>';
+  }
+};
+</script>

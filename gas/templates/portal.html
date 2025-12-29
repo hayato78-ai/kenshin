@@ -308,11 +308,13 @@
     <section id="section-results" class="section">
       <div class="section-header">
         <h2>結果入力</h2>
+        <!-- 切替ボタン非表示（iD-Heart形式レイアウト崩れのため簡易入力のみ使用）
         <div class="header-actions">
           <button class="btn btn-sm btn-secondary" onclick="toggleResultInputMode()">
             <span id="inputModeLabel">簡易入力に切替</span>
           </button>
         </div>
+        -->
       </div>
 
       <!-- iD-Heart II形式レイアウト（レイアウト崩れのため非表示） -->
@@ -598,7 +600,7 @@
         <!-- 患者選択 -->
         <div class="patient-selector">
           <div class="search-inline">
-            <input type="text" id="resultPatientSearch" placeholder="患者IDまたは氏名で検索" class="input-lg">
+            <input type="text" id="resultPatientSearch" placeholder="カルテNo（例: 999991）" class="input-lg">
             <button class="btn btn-primary" onclick="searchPatientForResults()">検索</button>
           </div>
           <div class="patient-nav">
@@ -626,98 +628,19 @@
 
         <!-- 入力タブ -->
         <div id="resultInputTabs" class="tabs" style="display:none;">
-          <button class="tab-btn active" data-tab="blood" onclick="showResultTab('blood')">血液検査</button>
+          <!-- 血液検査タブは不要のためコメントアウト
+          <button class="tab-btn" data-tab="blood" onclick="showResultTab('blood')">血液検査</button>
+          -->
           <button class="tab-btn" data-tab="lab" onclick="showResultTab('lab')">検体検査</button>
-          <button class="tab-btn" data-tab="body" onclick="showResultTab('body')">身体計測</button>
+          <button class="tab-btn active" data-tab="body" onclick="showResultTab('body')">身体計測</button>
           <button class="tab-btn" data-tab="findings" onclick="showResultTab('findings')">所見入力</button>
         </div>
 
-      <!-- 血液検査タブ -->
-      <div id="tab-blood" class="tab-content active">
-        <!-- PrismCheckup風 縦並び入力レイアウト -->
-        <div class="input-columns">
-          <!-- 身体計測 -->
-          <div class="input-section">
-            <div class="section-title">身体計測</div>
-            <div class="input-row"><span class="item-label">身長</span><input type="number" id="btHeight" step="0.1" class="item-input"><span class="item-unit">cm</span></div>
-            <div class="input-row"><span class="item-label">体重</span><input type="number" id="btWeight" step="0.1" class="item-input"><span class="item-unit">kg</span></div>
-            <div class="input-row"><span class="item-label">BMI</span><input type="text" id="btBMI" class="item-input" readonly><span class="item-unit"></span></div>
-            <div class="input-row"><span class="item-label">腹囲</span><input type="number" id="btWaist" step="0.1" class="item-input"><span class="item-unit">cm</span></div>
-          </div>
-
-          <!-- 血圧 -->
-          <div class="input-section">
-            <div class="section-title">血圧</div>
-            <div class="input-row"><span class="item-label">収縮期</span><input type="number" id="btSBP" class="item-input"><span class="item-unit">mmHg</span></div>
-            <div class="input-row"><span class="item-label">拡張期</span><input type="number" id="btDBP" class="item-input"><span class="item-unit">mmHg</span></div>
-            <div class="input-row"><span class="item-label">脈拍</span><input type="number" id="btPulse" class="item-input"><span class="item-unit">/分</span></div>
-          </div>
-
-          <!-- 尿検査 -->
-          <div class="input-section">
-            <div class="section-title">尿検査</div>
-            <div class="input-row"><span class="item-label">尿蛋白</span><div class="qual-btns" data-field="btUrineProtein"><button type="button" class="q-btn" data-val="(-)">-</button><button type="button" class="q-btn" data-val="(±)">±</button><button type="button" class="q-btn" data-val="(+)">+</button><button type="button" class="q-btn" data-val="(++)">2+</button><button type="button" class="q-btn" data-val="(+++)">3+</button></div><input type="hidden" id="btUrineProtein"></div>
-            <div class="input-row"><span class="item-label">尿糖</span><div class="qual-btns" data-field="btUrineSugar"><button type="button" class="q-btn" data-val="(-)">-</button><button type="button" class="q-btn" data-val="(±)">±</button><button type="button" class="q-btn" data-val="(+)">+</button><button type="button" class="q-btn" data-val="(++)">2+</button><button type="button" class="q-btn" data-val="(+++)">3+</button></div><input type="hidden" id="btUrineSugar"></div>
-            <div class="input-row"><span class="item-label">尿潜血</span><div class="qual-btns" data-field="btUrineBlood"><button type="button" class="q-btn" data-val="(-)">-</button><button type="button" class="q-btn" data-val="(±)">±</button><button type="button" class="q-btn" data-val="(+)">+</button><button type="button" class="q-btn" data-val="(++)">2+</button><button type="button" class="q-btn" data-val="(+++)">3+</button></div><input type="hidden" id="btUrineBlood"></div>
-          </div>
-
-          <!-- 血球系 -->
-          <div class="input-section">
-            <div class="section-title">血球系</div>
-            <div class="input-row"><span class="item-label">白血球</span><input type="number" id="btWBC" step="0.1" class="item-input"><span class="item-unit">×10²</span></div>
-            <div class="input-row"><span class="item-label">赤血球</span><input type="number" id="btRBC" step="1" class="item-input"><span class="item-unit">×10⁴</span></div>
-            <div class="input-row"><span class="item-label">Hb</span><input type="number" id="btHb" step="0.1" class="item-input"><span class="item-unit">g/dL</span></div>
-            <div class="input-row"><span class="item-label">Ht</span><input type="number" id="btHt" step="0.1" class="item-input"><span class="item-unit">%</span></div>
-          </div>
-
-          <!-- 肝機能 -->
-          <div class="input-section">
-            <div class="section-title">肝機能</div>
-            <div class="input-row"><span class="item-label">GOT</span><input type="number" id="btGOT" step="1" class="item-input"><span class="item-unit">U/L</span></div>
-            <div class="input-row"><span class="item-label">GPT</span><input type="number" id="btGPT" step="1" class="item-input"><span class="item-unit">U/L</span></div>
-            <div class="input-row"><span class="item-label">γ-GTP</span><input type="number" id="btGGTP" step="1" class="item-input"><span class="item-unit">U/L</span></div>
-            <div class="input-row"><span class="item-label">ALP</span><input type="number" id="btALP" step="1" class="item-input"><span class="item-unit">U/L</span></div>
-          </div>
-
-          <!-- 脂質 -->
-          <div class="input-section">
-            <div class="section-title">脂質</div>
-            <div class="input-row"><span class="item-label">総コレ</span><input type="number" id="btTC" step="1" class="item-input"><span class="item-unit">mg/dL</span></div>
-            <div class="input-row"><span class="item-label">HDL</span><input type="number" id="btHDL" step="1" class="item-input"><span class="item-unit">mg/dL</span></div>
-            <div class="input-row"><span class="item-label">LDL</span><input type="number" id="btLDL" step="1" class="item-input"><span class="item-unit">mg/dL</span></div>
-            <div class="input-row"><span class="item-label">中性脂肪</span><input type="number" id="btTG" step="1" class="item-input"><span class="item-unit">mg/dL</span></div>
-          </div>
-
-          <!-- 糖代謝 -->
-          <div class="input-section">
-            <div class="section-title">糖代謝</div>
-            <div class="input-row"><span class="item-label">血糖</span><input type="number" id="btGlu" step="1" class="item-input"><span class="item-unit">mg/dL</span></div>
-            <div class="input-row"><span class="item-label">HbA1c</span><input type="number" id="btHbA1c" step="0.1" class="item-input"><span class="item-unit">%</span></div>
-          </div>
-
-          <!-- 腎機能 -->
-          <div class="input-section">
-            <div class="section-title">腎機能</div>
-            <div class="input-row"><span class="item-label">尿酸</span><input type="number" id="btUA" step="0.1" class="item-input"><span class="item-unit">mg/dL</span></div>
-            <div class="input-row"><span class="item-label">Cr</span><input type="number" id="btCr" step="0.01" class="item-input"><span class="item-unit">mg/dL</span></div>
-            <div class="input-row"><span class="item-label">BUN</span><input type="number" id="btBUN" step="0.1" class="item-input"><span class="item-unit">mg/dL</span></div>
-            <div class="input-row"><span class="item-label">eGFR</span><input type="number" id="btEGFR" step="0.1" class="item-input"><span class="item-unit">mL/min</span></div>
-          </div>
-
-          <!-- 蛋白 -->
-          <div class="input-section">
-            <div class="section-title">蛋白</div>
-            <div class="input-row"><span class="item-label">総蛋白</span><input type="number" id="btTP" step="0.1" class="item-input"><span class="item-unit">g/dL</span></div>
-            <div class="input-row"><span class="item-label">Alb</span><input type="number" id="btAlb" step="0.1" class="item-input"><span class="item-unit">g/dL</span></div>
-          </div>
-        </div>
-
-        <div class="input-actions">
-          <button class="btn btn-secondary btn-sm" onclick="clearBloodTestForm()">クリア</button>
-          <button class="btn btn-primary" onclick="saveBloodTestResults()">保存</button>
-          <button class="btn btn-success" onclick="saveBloodTestResultsAndNext()">保存して次へ →</button>
-        </div>
+      <!-- 血液検査タブ（不要のためコメントアウト）
+      <div id="tab-blood" class="tab-content">
+        PrismCheckup風 縦並び入力レイアウト ... 省略
       </div>
+      -->
 
       <!-- 検体検査タブ（BML CSV取込データ表示） -->
       <div id="tab-lab" class="tab-content">
@@ -725,6 +648,7 @@
           <div class="lab-results-header">
             <h4>検体検査結果（CSV取込データ）</h4>
             <button class="btn btn-sm btn-secondary" onclick="refreshLabResults()">🔄 再読込</button>
+            <button class="btn btn-sm btn-primary" onclick="showSection('csv')">📥 CSV取込</button>
             <button class="btn btn-sm btn-outline" onclick="runLabDiagnostic()">🔧 診断</button>
           </div>
           <div id="labResultsTable" class="lab-results-table">
@@ -745,8 +669,8 @@
         </div>
       </div>
 
-      <!-- 身体計測タブ -->
-      <div id="tab-body" class="tab-content">
+      <!-- 身体計測タブ（デフォルト表示） -->
+      <div id="tab-body" class="tab-content active">
         <div class="form-grid measurement-form">
           <fieldset class="form-fieldset">
             <legend>基本測定</legend>
@@ -766,17 +690,33 @@
             </div>
           </fieldset>
 
+          <!-- ★ 血圧2回目対応: 2回分の入力フィールドに拡張 -->
           <fieldset class="form-fieldset">
             <legend>血圧・脈拍</legend>
             <div class="form-row">
+              <span class="row-label" style="min-width: 50px; font-weight: bold;">1回目</span>
               <div class="form-group">
                 <label>収縮期 (mmHg)</label>
-                <input type="number" id="mSystolicBP" class="input-sm">
+                <input type="number" id="mSbp1" class="input-sm">
               </div>
               <div class="form-group">
                 <label>拡張期 (mmHg)</label>
-                <input type="number" id="mDiastolicBP" class="input-sm">
+                <input type="number" id="mDbp1" class="input-sm">
               </div>
+            </div>
+            <div class="form-row">
+              <span class="row-label" style="min-width: 50px; font-weight: bold;">2回目</span>
+              <div class="form-group">
+                <label>収縮期 (mmHg)</label>
+                <input type="number" id="mSbp2" class="input-sm">
+              </div>
+              <div class="form-group">
+                <label>拡張期 (mmHg)</label>
+                <input type="number" id="mDbp2" class="input-sm">
+              </div>
+            </div>
+            <div class="form-row">
+              <span class="row-label" style="min-width: 50px;"></span>
               <div class="form-group">
                 <label>脈拍 (/分)</label>
                 <input type="number" id="mPulse" class="input-sm">
@@ -970,9 +910,24 @@
         </div>
       </div>
 
+      <!-- 受診者検索・選択エリア -->
       <div id="reportPatientSelector" class="patient-list-selector">
         <h4>出力対象を選択</h4>
-        <div id="reportPatientList"></div>
+
+        <!-- 検索ボックス -->
+        <div class="search-box" style="margin-bottom: 10px;">
+          <input type="text" id="reportSearchInput" placeholder="カルテNo / 氏名 / カナ で検索" class="input-lg" style="width: 300px;">
+          <button class="btn btn-primary" onclick="searchPatientsForReport()">検索</button>
+          <button class="btn btn-secondary" onclick="clearReportSelection()">選択クリア</button>
+        </div>
+
+        <!-- 選択済み件数 -->
+        <div id="reportSelectionInfo" style="margin-bottom: 10px; color: #666;">
+          選択中: <span id="reportSelectedCount">0</span>件
+        </div>
+
+        <!-- 検索結果リスト（チェックボックス付き） -->
+        <div id="reportPatientList" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px;"></div>
       </div>
 
       <div class="form-actions">

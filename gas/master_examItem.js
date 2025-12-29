@@ -855,15 +855,15 @@ const HUMAN_DOCK_ALL_ITEMS = {
     { item_code: '014002', display: '聴力左 1000Hz', category: '身体情報', sub_category: '聴力', input_type: 'manual', data_type: 'select' },
     { item_code: '014003', display: '聴力右 4000Hz', category: '身体情報', sub_category: '聴力', input_type: 'manual', data_type: 'select' },
     { item_code: '014004', display: '聴力左 4000Hz', category: '身体情報', sub_category: '聴力', input_type: 'manual', data_type: 'select' },
-    { item_code: '015001', bml_code: '0002151',display: '便ヘモグロビン1回目', category: '検体検査', sub_category: '便検査', input_type: 'auto', data_type: 'select' },
-    { item_code: '015002',bml_code: '0002152', display: '便ヘモグロビン2回目', category: '検体検査', sub_category: '便検査', input_type: 'auto', data_type: 'select' }
+    { item_code: '015001', display: '便ヘモグロビン1回目', category: '検体検査', sub_category: '便検査', input_type: 'manual', data_type: 'select' },
+    { item_code: '015002', display: '便ヘモグロビン2回目', category: '検体検査', sub_category: '便検査', input_type: 'manual', data_type: 'select' }
   ],
 
   // =============================================
   // 3ページ: 尿検査（自動転記）
   // =============================================
   page3_urine: [
-    { item_code: '031001', bml_code: '0000911', display: '尿糖(定性)', category: '検体検査', sub_category: '尿検査', input_type: 'auto', data_type: 'select' },
+    { item_code: '031001', bml_code: '0000055', display: '尿糖(定性)', category: '検体検査', sub_category: '尿検査', input_type: 'auto', data_type: 'select' },
     { item_code: '031002', bml_code: '0000703', display: '尿蛋白', category: '検体検査', sub_category: '尿検査', input_type: 'auto', data_type: 'select' },
     { item_code: '031003', bml_code: '0000705', display: '尿潜血', category: '検体検査', sub_category: '尿検査', input_type: 'auto', data_type: 'select' },
     { item_code: '031004', bml_code: '0000707', display: 'ウロビリノーゲン', category: '検体検査', sub_category: '尿検査', input_type: 'auto', data_type: 'select' },
@@ -888,11 +888,19 @@ const HUMAN_DOCK_ALL_ITEMS = {
     { item_code: '041006', bml_code: '0000305', display: 'MCV', category: '検体検査', sub_category: '血液学検査', input_type: 'auto', data_type: 'numeric', unit: 'fL', decimal: 1 },
     { item_code: '041007', bml_code: '0000306', display: 'MCH', category: '検体検査', sub_category: '血液学検査', input_type: 'auto', data_type: 'numeric', unit: 'pg', decimal: 1 },
     { item_code: '041008', bml_code: '0000307', display: 'MCHC', category: '検体検査', sub_category: '血液学検査', input_type: 'auto', data_type: 'numeric', unit: '%', decimal: 1 },
-    { item_code: '041009', bml_code: '0001885', display: 'NEUT(好中球)', category: '検体検査', sub_category: '白血球像', input_type: 'auto', data_type: 'numeric', unit: '%', decimal: 1 },
+    // 白血球分画 - BMLコードをBMLマスタDB定義に基づき修正 (2025-12-24)
+    { item_code: '041009', bml_code: '0001889', display: 'NEUT(好中球)', category: '検体検査', sub_category: '白血球像', input_type: 'auto', data_type: 'numeric', unit: '%', decimal: 1 },
     { item_code: '041010', bml_code: '0001881', display: 'BASO(好塩基球)', category: '検体検査', sub_category: '白血球像', input_type: 'auto', data_type: 'numeric', unit: '%', decimal: 1 },
     { item_code: '041011', bml_code: '0001882', display: 'EOS(好酸球)', category: '検体検査', sub_category: '白血球像', input_type: 'auto', data_type: 'numeric', unit: '%', decimal: 1 },
-    { item_code: '041012', bml_code: '0001889', display: 'LYMPHO(リンパ球)', category: '検体検査', sub_category: '白血球像', input_type: 'auto', data_type: 'numeric', unit: '%', decimal: 1 },
-    { item_code: '041013', bml_code: '0001886', display: 'MONO(単球)', category: '検体検査', sub_category: '白血球像', input_type: 'auto', data_type: 'numeric', unit: '%', decimal: 1 }
+    { item_code: '041012', bml_code: '0001885', display: 'LYMPHO(リンパ球)', category: '検体検査', sub_category: '白血球像', input_type: 'auto', data_type: 'numeric', unit: '%', decimal: 1 },
+    { item_code: '041013', bml_code: '0001886', display: 'MONO(単球)', category: '検体検査', sub_category: '白血球像', input_type: 'auto', data_type: 'numeric', unit: '%', decimal: 1 },
+    // 追加の白血球分画項目 (BML CSVに含まれる)
+    { item_code: '041014', bml_code: '0000313', display: '白血球像', category: '検体検査', sub_category: '白血球像', input_type: 'auto', data_type: 'text' },
+    { item_code: '041015', bml_code: '0001883', display: 'STAB(桿状核球)', category: '検体検査', sub_category: '白血球像', input_type: 'auto', data_type: 'numeric', unit: '%', decimal: 1 },
+    { item_code: '041016', bml_code: '0001884', display: 'SEG(分葉核球)', category: '検体検査', sub_category: '白血球像', input_type: 'auto', data_type: 'numeric', unit: '%', decimal: 1 },
+    { item_code: '041017', bml_code: '0001887', display: 'その他1', category: '検体検査', sub_category: '白血球像', input_type: 'auto', data_type: 'numeric', unit: '%', decimal: 1 },
+    { item_code: '041018', bml_code: '0001888', display: 'その他2', category: '検体検査', sub_category: '白血球像', input_type: 'auto', data_type: 'numeric', unit: '%', decimal: 1 },
+    { item_code: '041019', bml_code: '0001890', display: 'EBL(赤芽球)', category: '検体検査', sub_category: '白血球像', input_type: 'auto', data_type: 'numeric', unit: '%', decimal: 1 }
   ],
 
   // =============================================
@@ -913,8 +921,10 @@ const HUMAN_DOCK_ALL_ITEMS = {
     { item_code: '043004', bml_code: '0000482', display: 'ALT(GPT)', category: '検体検査', sub_category: '肝胆膵機能', input_type: 'auto', data_type: 'numeric', unit: 'U/L', decimal: 0 },
     { item_code: '043005', bml_code: '0000484', display: 'γ-GTP', category: '検体検査', sub_category: '肝胆膵機能', input_type: 'auto', data_type: 'numeric', unit: 'U/L', decimal: 0 },
     { item_code: '043006', bml_code: '0013067', display: 'ALP(IFCC)', category: '検体検査', sub_category: '肝胆膵機能', input_type: 'auto', data_type: 'numeric', unit: 'U/L', decimal: 0 },
-    { item_code: '043007', bml_code: '0000497', display: 'LDH(乳酸脱水素酵素)', category: '検体検査', sub_category: '肝胆膵機能', input_type: 'auto', data_type: 'numeric', unit: 'U/L', decimal: 0 },
-    { item_code: '043008', bml_code: '0000495', display: 'コリンエステラーゼ(Ch-E)', category: '検体検査', sub_category: '肝胆膵機能', input_type: 'auto', data_type: 'numeric', unit: 'U/L', decimal: 0 },
+    // LDH: BMLマスタDB確認 - 0000496(従来法) or 0013380(IFCC法) - CSV実データは0013380を使用
+    { item_code: '043007', bml_code: '0013380', display: 'LDH(IFCC)', category: '検体検査', sub_category: '肝胆膵機能', input_type: 'auto', data_type: 'numeric', unit: 'U/L', decimal: 0 },
+    // ChE: BMLマスタDB確認 - 正しいコードは0000491
+    { item_code: '043008', bml_code: '0000491', display: 'コリンエステラーゼ(Ch-E)', category: '検体検査', sub_category: '肝胆膵機能', input_type: 'auto', data_type: 'numeric', unit: 'U/L', decimal: 0 },
     { item_code: '043009', bml_code: '0000501', display: '血清アミラーゼ', category: '検体検査', sub_category: '肝胆膵機能', input_type: 'auto', data_type: 'numeric', unit: 'U/L', decimal: 0 },
     { item_code: '043010', bml_code: '0000472', display: '総ビリルビン(T-Bil)', category: '検体検査', sub_category: '肝胆膵機能', input_type: 'auto', data_type: 'numeric', unit: 'mg/dL', decimal: 1 }
   ],
@@ -943,7 +953,8 @@ const HUMAN_DOCK_ALL_ITEMS = {
   // =============================================
   page4_kidney: [
     { item_code: '046001', bml_code: '0000413', display: 'クレアチニン', category: '検体検査', sub_category: '腎機能', input_type: 'auto', data_type: 'numeric', unit: 'mg/dL', decimal: 2 },
-    { item_code: '046002', bml_code: '0000491', display: '尿素窒素(BUN)', category: '検体検査', sub_category: '腎機能', input_type: 'auto', data_type: 'numeric', unit: 'mg/dL', decimal: 1 },
+    // BUN: BMLマスタDB確認 - 正しいコードは0000409（0000491はChE）
+    { item_code: '046002', bml_code: '0000409', display: '尿素窒素(BUN)', category: '検体検査', sub_category: '腎機能', input_type: 'auto', data_type: 'numeric', unit: 'mg/dL', decimal: 1 },
     { item_code: '046003', bml_code: '0002696', display: 'eGFR', category: '検体検査', sub_category: '腎機能', input_type: 'auto', data_type: 'numeric', unit: 'mL/min/1.73m²', decimal: 1 },
     { item_code: '046004', bml_code: '0000407', display: '尿酸(UA)', category: '検体検査', sub_category: '腎機能', input_type: 'auto', data_type: 'numeric', unit: 'mg/dL', decimal: 1 }
   ],
@@ -952,11 +963,15 @@ const HUMAN_DOCK_ALL_ITEMS = {
   // 4ページ: 血液検査（自動転記）- その他生化学
   // =============================================
   page4_other_biochem: [
-    { item_code: '047001', bml_code: '0003845', display: 'クレアチニンキナーゼ(CK)', category: '検体検査', sub_category: '酵素', input_type: 'auto', data_type: 'numeric', unit: 'U/L', decimal: 0 },
-    { item_code: '047002', bml_code: '0003550', display: 'ナトリウム(Na)', category: '検体検査', sub_category: '電解質', input_type: 'auto', data_type: 'numeric', unit: 'mEq/L', decimal: 0 },
-    { item_code: '047003', bml_code: '0000421', display: 'カリウム(K)', category: '検体検査', sub_category: '電解質', input_type: 'auto', data_type: 'numeric', unit: 'mEq/L', decimal: 1 },
+    // CK: BMLマスタDB確認 - 正しいコードは0000497（0003845はnon-HDL-C）
+    { item_code: '047001', bml_code: '0000497', display: 'クレアチニンキナーゼ(CK)', category: '検体検査', sub_category: '酵素', input_type: 'auto', data_type: 'numeric', unit: 'U/L', decimal: 0 },
+    // Na: BMLマスタDB確認 - 正しいコードは0000421（0003550はNT-proBNP）
+    { item_code: '047002', bml_code: '0000421', display: 'ナトリウム(Na)', category: '検体検査', sub_category: '電解質', input_type: 'auto', data_type: 'numeric', unit: 'mEq/L', decimal: 0 },
+    { item_code: '047003', bml_code: '0000423', display: 'カリウム(K)', category: '検体検査', sub_category: '電解質', input_type: 'auto', data_type: 'numeric', unit: 'mEq/L', decimal: 1 },
     { item_code: '047004', bml_code: '0000425', display: 'クロール(Cl)', category: '検体検査', sub_category: '電解質', input_type: 'auto', data_type: 'numeric', unit: 'mEq/L', decimal: 0 },
-    { item_code: '047005', bml_code: '0000429', display: 'カルシウム(Ca)', category: '検体検査', sub_category: '電解質', input_type: 'auto', data_type: 'numeric', unit: 'mg/dL', decimal: 1 },
+    { item_code: '047005', bml_code: '0000427', display: 'カルシウム(Ca)', category: '検体検査', sub_category: '電解質', input_type: 'auto', data_type: 'numeric', unit: 'mg/dL', decimal: 1 },
+    // non-HDL-C: 追加（0003845）
+    { item_code: '047010', bml_code: '0003845', display: 'non-HDLコレステロール', category: '検体検査', sub_category: '脂質検査', input_type: 'auto', data_type: 'numeric', unit: 'mg/dL', decimal: 0 },
     { item_code: '047006', bml_code: '0000433', display: '血清鉄(Fe)', category: '検体検査', sub_category: '鉄代謝', input_type: 'auto', data_type: 'numeric', unit: 'μg/dL', decimal: 0 },
     { item_code: '047007', bml_code: '0000435', display: '総鉄結合能(TIBC)', category: '検体検査', sub_category: '鉄代謝', input_type: 'auto', data_type: 'numeric', unit: 'μg/dL', decimal: 0 },
     { item_code: '047008', bml_code: '0000658', display: 'CRP定量', category: '検体検査', sub_category: '炎症マーカー', input_type: 'auto', data_type: 'numeric', unit: 'mg/dL', decimal: 2 },
@@ -987,9 +1002,19 @@ const HUMAN_DOCK_ALL_ITEMS = {
   page5_infectious: [
     { item_code: '052001', bml_code: '0006001', display: 'TPHA', category: '検体検査', sub_category: '感染症', input_type: 'auto', data_type: 'select' },
     { item_code: '052002', bml_code: '0006003', display: 'RPR定性', category: '検体検査', sub_category: '感染症', input_type: 'auto', data_type: 'select' },
-    { item_code: '052003', bml_code: '0006005', display: 'HBs抗原', category: '検体検査', sub_category: '感染症', input_type: 'auto', data_type: 'select' },
+    // 梅毒検査 (BML CSV実データに含まれる)
+    { item_code: '052007', bml_code: '0000905', display: 'RPR法定性', category: '検体検査', sub_category: '感染症', input_type: 'auto', data_type: 'select' },
+    { item_code: '052008', bml_code: '0000911', display: '梅毒TP抗体定性', category: '検体検査', sub_category: '感染症', input_type: 'auto', data_type: 'select' },
+    // HBs抗原
+    { item_code: '052003', bml_code: '0000740', display: 'HBs抗原/CLIA', category: '検体検査', sub_category: '感染症', input_type: 'auto', data_type: 'select' },
+    { item_code: '052009', bml_code: '0004821', display: 'HBs抗原 判定', category: '検体検査', sub_category: '感染症', input_type: 'auto', data_type: 'select' },
+    { item_code: '052010', bml_code: '0004822', display: 'HBs抗原 定量値', category: '検体検査', sub_category: '感染症', input_type: 'auto', data_type: 'numeric', unit: 'IU/mL', decimal: 2 },
     { item_code: '052004', bml_code: '0006007', display: 'HBs抗体', category: '検体検査', sub_category: '感染症', input_type: 'auto', data_type: 'select' },
-    { item_code: '052005', bml_code: '0006009', display: 'HCV抗体', category: '検体検査', sub_category: '感染症', input_type: 'auto', data_type: 'select' },
+    // HCV抗体
+    { item_code: '052005', bml_code: '0003795', display: 'HCV抗体3rd', category: '検体検査', sub_category: '感染症', input_type: 'auto', data_type: 'select' },
+    { item_code: '052011', bml_code: '0003891', display: 'HCV抗体 判定', category: '検体検査', sub_category: '感染症', input_type: 'auto', data_type: 'select' },
+    { item_code: '052012', bml_code: '0003892', display: 'HCV抗体 インデックス', category: '検体検査', sub_category: '感染症', input_type: 'auto', data_type: 'numeric', unit: '', decimal: 2 },
+    { item_code: '052013', bml_code: '0003893', display: 'HCV抗体 ユニット', category: '検体検査', sub_category: '感染症', input_type: 'auto', data_type: 'text' },
     { item_code: '052006', bml_code: '0006011', display: 'HIV-1抗体', category: '検体検査', sub_category: '感染症', input_type: 'auto', data_type: 'select' }
   ],
 
@@ -997,7 +1022,8 @@ const HUMAN_DOCK_ALL_ITEMS = {
   // 5ページ: 心臓・甲状腺
   // =============================================
   page5_cardiac_thyroid: [
-    { item_code: '053001', bml_code: '0004001', display: 'NT-proBNP', category: '検体検査', sub_category: '心臓マーカー', input_type: 'auto', data_type: 'numeric', unit: 'pg/mL', decimal: 0 },
+    // NT-proBNP: BMLマスタDB確認 - 正しいコードは0003550
+    { item_code: '053001', bml_code: '0003550', display: 'NT-proBNP', category: '検体検査', sub_category: '心臓マーカー', input_type: 'auto', data_type: 'numeric', unit: 'pg/mL', decimal: 0 },
     { item_code: '053002', bml_code: '0004003', display: 'FT3', category: '検体検査', sub_category: '甲状腺', input_type: 'auto', data_type: 'numeric', unit: 'pg/mL', decimal: 2 },
     { item_code: '053003', bml_code: '0004005', display: 'FT4', category: '検体検査', sub_category: '甲状腺', input_type: 'auto', data_type: 'numeric', unit: 'ng/dL', decimal: 2 },
     { item_code: '053004', bml_code: '0004007', display: 'TSH', category: '検体検査', sub_category: '甲状腺', input_type: 'auto', data_type: 'numeric', unit: 'μIU/mL', decimal: 2 }

@@ -167,17 +167,83 @@ const LAB_RESULT_COLUMNS = {
     // ===== 血圧（手入力） =====
     { id: 'BP_SYSTOLIC_1', name: '収縮期血圧', bmlCode: null, unit: 'mmHg', category: '血圧' },
     { id: 'BP_DIASTOLIC_1', name: '拡張期血圧', bmlCode: null, unit: 'mmHg', category: '血圧' },
+    // ★ 血圧2回目対応: 新規フィールド追加
+    { id: 'BP_SYSTOLIC_2', name: '収縮期血圧_2回目', bmlCode: null, unit: 'mmHg', category: '血圧' },
+    { id: 'BP_DIASTOLIC_2', name: '拡張期血圧_2回目', bmlCode: null, unit: 'mmHg', category: '血圧' },
     { id: 'PULSE', name: '脈拍', bmlCode: null, unit: 'bpm', category: '血圧' },
     // ===== 尿検査 =====
     { id: 'URINE_PROTEIN', name: '尿蛋白', bmlCode: '0003891', unit: '', category: '尿検査' },
-    { id: 'URINE_GLUCOSE', name: '尿糖', bmlCode: '0003892', unit: '', category: '尿検査' },
+    { id: 'URINE_GLUCOSE', name: '尿糖', bmlCode: '0000055', unit: '', category: '尿検査' },
     { id: 'URINE_OCCULT_BLOOD', name: '尿潜血', bmlCode: '0003893', unit: '', category: '尿検査' },
     // ===== 便潜血 =====
     { id: 'FOBT_1', name: '便潜血1回目', bmlCode: '0000905', unit: '', category: '消化器' },
     { id: 'FOBT_2', name: '便潜血2回目', bmlCode: '0000911', unit: '', category: '消化器' },
     // ===== 感染症 =====
     { id: 'HBS_AG', name: 'HBs抗原', bmlCode: '0004821', unit: '', category: '感染症' },
-    { id: 'HCV_AB', name: 'HCV抗体', bmlCode: '0004822', unit: '', category: '感染症' }
+    { id: 'HCV_AB', name: 'HCV抗体', bmlCode: '0004822', unit: '', category: '感染症' },
+    // ===== 追加項目（2025-12-25） =====
+    // ===== 尿検査（詳細） =====
+    { id: 'URINE_GLUCOSE_QUAL', name: '尿糖(定性)', bmlCode: '0000701', unit: '', category: '尿検査' },
+    { id: 'URINE_PROTEIN_QUAL', name: '尿蛋白(定性)', bmlCode: '0000703', unit: '', category: '尿検査' },
+    { id: 'URINE_OB_QUAL', name: '尿潜血(定性)', bmlCode: '0000705', unit: '', category: '尿検査' },
+    { id: 'UROBILINOGEN', name: 'ウロビリノーゲン', bmlCode: '0000707', unit: '', category: '尿検査' },
+    { id: 'URINE_PH', name: '尿PH', bmlCode: '0000709', unit: '', category: '尿検査' },
+    { id: 'URINE_BILIRUBIN', name: '尿ビリルビン', bmlCode: '0000711', unit: '', category: '尿検査' },
+    { id: 'ACETONE', name: 'アセトン体', bmlCode: '0000713', unit: '', category: '尿検査' },
+    // ===== 尿沈渣 =====
+    { id: 'URINE_SED_WBC', name: '尿沈渣白血球', bmlCode: '0000721', unit: '', category: '尿沈渣' },
+    { id: 'URINE_SED_RBC', name: '尿沈渣赤血球', bmlCode: '0000723', unit: '', category: '尿沈渣' },
+    { id: 'URINE_SED_EPI', name: '尿沈渣扁平上皮', bmlCode: '0000725', unit: '', category: '尿沈渣' },
+    { id: 'URINE_SED_BACT', name: '尿沈渣細菌', bmlCode: '0000727', unit: '', category: '尿沈渣' },
+    // ===== 便検査（詳細） =====
+    { id: 'FOBT_HB_1', name: '便ヘモグロビン1回目', bmlCode: '0002151', unit: '', category: '消化器' },
+    { id: 'FOBT_HB_2', name: '便ヘモグロビン2回目', bmlCode: '0002152', unit: '', category: '消化器' },
+    // ===== 凝固 =====
+    { id: 'PT', name: 'プロトロンビン時間(PT)', bmlCode: '0002091', unit: '秒', category: '凝固' },
+    { id: 'APTT', name: 'APTT', bmlCode: '0002093', unit: '秒', category: '凝固' },
+    // ===== 肝胆膵機能（追加） =====
+    { id: 'CHE', name: 'コリンエステラーゼ(Ch-E)', bmlCode: '0000495', unit: 'U/L', category: '肝胆膵機能' },
+    { id: 'AMYLASE', name: '血清アミラーゼ', bmlCode: '0000501', unit: 'U/L', category: '肝胆膵機能' },
+    // ===== 電解質（追加） =====
+    { id: 'CA', name: 'カルシウム(Ca)', bmlCode: '0000429', unit: 'mg/dL', category: '電解質' },
+    // ===== 鉄代謝 =====
+    { id: 'FE', name: '血清鉄(Fe)', bmlCode: '0000433', unit: 'μg/dL', category: '鉄代謝' },
+    { id: 'TIBC', name: '総鉄結合能(TIBC)', bmlCode: '0000435', unit: 'μg/dL', category: '鉄代謝' },
+    // ===== 自己抗体 =====
+    { id: 'RF', name: 'リウマトイド因子定量', bmlCode: '0002117', unit: 'IU/mL', category: '自己抗体' },
+    // ===== 腫瘍マーカー =====
+    { id: 'PSA', name: 'PSA', bmlCode: '0005005', unit: 'ng/mL', category: '腫瘍マーカー' },
+    { id: 'CEA', name: 'CEA', bmlCode: '0005001', unit: 'ng/mL', category: '腫瘍マーカー' },
+    { id: 'CA19_9', name: 'CA19-9', bmlCode: '0005003', unit: 'U/mL', category: '腫瘍マーカー' },
+    { id: 'CA125', name: 'CA125', bmlCode: '0005007', unit: 'U/mL', category: '腫瘍マーカー' },
+    { id: 'NSE', name: 'NSE', bmlCode: '0005009', unit: 'ng/mL', category: '腫瘍マーカー' },
+    { id: 'ELASTASE1', name: 'エラスターゼ1', bmlCode: '0005011', unit: 'ng/dL', category: '腫瘍マーカー' },
+    { id: 'ANTI_P53', name: '抗p53抗体', bmlCode: '0005013', unit: 'U/mL', category: '腫瘍マーカー' },
+    { id: 'CYFRA21_1', name: 'CYFRA21-1', bmlCode: '0005015', unit: 'ng/mL', category: '腫瘍マーカー' },
+    { id: 'SCC', name: 'SCC', bmlCode: '0005017', unit: 'ng/mL', category: '腫瘍マーカー' },
+    { id: 'PROGRP', name: 'ProGRP', bmlCode: '0005019', unit: 'pg/mL', category: '腫瘍マーカー' },
+    { id: 'AFP', name: 'AFP', bmlCode: '0005021', unit: 'ng/mL', category: '腫瘍マーカー' },
+    { id: 'PIVKA2', name: 'PIVKA II', bmlCode: '0005023', unit: 'mAU/mL', category: '腫瘍マーカー' },
+    // ===== 感染症（追加） =====
+    { id: 'TPHA', name: 'TPHA', bmlCode: '0006001', unit: '', category: '感染症' },
+    { id: 'RPR', name: 'RPR定性', bmlCode: '0006003', unit: '', category: '感染症' },
+    { id: 'HBS_AG_2', name: 'HBs抗原(定性)', bmlCode: '0006005', unit: '', category: '感染症' },
+    { id: 'HBS_AB', name: 'HBs抗体', bmlCode: '0006007', unit: '', category: '感染症' },
+    { id: 'HCV_AB_2', name: 'HCV抗体(定性)', bmlCode: '0006009', unit: '', category: '感染症' },
+    { id: 'HIV', name: 'HIV-1抗体', bmlCode: '0006011', unit: '', category: '感染症' },
+    { id: 'STS', name: 'STS定性', bmlCode: '0006013', unit: '', category: '感染症' },
+    { id: 'TP_AB', name: '梅毒トレポネーマ抗体定性', bmlCode: '0006015', unit: '', category: '感染症' },
+    // ===== 心臓・甲状腺 =====
+    { id: 'NT_PROBNP', name: 'NT-proBNP', bmlCode: '0004001', unit: 'pg/mL', category: '心臓マーカー' },
+    { id: 'FT3', name: 'FT3', bmlCode: '0004003', unit: 'pg/mL', category: '甲状腺' },
+    { id: 'FT4', name: 'FT4', bmlCode: '0004005', unit: 'ng/dL', category: '甲状腺' },
+    { id: 'TSH', name: 'TSH', bmlCode: '0004007', unit: 'μIU/mL', category: '甲状腺' },
+    // ===== 血液型 =====
+    { id: 'BLOOD_TYPE_ABO', name: '血液型ABO式', bmlCode: '0007001', unit: '', category: '血液型' },
+    { id: 'BLOOD_TYPE_RH', name: '血液型Rho・D', bmlCode: '0007003', unit: '', category: '血液型' },
+    // ===== ピロリ =====
+    { id: 'UREA_BREATH', name: '尿素呼気試験', bmlCode: '0008001', unit: '', category: 'ピロリ菌' },
+    { id: 'HP_AB', name: 'ピロリ抗体', bmlCode: '0008003', unit: '', category: 'ピロリ菌' }
   ]
 };
 
@@ -283,7 +349,7 @@ const VISIT_COL = {
  */
 function portalSearchPatients(criteria) {
   const debugInfo = {
-    version: '2025-12-19-v6-normalized',
+    version: '2025-12-25-v7-optimized',
     criteriaReceived: criteria ? JSON.stringify(criteria) : 'null',
     timestamp: new Date().toISOString()
   };
@@ -298,43 +364,18 @@ function portalSearchPatients(criteria) {
       return { success: false, error: '受診者マスタシートが見つかりません', data: [], _debug: debugInfo };
     }
 
-    // 受診記録取得
-    const visitSheet = ss.getSheetByName('受診記録');
-    debugInfo.visitSheetFound = !!visitSheet;
-
-    // 受診者データ取得
-    const patientData = patientSheet.getDataRange().getValues();
-    debugInfo.patientRows = patientData.length;
-
-    // 受診記録データ取得（マップ化 - 最新の受診記録を保持）
-    const visitMap = {};  // patientId -> 最新の受診記録
-    if (visitSheet && visitSheet.getLastRow() >= 2) {
-      const visitData = visitSheet.getDataRange().getValues();
-      debugInfo.visitRows = visitData.length;
-
-      for (let i = 1; i < visitData.length; i++) {
-        const row = visitData[i];
-        const patientId = safeString(row[VISIT_COL.PATIENT_ID]);
-        const visitDate = row[VISIT_COL.VISIT_DATE];
-
-        if (!patientId) continue;
-
-        // 最新の受診記録を保持
-        if (!visitMap[patientId] ||
-            (visitDate && visitMap[patientId].visitDate < visitDate)) {
-          visitMap[patientId] = {
-            visitId: safeString(row[VISIT_COL.VISIT_ID]),
-            visitDate: visitDate,
-            examType: safeString(row[VISIT_COL.EXAM_TYPE]),
-            course: safeString(row[VISIT_COL.COURSE]),
-            age: safeNumber(row[VISIT_COL.AGE]),
-            judgment: safeString(row[VISIT_COL.JUDGMENT]),
-            status: safeString(row[VISIT_COL.STATUS]),
-            _visitRowIndex: i + 1
-          };
-        }
-      }
+    const lastRow = patientSheet.getLastRow();
+    if (lastRow <= 1) {
+      return { success: true, data: [], count: 0, _debug: debugInfo };
     }
+
+    // ★ 最適化: 検索用列のみ取得（A〜K列 = 11列）
+    // 旧: getDataRange().getValues() → 17列全取得
+    // 新: A(受診者ID), B(カルテNo), C(ステータス), D(受診日), E(氏名), F(カナ),
+    //     G(性別), H(生年月日), I(年齢), J(コース), K(所属企業)
+    const patientData = patientSheet.getRange(1, 1, lastRow, 11).getValues();
+    debugInfo.patientRows = patientData.length;
+    debugInfo.columnsLoaded = 11;  // 17→11列に削減
 
     // 検索条件を正規化
     const searchId = criteria && criteria.patientId ? normalizeString(criteria.patientId) : '';
@@ -343,7 +384,8 @@ function portalSearchPatients(criteria) {
 
     debugInfo.normalizedCriteria = { searchId, searchName, searchKana };
 
-    const results = [];
+    // ★ Phase 1: 検索フィルタリング（受診者マスタのみ）
+    const matchedRows = [];  // ヒットした行インデックスを記録
 
     for (let i = 1; i < patientData.length; i++) {
       const row = patientData[i];
@@ -352,14 +394,20 @@ function portalSearchPatients(criteria) {
       if (!row[PATIENT_COL.PATIENT_ID]) continue;
 
       const patientId = safeString(row[PATIENT_COL.PATIENT_ID]);
+      const karteNo = safeString(row[PATIENT_COL.KARTE_NO]);
       const name = safeString(row[PATIENT_COL.NAME]);
       const kana = safeString(row[PATIENT_COL.KANA]);
 
-      // 検索条件でフィルタ
+      // 検索条件でフィルタ（カルテNo/受診者ID, 氏名, カナ）
       let match = true;
 
-      if (searchId && !normalizeString(patientId).includes(searchId)) {
-        match = false;
+      // searchIdはカルテNoまたは受診者IDで検索
+      if (searchId) {
+        const matchPatientId = normalizeString(patientId).includes(searchId);
+        const matchKarteNo = normalizeString(karteNo).includes(searchId);
+        if (!matchPatientId && !matchKarteNo) {
+          match = false;
+        }
       }
       if (searchName && match && !normalizeString(name).includes(searchName)) {
         match = false;
@@ -369,31 +417,85 @@ function portalSearchPatients(criteria) {
       }
 
       if (match) {
-        const visit = visitMap[patientId] || {};
-
-        results.push({
-          '受診者ID': patientId,
-          '氏名': name,
-          'カナ': kana,
-          '生年月日': formatDateToString(row[PATIENT_COL.BIRTHDATE]),
-          '性別': safeString(row[PATIENT_COL.GENDER]),
-          '所属企業': safeString(row[PATIENT_COL.COMPANY]),
-          // 最新の受診記録情報
-          '受診ID': visit.visitId || '',
-          '受診日': formatDateToString(visit.visitDate),
-          '検診種別': visit.examType || '',
-          'コース': visit.course || '',
-          '年齢': visit.age || '',
-          'ステータス': visit.status || '',
-          '総合判定': visit.judgment || '',
-          _rowIndex: i + 1,
-          _visitRowIndex: visit._visitRowIndex || null
+        matchedRows.push({
+          rowIndex: i,
+          patientId: patientId,
+          row: row
         });
       }
 
       // 最大件数制限
-      if (results.length >= 100) break;
+      if (matchedRows.length >= 100) break;
     }
+
+    debugInfo.matchedCount = matchedRows.length;
+
+    // ★ Phase 2: ヒットした患者の受診記録を取得（遅延読み込み）
+    let visitMap = {};
+    if (matchedRows.length > 0) {
+      const visitSheet = ss.getSheetByName('受診記録');
+      debugInfo.visitSheetFound = !!visitSheet;
+
+      if (visitSheet && visitSheet.getLastRow() >= 2) {
+        // ヒットした患者IDのセットを作成
+        const matchedPatientIds = new Set(matchedRows.map(m => m.patientId));
+
+        // ★ 最適化: 受診記録も必要な列のみ取得（A〜H列 = 8列）
+        const visitLastRow = visitSheet.getLastRow();
+        const visitData = visitSheet.getRange(1, 1, visitLastRow, 8).getValues();
+        debugInfo.visitRows = visitData.length;
+        debugInfo.visitColumnsLoaded = 8;
+
+        for (let i = 1; i < visitData.length; i++) {
+          const row = visitData[i];
+          const patientId = safeString(row[VISIT_COL.PATIENT_ID]);
+
+          // ★ ヒットした患者のみ処理
+          if (!patientId || !matchedPatientIds.has(patientId)) continue;
+
+          const visitDate = row[VISIT_COL.VISIT_DATE];
+
+          // 最新の受診記録を保持
+          if (!visitMap[patientId] ||
+              (visitDate && visitMap[patientId].visitDate < visitDate)) {
+            visitMap[patientId] = {
+              visitId: safeString(row[VISIT_COL.VISIT_ID]),
+              visitDate: visitDate,
+              examType: safeString(row[VISIT_COL.EXAM_TYPE]),
+              course: safeString(row[VISIT_COL.COURSE]),
+              age: safeNumber(row[VISIT_COL.AGE]),
+              status: safeString(row[VISIT_COL.STATUS]),
+              _visitRowIndex: i + 1
+            };
+          }
+        }
+      }
+    }
+
+    // ★ Phase 3: 結果を構築
+    const results = matchedRows.map(m => {
+      const row = m.row;
+      const visit = visitMap[m.patientId] || {};
+
+      return {
+        '受診者ID': m.patientId,
+        'カルテNo': safeString(row[PATIENT_COL.KARTE_NO]),
+        '氏名': safeString(row[PATIENT_COL.NAME]),
+        'カナ': safeString(row[PATIENT_COL.KANA]),
+        '生年月日': formatDateToString(row[PATIENT_COL.BIRTHDATE]),
+        '性別': safeString(row[PATIENT_COL.GENDER]),
+        '所属企業': safeString(row[PATIENT_COL.COMPANY]),
+        // 最新の受診記録情報
+        '受診ID': visit.visitId || '',
+        '受診日': formatDateToString(visit.visitDate),
+        '検診種別': visit.examType || '',
+        'コース': visit.course || '',
+        '年齢': visit.age || '',
+        'ステータス': visit.status || '',
+        _rowIndex: m.rowIndex + 1,
+        _visitRowIndex: visit._visitRowIndex || null
+      };
+    });
 
     debugInfo.resultsCount = results.length;
 
@@ -413,6 +515,178 @@ function portalSearchPatients(criteria) {
       data: [],
       _debug: debugInfo
     };
+  }
+}
+
+/**
+ * カルテNoで受診者を検索
+ * @param {string} karteNo - カルテNo（6桁の数字）
+ * @returns {Object} 検索結果 { success, data, error }
+ */
+function portalSearchByKarteNo(karteNo) {
+  try {
+    if (!karteNo) {
+      return { success: false, error: 'カルテNoが指定されていません', data: null };
+    }
+
+    const searchKarteNo = String(karteNo).trim();
+    console.log('portalSearchByKarteNo: searching for karteNo=' + searchKarteNo);
+
+    const ss = getPortalSpreadsheet();
+
+    // 1. まず受診者マスタでカルテNo検索
+    const patientSheet = ss.getSheetByName('受診者マスタ');
+    if (patientSheet && patientSheet.getLastRow() >= 2) {
+      const data = patientSheet.getDataRange().getValues();
+      const headers = data[0];
+
+      // カルテNo列のインデックスを取得
+      let karteNoColIdx = headers.indexOf('カルテNo');
+      if (karteNoColIdx < 0) {
+        karteNoColIdx = PATIENT_COL.KARTE_NO; // フォールバック
+      }
+
+      console.log('受診者マスタ: karteNoColIdx=' + karteNoColIdx + ', totalRows=' + data.length);
+
+      for (let i = 1; i < data.length; i++) {
+        const cellKarteNo = String(data[i][karteNoColIdx] || '').trim();
+        if (cellKarteNo === searchKarteNo) {
+          console.log('受診者マスタで発見: row=' + (i + 1));
+
+          // 受診者情報を構築
+          const result = {
+            '受診者ID': safeString(data[i][PATIENT_COL.PATIENT_ID]),
+            'カルテNo': cellKarteNo,
+            '氏名': safeString(data[i][PATIENT_COL.NAME]),
+            'カナ': safeString(data[i][PATIENT_COL.KANA]),
+            '生年月日': formatDateToString(data[i][PATIENT_COL.BIRTHDATE]),
+            '性別': safeString(data[i][PATIENT_COL.GENDER]),
+            '年齢': safeString(data[i][PATIENT_COL.AGE]),
+            '所属企業': safeString(data[i][PATIENT_COL.COMPANY]),
+            '_rowIndex': i + 1,
+            '_source': '受診者マスタ'
+          };
+
+          return { success: true, data: result };
+        }
+      }
+    }
+
+    // 2. 受診者マスタで見つからなければ、検査結果シートを検索
+    const labResultSheet = ss.getSheetByName('検査結果');
+    if (labResultSheet && labResultSheet.getLastRow() >= 2) {
+      const labData = labResultSheet.getDataRange().getValues();
+      const labHeaders = labData[0];
+
+      const labKarteNoColIdx = labHeaders.indexOf('カルテNo');
+      const labPatientIdColIdx = labHeaders.indexOf('受診者ID');
+
+      console.log('検査結果シート: karteNoColIdx=' + labKarteNoColIdx + ', totalRows=' + labData.length);
+
+      if (labKarteNoColIdx >= 0) {
+        for (let i = 1; i < labData.length; i++) {
+          const cellKarteNo = String(labData[i][labKarteNoColIdx] || '').trim();
+          if (cellKarteNo === searchKarteNo) {
+            console.log('検査結果シートで発見: row=' + (i + 1));
+
+            // 受診者IDがあれば取得
+            const patientId = labPatientIdColIdx >= 0 ? safeString(labData[i][labPatientIdColIdx]) : '';
+
+            const result = {
+              '受診者ID': patientId,
+              'カルテNo': cellKarteNo,
+              '_rowIndex': i + 1,
+              '_source': '検査結果'
+            };
+
+            return { success: true, data: result };
+          }
+        }
+      }
+    }
+
+    console.log('カルテNo ' + searchKarteNo + ' は見つかりませんでした');
+    return { success: false, error: 'カルテNo ' + searchKarteNo + ' が見つかりません', data: null };
+
+  } catch (error) {
+    console.error('portalSearchByKarteNo error:', error);
+    return { success: false, error: error.message, data: null };
+  }
+}
+
+/**
+ * 帳票出力用 - 受診者OR検索（カルテNo / 氏名 / カナ）
+ * @param {string} searchText - 検索文字列
+ * @returns {Object} { success, data: Array, error }
+ */
+function portalSearchPatientsForReport(searchText) {
+  try {
+    if (!searchText || String(searchText).trim() === '') {
+      return { success: false, error: '検索条件を入力してください', data: [] };
+    }
+
+    const searchTerm = String(searchText).trim();
+    const normalizedSearch = normalizeString(searchTerm);
+    const normalizedKanaSearch = normalizeKana(searchTerm);
+
+    console.log('portalSearchPatientsForReport: searchTerm=' + searchTerm);
+
+    const ss = getPortalSpreadsheet();
+    const patientSheet = ss.getSheetByName('受診者マスタ');
+
+    if (!patientSheet || patientSheet.getLastRow() < 2) {
+      return { success: true, data: [] };
+    }
+
+    const data = patientSheet.getDataRange().getValues();
+    const headers = data[0];
+
+    // 列インデックス取得
+    const colIdx = {
+      patientId: headers.indexOf('受診者ID') >= 0 ? headers.indexOf('受診者ID') : PATIENT_COL.PATIENT_ID,
+      karteNo: headers.indexOf('カルテNo') >= 0 ? headers.indexOf('カルテNo') : PATIENT_COL.KARTE_NO,
+      name: headers.indexOf('氏名') >= 0 ? headers.indexOf('氏名') : PATIENT_COL.NAME,
+      kana: headers.indexOf('カナ') >= 0 ? headers.indexOf('カナ') : PATIENT_COL.KANA,
+      birthdate: headers.indexOf('生年月日') >= 0 ? headers.indexOf('生年月日') : PATIENT_COL.BIRTHDATE,
+      gender: headers.indexOf('性別') >= 0 ? headers.indexOf('性別') : PATIENT_COL.GENDER,
+      age: headers.indexOf('年齢') >= 0 ? headers.indexOf('年齢') : PATIENT_COL.AGE,
+      company: headers.indexOf('所属企業') >= 0 ? headers.indexOf('所属企業') : PATIENT_COL.COMPANY
+    };
+
+    const results = [];
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const karteNo = String(row[colIdx.karteNo] || '').trim();
+      const name = String(row[colIdx.name] || '').trim();
+      const kana = String(row[colIdx.kana] || '').trim();
+
+      // OR検索: カルテNo 完全一致 OR 氏名 部分一致 OR カナ 部分一致
+      const matchKarteNo = karteNo === searchTerm;
+      const matchName = name && normalizeString(name).includes(normalizedSearch);
+      const matchKana = kana && normalizeKana(kana).includes(normalizedKanaSearch);
+
+      if (matchKarteNo || matchName || matchKana) {
+        results.push({
+          '受診者ID': safeString(row[colIdx.patientId]),
+          'カルテNo': karteNo,
+          '氏名': name,
+          'カナ': kana,
+          '生年月日': formatDateToString(row[colIdx.birthdate]),
+          '性別': safeString(row[colIdx.gender]),
+          '年齢': safeString(row[colIdx.age]),
+          '所属企業': safeString(row[colIdx.company]),
+          '_rowIndex': i + 1
+        });
+      }
+    }
+
+    console.log('portalSearchPatientsForReport: found ' + results.length + ' results');
+    return { success: true, data: results };
+
+  } catch (error) {
+    console.error('portalSearchPatientsForReport error:', error);
+    return { success: false, error: error.message, data: [] };
   }
 }
 
@@ -1117,11 +1391,13 @@ function portalGetBloodTestResults(karteNo) {
  */
 function portalSaveBodyMeasurements(karteNo, measurements) {
   try {
+    console.log('=== portalSaveBodyMeasurements開始 ===');
+    console.log('karteNo: ' + karteNo + ' (type: ' + typeof karteNo + ')');
+    console.log('measurements: ' + JSON.stringify(measurements));
+
     if (!karteNo) {
       return { success: false, error: 'カルテNoが指定されていません' };
     }
-
-    console.log('portalSaveBodyMeasurements: karteNo=' + karteNo);
 
     const ss = getPortalSpreadsheet();
     const sheet = ss.getSheetByName('検査結果');
@@ -1132,6 +1408,10 @@ function portalSaveBodyMeasurements(karteNo, measurements) {
     const data = sheet.getDataRange().getValues();
     const headers = data[0];
     const karteNoColIndex = headers.indexOf('カルテNo');
+
+    console.log('ヘッダー数: ' + headers.length);
+    console.log('カルテNo列idx: ' + karteNoColIndex);
+    console.log('体重列idx: ' + headers.indexOf('体重'));
 
     if (karteNoColIndex < 0) {
       return { success: false, error: 'ヘッダーにカルテNoがありません' };
@@ -1144,6 +1424,9 @@ function portalSaveBodyMeasurements(karteNo, measurements) {
       'BMI': measurements.bmi,
       '収縮期血圧': measurements.systolicBP,
       '拡張期血圧': measurements.diastolicBP,
+      // ★ 血圧2回目対応: 2回目フィールド追加
+      '収縮期血圧_2回目': measurements.systolicBP2,
+      '拡張期血圧_2回目': measurements.diastolicBP2,
       '脈拍': measurements.pulse,
       '視力_右': measurements.visionRight,
       '視力_左': measurements.visionLeft,
@@ -1159,23 +1442,43 @@ function portalSaveBodyMeasurements(karteNo, measurements) {
       '更新日時': new Date()
     };
 
+    // 各フィールドのマッピング診断
+    console.log('=== フィールドマッピング診断 ===');
+    Object.keys(measurementFields).forEach(fieldName => {
+      const colIdx = headers.indexOf(fieldName);
+      const value = measurementFields[fieldName];
+      const willSave = colIdx >= 0 && value !== undefined && value !== '';
+      console.log(fieldName + ': colIdx=' + colIdx + ', value=[' + value + '], type=' + typeof value + ', willSave=' + willSave);
+    });
+
     for (let i = 1; i < data.length; i++) {
-      if (String(data[i][karteNoColIndex]).trim() === String(karteNo).trim()) {
-        // 該当行を更新
+      const storedKarteNo = String(data[i][karteNoColIndex]).trim();
+      const searchKarteNo = String(karteNo).trim();
+
+      if (storedKarteNo === searchKarteNo) {
+        console.log('★ マッチ: Row ' + (i + 1) + ', karteNo=' + storedKarteNo);
+
+        let savedCount = 0;
         Object.keys(measurementFields).forEach(fieldName => {
           const colIdx = headers.indexOf(fieldName);
-          if (colIdx >= 0 && measurementFields[fieldName] !== undefined) {
-            sheet.getRange(i + 1, colIdx + 1).setValue(measurementFields[fieldName]);
+          const value = measurementFields[fieldName];
+          // 空文字も許可（値をクリアする場合）、undefinedのみスキップ
+          if (colIdx >= 0 && value !== undefined) {
+            sheet.getRange(i + 1, colIdx + 1).setValue(value);
+            savedCount++;
+            console.log('  保存: ' + fieldName + ' = [' + value + '] → 列' + (colIdx + 1));
           }
         });
-        return { success: true, message: '身体計測結果を保存しました' };
+
+        console.log('保存完了: ' + savedCount + '項目');
+        return { success: true, message: '身体計測結果を保存しました（' + savedCount + '項目）' };
       }
     }
 
-    // 該当行がない場合は新規行を追加
+    console.log('該当行なし - 新規行追加');
     const newRow = headers.map(header => {
       if (header === 'カルテNo') return karteNo;
-      if (measurementFields.hasOwnProperty(header)) return measurementFields[header];
+      if (measurementFields.hasOwnProperty(header)) return measurementFields[header] || '';
       return '';
     });
     sheet.appendRow(newRow);
@@ -1252,7 +1555,7 @@ function portalSaveBloodTestResults(karteNo, bloodData) {
 
 /**
  * 検査結果を保存（設計書準拠版）
- * @param {string} patientId - 患者ID
+ * @param {string} patientId - 受診者ID
  * @param {Object} inputData - 検査データ（キー: 項目名, 値: 検査値）
  * @returns {Object} 保存結果
  */
@@ -1266,7 +1569,13 @@ function portalSaveInputResults(patientId, inputData) {
 
     const data = sheet.getDataRange().getValues();
     const headers = data[0];
-    const idColIndex = headers.indexOf('患者ID');
+    // 修正: 患者ID → 受診者ID（LAB_RESULT_COLUMNS準拠）
+    const idColIndex = headers.indexOf('受診者ID');
+
+    if (idColIndex < 0) {
+      console.error('portalSaveInputResults: 受診者ID列が見つかりません。headers=' + JSON.stringify(headers.slice(0, 10)));
+      return { success: false, error: '検査結果シートに受診者ID列がありません' };
+    }
 
     // 入力項目のマッピング（inputDataのキーはそのまま列名として使用）
     const inputFields = {
@@ -1276,7 +1585,7 @@ function portalSaveInputResults(patientId, inputData) {
     };
 
     for (let i = 1; i < data.length; i++) {
-      if (String(data[i][idColIndex]) === String(patientId)) {
+      if (String(data[i][idColIndex]).trim() === String(patientId).trim()) {
         // 該当行を更新
         Object.keys(inputFields).forEach(fieldName => {
           const colIdx = headers.indexOf(fieldName);
@@ -1284,17 +1593,19 @@ function portalSaveInputResults(patientId, inputData) {
             sheet.getRange(i + 1, colIdx + 1).setValue(inputFields[fieldName]);
           }
         });
+        console.log('portalSaveInputResults: 更新完了 row=' + (i + 1) + ', patientId=' + patientId);
         return { success: true, message: '検査結果を保存しました' };
       }
     }
 
     // 該当行がない場合は新規行を追加
     const newRow = headers.map(header => {
-      if (header === '患者ID') return patientId;
+      if (header === '受診者ID') return patientId;
       if (inputFields.hasOwnProperty(header)) return inputFields[header];
       return '';
     });
     sheet.appendRow(newRow);
+    console.log('portalSaveInputResults: 新規追加 patientId=' + patientId);
 
     return { success: true, message: '検査結果を新規登録しました' };
   } catch (error) {
@@ -1483,15 +1794,18 @@ function portalImportBmlCodeFormat(csvContent, options) {
       console.log('検査結果シートのヘッダーを初期化しました');
     }
 
-    // 既存データのマップを作成（受診者ID → 行番号）
+    // 既存データのマップを作成（カルテNo → 行番号）★カルテNo統一設計
     const existingData = resultSheet.getDataRange().getValues();
-    const patientIdToRow = new Map();
+    const resultHeaders = existingData[0];
+    const karteNoColIdx = resultHeaders.indexOf('カルテNo');
+    const karteNoToRow = new Map();
     for (let i = 1; i < existingData.length; i++) {
-      const pid = String(existingData[i][0]).trim();
-      if (pid) {
-        patientIdToRow.set(pid, i + 1); // 1-indexed
+      const kno = karteNoColIdx >= 0 ? String(existingData[i][karteNoColIdx]).trim() : '';
+      if (kno) {
+        karteNoToRow.set(kno, i + 1); // 1-indexed
       }
     }
+    console.log('既存カルテNoマップ: ' + karteNoToRow.size + '件');
 
     let linked = 0;
     let notFound = 0;
@@ -1529,17 +1843,21 @@ function portalImportBmlCodeFormat(csvContent, options) {
         // 検査結果を保存
         const resultRow = buildResultRow(patient.patientId, record, resultSheet);
         if (resultRow) {
-          // 既存行があれば更新、なければ追加
-          const existingRowNum = patientIdToRow.get(String(patient.patientId).trim());
+          // 既存行があれば更新、なければ追加（★カルテNoで検索）
+          const searchKarteNo = String(karteNo).trim();
+          const existingRowNum = karteNoToRow.get(searchKarteNo);
+          console.log('カルテNo ' + searchKarteNo + ' → 既存行: ' + (existingRowNum || 'なし'));
           if (existingRowNum) {
             // 既存行を更新
             resultSheet.getRange(existingRowNum, 1, 1, resultRow.length).setValues([resultRow]);
             updated++;
+            console.log('既存行 ' + existingRowNum + ' を更新');
           } else {
             // 新規行を追加
             resultSheet.appendRow(resultRow);
-            patientIdToRow.set(String(patient.patientId).trim(), resultSheet.getLastRow());
+            karteNoToRow.set(searchKarteNo, resultSheet.getLastRow());
             saved++;
+            console.log('新規行追加: ' + resultSheet.getLastRow());
           }
         }
 
@@ -1579,35 +1897,22 @@ function portalImportBmlCodeFormat(csvContent, options) {
 
 /**
  * カルテNoで受診者を検索（内部用フォールバック）
- * PATIENT_COL定数を使用して列インデックスを取得
+ * @deprecated CRUD.js getPatientByKarteNo() に統一済み
+ * @param {Sheet} sheet - 受診者マスタシート（互換性のため維持、未使用）
+ * @param {string} karteNo - カルテNo
+ * @returns {Object|null} 受診者情報またはnull
  */
 function findPatientByKarteNoInternal(sheet, karteNo) {
-  const data = sheet.getDataRange().getValues();
-  const karteNoStr = String(karteNo).trim();
-
-  // ヘッダーからカルテNo列を探す（PATIENT_COL定数よりも実際のヘッダーを優先）
-  const headers = data[0];
-  let karteNoColIdx = headers.indexOf('カルテNo');
-  if (karteNoColIdx < 0) {
-    karteNoColIdx = PATIENT_COL.KARTE_NO; // フォールバック
+  // CRUD.js の基本関数を使用
+  const result = getPatientByKarteNo(karteNo);
+  if (result) {
+    return {
+      patientId: result.patientId,
+      karteNo: result.karteNo,
+      name: result.name,
+      _rowIndex: result.rowIndex
+    };
   }
-
-  console.log('findPatientByKarteNoInternal: karteNo=' + karteNo + ', karteNoColIdx=' + karteNoColIdx);
-  console.log('Headers: ' + JSON.stringify(headers.slice(0, 5)));
-
-  for (let i = 1; i < data.length; i++) {
-    const cellValue = String(data[i][karteNoColIdx] || '').trim();
-    if (cellValue === karteNoStr) {
-      console.log('Found match at row ' + i + ', patientId=' + data[i][PATIENT_COL.PATIENT_ID]);
-      return {
-        patientId: data[i][PATIENT_COL.PATIENT_ID],
-        karteNo: data[i][karteNoColIdx],
-        name: data[i][PATIENT_COL.NAME],
-        _rowIndex: i + 1
-      };
-    }
-  }
-  console.log('No patient found for karteNo: ' + karteNo);
   return null;
 }
 
@@ -1620,6 +1925,11 @@ function findPatientByKarteNoInternal(sheet, karteNo) {
  */
 function buildResultRow(patientId, record, sheet) {
   try {
+    console.log('=== buildResultRow開始 ===');
+    console.log('patientId: ' + patientId);
+    console.log('record.KARTE_NO: ' + record.KARTE_NO);
+    console.log('recordのキー: ' + Object.keys(record).filter(k => !k.startsWith('_')).join(', '));
+
     // ヘッダーを取得（LAB_RESULT_COLUMNS準拠）
     const headers = getLabResultHeaders();
     const row = new Array(headers.length).fill('');
@@ -1637,14 +1947,21 @@ function buildResultRow(patientId, record, sheet) {
     if (baseColMap['BML_PATIENT_ID'] !== undefined) row[baseColMap['BML_PATIENT_ID']] = record.BML_PATIENT_ID || '';
     if (baseColMap['CSV_IMPORT_DATE'] !== undefined) row[baseColMap['CSV_IMPORT_DATE']] = new Date();
 
-    // 検査項目をマッピング
+    // 検査項目をマッピング（BMLコードをキーとして使用）
     const baseLen = LAB_RESULT_COLUMNS.BASE.length;
+    let mappedCount = 0;
     LAB_RESULT_COLUMNS.ITEMS.forEach((item, idx) => {
       const colIdx = baseLen + idx;
-      if (record[item.id] !== undefined && record[item.id] !== '') {
-        row[colIdx] = record[item.id];
+      // BMLコードをキーとして検索（parseBmlCodeFormatCsvと同期）
+      const value = record[item.bmlCode];
+      if (value !== undefined && value !== '') {
+        row[colIdx] = value;
+        mappedCount++;
       }
     });
+
+    console.log('マッピングされた検査項目数: ' + mappedCount);
+    console.log('=== buildResultRow完了 ===');
 
     return row;
   } catch (e) {
@@ -3631,7 +3948,8 @@ function generateCombinedFindings(findings, overallJudgment) {
 }
 
 /**
- * 所見を取得
+ * 所見を取得（旧横持ち構造）
+ * @deprecated 新構造は portalGetFindingsByKarteNo() を使用してください
  * @param {string} visitId - 受診ID
  * @returns {Object} 所見データ
  */
@@ -3688,7 +4006,8 @@ function getFindings(visitId) {
 }
 
 /**
- * 所見を保存（手動編集用）
+ * 所見を保存（旧横持ち構造・手動編集用）
+ * @deprecated 新構造は portalSaveFindingsNew() を使用してください
  * @param {string} visitId - 受診ID
  * @param {Object} findingsData - 所見データ
  * @returns {Object} 保存結果
@@ -3957,6 +4276,180 @@ function migrateKarteNoFromBmlPatientId() {
 
   } catch (error) {
     console.error('migrateKarteNoFromBmlPatientId error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// ============================================================
+// 所見API（縦持ち・検査項目別構造）- 新規追加
+// ============================================================
+
+/**
+ * カルテNoで所見を取得（縦持ち構造）
+ * @param {string} karteNo - カルテNo（6桁）
+ * @returns {Object} 取得結果
+ */
+function portalGetFindingsByKarteNo(karteNo) {
+  try {
+    if (!karteNo) {
+      return { success: false, error: 'カルテNoが必要です' };
+    }
+
+    const findings = getFindingsByKarteNo(karteNo);
+    return {
+      success: true,
+      data: findings,
+      count: findings.length
+    };
+
+  } catch (error) {
+    console.error('portalGetFindingsByKarteNo error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * 所見を保存（縦持ち構造・upsert）
+ * @param {string} karteNo - カルテNo
+ * @param {string} patientId - 受診者ID
+ * @param {Array<Object>} findingsData - 所見データ配列
+ * @returns {Object} 保存結果
+ */
+function portalSaveFindingsNew(karteNo, patientId, findingsData) {
+  try {
+    if (!karteNo) {
+      return { success: false, error: 'カルテNoが必要です' };
+    }
+    if (!patientId) {
+      return { success: false, error: '受診者IDが必要です' };
+    }
+    if (!findingsData || !Array.isArray(findingsData)) {
+      return { success: false, error: '所見データが必要です' };
+    }
+
+    // patientIdを各所見に追加
+    const dataWithPatient = findingsData.map(f => ({
+      ...f,
+      patientId: patientId,
+      karteNo: karteNo
+    }));
+
+    const result = upsertFindings(karteNo, dataWithPatient);
+
+    return {
+      success: true,
+      message: `所見を保存しました（作成: ${result.created}, 更新: ${result.updated}）`,
+      created: result.created,
+      updated: result.updated
+    };
+
+  } catch (error) {
+    console.error('portalSaveFindingsNew error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * 所見テンプレート一覧を取得
+ * @param {string} [itemId] - 項目ID（省略時は全件）
+ * @param {string} [judgment] - 判定（省略時は全件）
+ * @returns {Object} テンプレート一覧
+ */
+function portalGetFindingTemplates(itemId, judgment) {
+  try {
+    const templates = getFindingTemplates(itemId, judgment);
+    return {
+      success: true,
+      data: templates,
+      count: templates.length
+    };
+
+  } catch (error) {
+    console.error('portalGetFindingTemplates error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * 単一所見を更新
+ * @param {string} findingId - 所見ID
+ * @param {Object} data - 更新データ
+ * @returns {Object} 更新結果
+ */
+function portalUpdateFinding(findingId, data) {
+  try {
+    if (!findingId) {
+      return { success: false, error: '所見IDが必要です' };
+    }
+
+    updateFinding(findingId, data);
+    return { success: true, message: '所見を更新しました' };
+
+  } catch (error) {
+    console.error('portalUpdateFinding error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * 所見を削除
+ * @param {string} findingId - 所見ID
+ * @returns {Object} 削除結果
+ */
+function portalDeleteFinding(findingId) {
+  try {
+    if (!findingId) {
+      return { success: false, error: '所見IDが必要です' };
+    }
+
+    deleteFinding(findingId);
+    return { success: true, message: '所見を削除しました' };
+
+  } catch (error) {
+    console.error('portalDeleteFinding error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * 所見入力用の検査項目一覧を取得（2ページ目用）
+ * @returns {Object} 所見入力対象項目一覧
+ */
+function portalGetFindingItems() {
+  try {
+    // 所見入力対象カテゴリ
+    const findingCategories = ['画像診断', '心電図', '内視鏡'];
+    const findingSubcategories = ['MRI', 'CT', '超音波検査', 'X線'];
+
+    const allItems = EXAM_ITEM_MASTER_DATA;
+    const findingItems = allItems.filter(item => {
+      return findingCategories.includes(item.category) ||
+             findingSubcategories.includes(item.subcategory);
+    });
+
+    // カテゴリごとにグループ化
+    const grouped = {};
+    for (const item of findingItems) {
+      const key = item.subcategory || item.category;
+      if (!grouped[key]) {
+        grouped[key] = [];
+      }
+      grouped[key].push({
+        itemId: item.item_id,
+        itemName: item.item_name,
+        category: item.category,
+        subcategory: item.subcategory
+      });
+    }
+
+    return {
+      success: true,
+      data: grouped,
+      totalCount: findingItems.length
+    };
+
+  } catch (error) {
+    console.error('portalGetFindingItems error:', error);
     return { success: false, error: error.message };
   }
 }

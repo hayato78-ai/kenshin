@@ -1130,7 +1130,8 @@ function getIndividualReportMapping(templateId) {
     const dataType = row[4];
     const isActive = row[7];
 
-    if (rowTemplateId !== templateId || !isActive) continue;
+    // 空行・fieldName未設定・テンプレート不一致・非アクティブはスキップ
+    if (!fieldName || rowTemplateId !== templateId || !isActive) continue;
 
     // 患者情報
     if (fieldName.startsWith('patient_')) {
@@ -1170,11 +1171,12 @@ function setupSheetFromConfig(sheetKey, resetData = false) {
   }
 
   // シート名をDB_CONFIG.SHEETSから取得
+  // ※ ITEM_MASTER は廃止 → EXAM_ITEM_MASTER を使用
   const sheetNameMap = {
     'PATIENT_MASTER': DB_CONFIG.SHEETS.PATIENT_MASTER,
     'VISIT_RECORD': DB_CONFIG.SHEETS.VISIT_RECORD,
     'TEST_RESULT': DB_CONFIG.SHEETS.TEST_RESULT,
-    'ITEM_MASTER': DB_CONFIG.SHEETS.ITEM_MASTER
+    'EXAM_ITEM_MASTER': DB_CONFIG.SHEETS.EXAM_ITEM_MASTER
   };
 
   const sheetName = sheetNameMap[sheetKey] || sheetKey;

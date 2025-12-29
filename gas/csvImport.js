@@ -759,72 +759,42 @@ function parseBmlCodeFormatCsv(csvContent, options = {}) {
     const mappedCodes = new Set();
     const unmappedCodes = new Set();
 
-    // BML 7桁コード → システムitem_id マッピング
-    const BML_7DIGIT_CODE_MAP = {
-      // 身体測定
-      '0000401': 'HEIGHT',      // 身長
-      '0000402': 'WEIGHT',      // 体重
-      '0000403': 'BMI',         // BMI
-      '0000404': 'WAIST_M',     // 腹囲
-      // 血圧
-      '0000411': 'BP_SYSTOLIC_1',
-      '0000412': 'BP_DIASTOLIC_1',
-      '0000413': 'PULSE',
-      // 尿検査
-      '0003891': 'URINE_PROTEIN',
-      '0003892': 'URINE_GLUCOSE',
-      '0003893': 'URINE_OCCULT_BLOOD',
-      '0003894': 'UROBILINOGEN',
+    // ================================================================
+    // 統一ID体系 (2025-12-24導入)
+    // BML 7桁コードをそのままitem_idとして使用
+    // MasterData.js の EXAM_ITEM_MASTER_DATA と連動
+    // ================================================================
+    // 認識するBML 7桁コードのセット（MasterData.jsのEXAM_ITEM_MASTER_DATAと同期）
+    const KNOWN_BML_CODES = new Set([
       // 血液学検査
-      '0000301': 'WBC',
-      '0000302': 'RBC',
-      '0000303': 'HEMOGLOBIN',
-      '0000304': 'HEMATOCRIT',
-      '0000308': 'MCV',
-      '0000313': 'PLATELET',
-      // 肝機能
-      '0000482': 'AST',
-      '0000484': 'ALT',
-      '0000501': 'GGT',
-      '0000481': 'ALP',
-      '0000491': 'LDH',
-      // 脂質
-      '0000453': 'TOTAL_CHOLESTEROL',
-      '0000454': 'TG',
-      '0003845': 'HDL_C',
-      '0003317': 'LDL_C',
+      '0000301', '0000302', '0000303', '0000304', '0000305', '0000306', '0000307', '0000308',
+      // 白血球分画
+      '0000313', '0001881', '0001882', '0001883', '0001884', '0001885', '0001886', '0001887', '0001888', '0001889', '0001890',
+      // 蛋白・肝胆膵機能
+      '0000401', '0000417', '0000481', '0000482', '0000484', '0013067', '0013380', '0000491', '0000501', '0000472',
+      // 脂質検査
+      '0000453', '0000454', '0000460', '0000410', '0003845',
       // 糖代謝
-      '0000497': 'FBS',
-      '0002696': 'HBA1C',
+      '0000503', '0003317',
       // 腎機能
-      '0000413': 'CREATININE',
-      '0000417': 'BUN',
-      '0000460': 'EGFR',
-      '0000472': 'UA',
-      // 電解質
-      '0000421': 'NA',
-      '0000423': 'K',
-      '0000425': 'CL',
-      '0000427': 'CA',
-      // 蛋白
-      '0000407': 'TOTAL_PROTEIN',
-      '0000409': 'ALBUMIN',
-      '0000410': 'A_G_RATIO',
-      // 炎症
-      '0000658': 'CRP',
-      // 便潜血
-      '0000905': 'FOBT_1',
-      '0000911': 'FOBT_2',
+      '0000413', '0000409', '0002696', '0000407',
+      // 酵素・電解質
+      '0000497', '0000421', '0000423', '0000425', '0000427',
+      // 鉄代謝・免疫
+      '0000435', '0000437', '0002490',
+      // 凝固検査
+      '0000331', '0000334',
+      // 炎症・心臓マーカー
+      '0000658', '0003550',
       // 感染症
-      '0004821': 'HBS_AG',
-      '0004822': 'HCV_AB',
-      // 腫瘍マーカー
-      '0003550': 'PSA',
-      // その他
-      '0000503': 'FE',         // 血清鉄
-      '0013067': 'BLOOD_TYPE_ABO',
-      '0013380': 'BLOOD_TYPE_RH'
-    };
+      '0000905', '0000911', '0000740', '0004821', '0004822', '0003795', '0003891', '0003892', '0003893',
+      // ピロリ
+      '0013413', '0003294',
+      // 尿検査
+      '0000051', '0000055', '0000057', '0000059', '0000060', '0000061', '0000062', '0000063',
+      // 細胞診
+      '0005972'
+    ]);
 
     for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
       const line = lines[lineIndex];
@@ -859,16 +829,16 @@ function parseBmlCodeFormatCsv(csvContent, options = {}) {
 
           if (!code || !/^\d{7}$/.test(code)) continue;
 
-          const itemId = BML_7DIGIT_CODE_MAP[code];
-          if (itemId) {
+          // BML 7桁コードをそのままitem_idとして使用（統一ID体系）
+          if (KNOWN_BML_CODES.has(code)) {
             mappedCodes.add(code);
-            // 値を正規化して保存
+            // 値を正規化して保存（BMLコードをそのまま使用）
             if (value !== undefined && value !== '') {
-              record[itemId] = normalizeBmlValue(value, itemId);
+              record[code] = normalizeBmlValue(value, code);
             }
             // 判定があれば保存
             if (judgment) {
-              record[itemId + '_JUDGMENT'] = judgment;
+              record[code + '_JUDGMENT'] = judgment;
             }
           } else {
             unmappedCodes.add(code);
@@ -1042,65 +1012,77 @@ function parseBmlCsv(csvContent, options = {}) {
  * @param {string} itemId - 項目ID
  * @returns {*} 正規化された値
  */
-function normalizeBmlValue(value, itemId) {
+/**
+ * BML値の正規化（item_codeベース）
+ * @param {*} value - 値
+ * @param {string} itemCode - item_code (例: '041001', '043001')
+ * @returns {*} 正規化された値
+ */
+function normalizeBmlValue(value, bmlCode) {
   if (value === undefined || value === null || value === '') {
     return null;
   }
 
   const strValue = String(value).trim();
 
-  // 性別
-  if (itemId === 'SEX') {
+  // 性別（基本情報用）
+  if (bmlCode === 'SEX') {
     return BML_VALUE_TRANSFORMS.gender[strValue] || null;
   }
 
-  // 定性検査（尿蛋白、尿糖など）
-  const qualitativeItems = [
-    'URINE_PROTEIN', 'URINE_GLUCOSE', 'URINE_OCCULT_BLOOD',
-    'UROBILINOGEN', 'URINE_BILIRUBIN', 'URINE_KETONE',
-    'FOBT_1', 'FOBT_2', 'HBS_AG', 'HBS_AB', 'HCV_AB',
-    'HIV_AB', 'TPHA', 'RPR', 'URINE_BACTERIA'
+  // ================================================================
+  // 定性検査 - BML 7桁コードベース（統一ID体系）
+  // ================================================================
+  const qualitativeBmlCodes = [
+    // 尿検査（BMLコード）
+    '0000051', '0000055', '0000057', '0000059', '0000062', '0000063',
+    // 感染症（BMLコード）
+    '0000740', '0003795', '0000905', '0000911',
+    '0003891', '0004821',  // 判定系
   ];
-  if (qualitativeItems.includes(itemId)) {
+  if (qualitativeBmlCodes.includes(bmlCode)) {
     return BML_VALUE_TRANSFORMS.qualitative[strValue] || strValue;
   }
 
-  // 聴力
-  const hearingItems = ['HEARING_R_1000', 'HEARING_L_1000', 'HEARING_R_4000', 'HEARING_L_4000'];
-  if (hearingItems.includes(itemId)) {
-    return BML_VALUE_TRANSFORMS.hearing[strValue] || strValue;
-  }
-
-  // 血液型
-  if (itemId === 'BLOOD_TYPE_ABO') {
-    const aboMap = { 'A型': 'A', 'B型': 'B', 'O型': 'O', 'AB型': 'AB' };
-    return aboMap[strValue] || strValue;
-  }
-  if (itemId === 'BLOOD_TYPE_RH') {
-    const rhMap = { '陽性': '(+)', '陰性': '(-)', '+': '(+)', '-': '(-)' };
-    return rhMap[strValue] || strValue;
-  }
-
   // 日付
-  if (itemId === 'EXAM_DATE' || itemId === 'BIRTHDATE') {
+  if (bmlCode === 'EXAM_DATE' || bmlCode === 'BIRTHDATE') {
     return normalizeBirthDate(strValue);
   }
 
-  // 数値項目
-  const numericItems = [
-    'HEIGHT', 'WEIGHT', 'BMI', 'BODY_FAT', 'WAIST_M', 'WAIST_F',
-    'BP_SYSTOLIC_1', 'BP_DIASTOLIC_1', 'BP_SYSTOLIC_2', 'BP_DIASTOLIC_2', 'PULSE',
-    'VISION_NAKED_R', 'VISION_NAKED_L', 'VISION_CORRECTED_R', 'VISION_CORRECTED_L',
-    'IOP_R', 'IOP_L', 'WBC', 'RBC', 'HEMOGLOBIN', 'HEMATOCRIT', 'PLATELET',
-    'MCV', 'MCH', 'MCHC', 'TOTAL_PROTEIN', 'ALBUMIN', 'AST', 'ALT', 'GGT',
-    'ALP', 'LDH', 'AMYLASE', 'T_BIL', 'TOTAL_CHOLESTEROL', 'TG', 'HDL_C',
-    'LDL_C', 'NON_HDL_C', 'FBS', 'HBA1C', 'CREATININE', 'BUN', 'EGFR', 'UA',
-    'CK', 'NA', 'K', 'CL', 'CA', 'PSA', 'CEA', 'CA19_9', 'CA125', 'AFP',
-    'NSE', 'CYFRA21_1', 'SCC', 'PROGRP', 'PIVKA2', 'FT3', 'FT4', 'TSH',
-    'NT_PROBNP', 'VC', 'FEV1', 'PERCENT_VC', 'FEV1_PERCENT', 'URINE_PH', 'URINE_SG', 'AGE'
-  ];
+  // ================================================================
+  // 数値検査 - BML 7桁コードベース（統一ID体系）
+  // ================================================================
+  // 血液学検査: 0000301-0001890
+  // 生化学（蛋白・肝機能）: 0000401-0000501
+  // 脂質検査: 0000453-0000460, 0003845
+  // 糖代謝: 0000503, 0003317
+  // 腎機能: 0000407-0002696
+  // 電解質: 0000421-0000427
+  // 酵素: 0000497, 0000658
+  // 心臓マーカー: 0003550
+  const numericBmlCodes = new Set([
+    // 血液学検査
+    '0000301', '0000302', '0000303', '0000304', '0000305', '0000306', '0000307', '0000308',
+    '0001881', '0001882', '0001883', '0001884', '0001885', '0001886', '0001887', '0001888', '0001889', '0001890',
+    // 蛋白・肝機能
+    '0000401', '0000417', '0000481', '0000482', '0000484', '0013067', '0013380', '0000491', '0000501', '0000472',
+    // 脂質検査
+    '0000453', '0000454', '0000460', '0000410', '0003845',
+    // 糖代謝
+    '0000503', '0003317',
+    // 腎機能
+    '0000413', '0000409', '0002696', '0000407',
+    // 電解質・酵素
+    '0000497', '0000421', '0000423', '0000425', '0000427', '0000658',
+    // 心臓マーカー
+    '0003550',
+    // 定量値
+    '0004822', '0003892', '0003893',
+    // 尿検査（数値系）
+    '0000060', '0000061'
+  ]);
 
-  if (numericItems.includes(itemId)) {
+  if (numericBmlCodes.has(bmlCode)) {
     // 数値以外の文字を除去（<, >, 未満, 以上など）
     const cleanedValue = strValue.replace(/[<>≦≧未満以上以下]/g, '').trim();
     const num = parseFloat(cleanedValue);
@@ -1754,48 +1736,14 @@ function findPatientByNameAndBirth(name, birthDate) {
 }
 
 /**
- * カルテNoで受診者を検索（CSV取込用メイン関数）
- * BML CSVのカルテNo（6桁クリニック患者ID）で受診者を特定
+ * カルテNoで受診者を検索（CSV取込用）
+ * @deprecated CRUD.js getPatientByKarteNo() に統一済み
  * @param {string} karteNo - カルテNo
  * @returns {Object|null} 受診者情報またはnull
  */
 function findPatientByKarteNo(karteNo) {
-  try {
-    const sheet = getSheet(CONFIG.SHEETS.PATIENT);
-    const data = sheet.getDataRange().getValues();
-
-    // 列インデックス（17列構造: Config.js COLUMN_DEFINITIONS.PATIENT_MASTER準拠）
-    const COL = {
-      PATIENT_ID: 0,  // A: 受診者ID
-      KARTE_NO: 1,    // B: カルテNo（クリニック患者ID）★CSV紐付け用
-      NAME: 4,        // E: 氏名
-      BIRTHDATE: 7,   // H: 生年月日
-      BML_PATIENT_ID: 16  // Q: BML患者ID
-    };
-
-    const searchKarteNo = String(karteNo).trim();
-
-    for (let i = 1; i < data.length; i++) {
-      const row = data[i];
-      const rowKarteNo = String(row[COL.KARTE_NO] || '').trim();
-
-      if (rowKarteNo === searchKarteNo) {
-        return {
-          rowIndex: i + 1,  // シート上の行番号（1-indexed）
-          patientId: row[COL.PATIENT_ID],
-          karteNo: row[COL.KARTE_NO],
-          name: row[COL.NAME],
-          birthDate: row[COL.BIRTHDATE],
-          bmlPatientId: row[COL.BML_PATIENT_ID]
-        };
-      }
-    }
-
-    return null;
-  } catch (e) {
-    logError('findPatientByKarteNo', e);
-    return null;
-  }
+  // CRUD.js の基本関数に委譲
+  return getPatientByKarteNo(karteNo);
 }
 
 /**
@@ -1905,13 +1853,7 @@ function createPatient(data) {
   }
 }
 
-/**
- * 受診者IDを生成
- * @returns {string} P00001形式のID
- */
-function generatePatientId() {
-  return generateSequentialId(CONFIG.SHEETS.PATIENT, 'P', 5);
-}
+// generatePatientId() は CRUD.js に統合済み（重複削除）
 
 // ============================================
 // UI関連機能
@@ -2763,4 +2705,673 @@ function testShowAiMappingDialog() {
   } else {
     SpreadsheetApp.getUi().alert('エラー', mappingResult.error, SpreadsheetApp.getUi().ButtonSet.OK);
   }
+}
+
+// ============================================
+// CSV自動取込機能（旧csvParser.jsから移植）
+// ============================================
+
+/**
+ * CSVファイルを解析（健診種別に応じてパーサーを切替）
+ * @param {string} fileId - CSVファイルのID
+ * @returns {Array<Object>} 患者データの配列
+ */
+function parseCSV(fileId) {
+  const file = DriveApp.getFileById(fileId);
+  const content = readFileContent(file);
+  const profile = CONFIG.getProfile();
+
+  // 健診種別に応じてパーサーを切替
+  if (profile.csvFormat === 'ROSAI') {
+    return parseRosaiCSV(content);
+  } else {
+    return parseBmlCSV(content);
+  }
+}
+
+/**
+ * BML形式CSVを解析（人間ドック用）
+ * @param {string} content - CSVファイル内容
+ * @returns {Array<Object>} 患者データの配列
+ */
+function parseBmlCSV(content) {
+  const results = [];
+  const lines = content.trim().split('\n');
+
+  for (const line of lines) {
+    if (!line.trim()) continue;
+
+    const parsed = parseLine(line);
+    if (parsed && parsed.testResults.length > 0) {
+      results.push(parsed);
+    }
+  }
+
+  return results;
+}
+
+/**
+ * 労災二次検診形式CSVを解析
+ * ヘッダー行付きの標準CSVフォーマット
+ * @param {string} content - CSVファイル内容
+ * @returns {Array<Object>} 患者データの配列
+ */
+function parseRosaiCSV(content) {
+  const results = [];
+  const lines = content.trim().split('\n');
+
+  if (lines.length < 2) {
+    logInfo('労災CSV: データ行がありません');
+    return results;
+  }
+
+  // ヘッダー行を解析
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+  logInfo(`労災CSV: ヘッダー検出 - ${headers.join(', ')}`);
+
+  // ヘッダーからカラムインデックスを取得
+  const columnMap = buildRosaiColumnMap(headers);
+
+  // データ行を処理
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+
+    const parsed = parseRosaiLine(line, columnMap);
+    if (parsed && (parsed.testResults.length > 0 || parsed.patientInfo.name)) {
+      results.push(parsed);
+    }
+  }
+
+  logInfo(`労災CSV: ${results.length}件のデータを解析`);
+  return results;
+}
+
+/**
+ * 労災二次検診CSVのカラムマッピングを構築
+ * @param {Array<string>} headers - ヘッダー配列
+ * @returns {Object} カラムマッピング
+ */
+function buildRosaiColumnMap(headers) {
+  // CSVヘッダー名 → 内部キー名のマッピング
+  const headerToKey = {
+    'chart_no': 'chartNo',
+    'name': 'name',
+    'age': 'age',
+    'gender': 'gender',
+    'fbs': 'fbs',
+    'hba1c': 'hba1c',
+    'tg': 'tg',
+    'hdl_c': 'hdl_c',
+    'ldl_c': 'ldl_c',
+    'got': 'got',
+    'gpt': 'gpt',
+    'gamma_gpt': 'gamma_gpt',
+    'tp': 'tp',
+    'ua': 'ua',
+    'cre': 'cre',
+    'wbc': 'wbc',
+    'hb': 'hb',
+    'plt': 'plt',
+    'bmi': 'bmi',
+    'waist': 'waist',
+    'sbp': 'sbp',
+    'dbp': 'dbp',
+    'organization': 'organization',
+    '事業所名': 'organization',
+    '企業名': 'organization',
+    'company': 'organization',
+    'company_name': 'organization'
+  };
+
+  const columnMap = {};
+
+  for (let i = 0; i < headers.length; i++) {
+    const header = headers[i];
+    const key = headerToKey[header];
+    if (key) {
+      columnMap[key] = i;
+    }
+  }
+
+  return columnMap;
+}
+
+/**
+ * 労災二次検診CSVの1行を解析
+ * @param {string} line - CSV行
+ * @param {Object} columnMap - カラムマッピング
+ * @returns {Object|null} 解析結果
+ */
+function parseRosaiLine(line, columnMap) {
+  const fields = line.split(',').map(f => f.trim());
+
+  // 患者情報を抽出
+  const patientInfo = {
+    requestId: columnMap.chartNo !== undefined ? fields[columnMap.chartNo] : '',
+    name: columnMap.name !== undefined ? fields[columnMap.name] : '',
+    age: columnMap.age !== undefined ? fields[columnMap.age] : '',
+    gender: columnMap.gender !== undefined ? fields[columnMap.gender] : '',
+    examDate: formatDate(new Date(), 'YYYYMMDD'),
+    organization: columnMap.organization !== undefined ? fields[columnMap.organization] : ''
+  };
+
+  // 性別コード変換（男/女 → M/F）
+  if (patientInfo.gender === '男') {
+    patientInfo.genderCode = 'M';
+  } else if (patientInfo.gender === '女') {
+    patientInfo.genderCode = 'F';
+  } else {
+    patientInfo.genderCode = patientInfo.gender;
+  }
+
+  // 検査結果を抽出
+  const testResults = [];
+
+  // CSVカラム名 → 判定基準キーのマッピング
+  const fieldToCode = {
+    'fbs': 'FASTING_GLUCOSE',
+    'hba1c': 'HBA1C',
+    'tg': 'TRIGLYCERIDES',
+    'hdl_c': 'HDL_CHOLESTEROL',
+    'ldl_c': 'LDL_CHOLESTEROL',
+    'got': 'AST_GOT',
+    'gpt': 'ALT_GPT',
+    'gamma_gpt': 'GAMMA_GTP',
+    'tp': 'TOTAL_PROTEIN',
+    'ua': 'URIC_ACID',
+    'cre': 'CREATININE',
+    'wbc': 'WBC',
+    'hb': 'HEMOGLOBIN',
+    'plt': 'PLT',
+    'bmi': 'BMI',
+    'waist': 'WAIST',
+    'sbp': 'BLOOD_PRESSURE_SYS',
+    'dbp': 'BLOOD_PRESSURE_DIA'
+  };
+
+  for (const [fieldKey, codeKey] of Object.entries(fieldToCode)) {
+    const colIndex = columnMap[fieldKey];
+    if (colIndex !== undefined) {
+      const value = fields[colIndex];
+      if (value && value !== '') {
+        testResults.push({
+          code: codeKey,
+          value: value,
+          flag: '',
+          comment: ''
+        });
+      }
+    }
+  }
+
+  return {
+    patientInfo: patientInfo,
+    testResults: testResults
+  };
+}
+
+/**
+ * ファイル内容を読み込み（エンコーディング対応）
+ * @param {File} file - ファイル
+ * @returns {string} ファイル内容
+ */
+function readFileContent(file) {
+  const blob = file.getBlob();
+
+  // まずShift_JISで試行
+  try {
+    const content = blob.getDataAsString('Shift_JIS');
+    // 文字化けチェック（日本語が含まれるべき）
+    if (isValidJapanese(content)) {
+      return content;
+    }
+  } catch (e) {
+    // Shift_JIS失敗
+  }
+
+  // UTF-8で試行
+  try {
+    const content = blob.getDataAsString('UTF-8');
+    return content;
+  } catch (e) {
+    throw new Error('ファイルのエンコーディングを検出できません: ' + file.getName());
+  }
+}
+
+/**
+ * 日本語として有効かチェック
+ * @param {string} content - 内容
+ * @returns {boolean}
+ */
+function isValidJapanese(content) {
+  // 文字化け時に現れる特殊文字がないかチェック
+  return !content.includes('�');
+}
+
+/**
+ * 1行を解析
+ * @param {string} line - CSV行
+ * @returns {Object|null} 解析結果
+ */
+function parseLine(line) {
+  const fields = line.split(',');
+
+  if (fields.length < CONFIG.CSV.MIN_FIELDS) {
+    return null;
+  }
+
+  const patientInfo = extractPatientInfo(fields);
+  const testResults = extractTestResults(fields);
+
+  return {
+    patientInfo: patientInfo,
+    testResults: testResults
+  };
+}
+
+/**
+ * 患者情報を抽出
+ * BML結果CSVフォーマット:
+ * 0: 施設コード, 1: 患者ID, 2: 受診日(YYYYMMDD), 3: 時間, 4: 空,
+ * 5: 依頼番号, 6: 性別(1=男,2=女), 7-9: 空, 10: 検体番号
+ * 11以降: 検査コード,結果値,フラグ,コメント の繰り返し
+ *
+ * @param {Array<string>} fields - フィールド配列
+ * @returns {Object} 患者情報
+ */
+function extractPatientInfo(fields) {
+  return {
+    facilityCode: fields[0] || '',
+    requestId: fields[1] || '',
+    examDate: fields[2] || '',
+    time: fields[3] || '',
+    insuranceNo: fields.length > 5 ? fields[5] : '',
+    gender: fields.length > 6 ? fields[6] : ''
+  };
+}
+
+/**
+ * 検査結果を抽出
+ * @param {Array<string>} fields - フィールド配列
+ * @returns {Array<Object>} 検査結果配列
+ */
+function extractTestResults(fields) {
+  const testResults = [];
+  let i = CONFIG.CSV.TEST_START_INDEX;
+
+  while (i < fields.length - 1) {
+    const code = (fields[i] || '').trim();
+
+    // コードが数字でない場合はスキップ
+    if (!code || !/^\d+$/.test(code)) {
+      i++;
+      continue;
+    }
+
+    const result = extractSingleResult(fields, i);
+    if (result) {
+      testResults.push(result);
+    }
+
+    i += CONFIG.CSV.TEST_FIELD_COUNT;
+  }
+
+  return testResults;
+}
+
+/**
+ * 単一の検査結果を抽出
+ * @param {Array<string>} fields - フィールド配列
+ * @param {number} index - 開始インデックス
+ * @returns {Object|null} 検査結果
+ */
+function extractSingleResult(fields, index) {
+  const code = (fields[index] || '').trim();
+  const value = (fields[index + 1] || '').trim();
+  const flag = fields.length > index + 2 ? (fields[index + 2] || '').trim() : '';
+  const comment = fields.length > index + 3 ? (fields[index + 3] || '').trim() : '';
+
+  if (!value) {
+    return null;
+  }
+
+  return {
+    code: code,
+    value: value,
+    flag: flag,
+    comment: comment
+  };
+}
+
+/**
+ * CSVフォルダ内の新規ファイルを検索（サブフォルダ対応）
+ * @param {number} maxFiles - 最大取得件数（デフォルト10件）
+ * @returns {Array<File>} 未処理CSVファイルの配列
+ */
+function findNewCsvFiles(maxFiles = 10) {
+  const folder = getCsvFolder();
+  const newFiles = [];
+
+  // 再帰的にCSVファイルを検索
+  findCsvFilesRecursive(folder, newFiles, 0, maxFiles);
+
+  logInfo(`検出CSVファイル数: ${newFiles.length}件（上限: ${maxFiles}件）`);
+  return newFiles;
+}
+
+/**
+ * フォルダ内のCSVファイルを再帰的に検索
+ * @param {Folder} folder - 検索対象フォルダ
+ * @param {Array<File>} results - 結果を格納する配列
+ * @param {number} depth - 現在の深さ（無限ループ防止）
+ * @param {number} maxFiles - 最大取得件数
+ */
+function findCsvFilesRecursive(folder, results, depth = 0, maxFiles = 10) {
+  // 深さ制限（5階層まで）または件数上限
+  if (depth > 5 || results.length >= maxFiles) {
+    return;
+  }
+
+  // 現在のフォルダ内のCSVファイルを検索
+  const files = folder.getFilesByType(MimeType.CSV);
+  while (files.hasNext() && results.length < maxFiles) {
+    const file = files.next();
+    if (isResultCsvFile(file) && !isFileProcessed(file)) {
+      results.push(file);
+    }
+  }
+
+  // 拡張子が.csvだがMIMEタイプが異なるファイルも検索
+  const allFiles = folder.getFiles();
+  while (allFiles.hasNext() && results.length < maxFiles) {
+    const file = allFiles.next();
+    const name = file.getName().toLowerCase();
+    if (name.endsWith('.csv') && isResultCsvFile(file) && !isFileProcessed(file)) {
+      // 重複チェック
+      const exists = results.some(f => f.getId() === file.getId());
+      if (!exists) {
+        results.push(file);
+      }
+    }
+  }
+
+  // サブフォルダを再帰的に検索
+  const subFolders = folder.getFolders();
+  while (subFolders.hasNext() && results.length < maxFiles) {
+    const subFolder = subFolders.next();
+    findCsvFilesRecursive(subFolder, results, depth + 1, maxFiles);
+  }
+}
+
+/**
+ * 結果データCSVファイルかどうかを判定
+ * - 結果データ: XXXXXXXX_OXXXXXXX.csv（数字_O数字.csv）→ 処理対象
+ * - 依頼データ: kensa_irai_*.csv → スキップ（結果がない）
+ * - その他: *.txt, *.log, *.mdb など → スキップ
+ *
+ * @param {File} file - ファイル
+ * @returns {boolean} 結果データCSVファイルならtrue
+ */
+function isResultCsvFile(file) {
+  const name = file.getName();
+
+  // [済]プレフィックスを除去して判定
+  const baseName = name.replace(/^\[済\]/, '');
+
+  // 結果データファイルパターン: 数字_O数字.csv (例: 10030937_O6319101.csv)
+  if (/^\d+_O\d+\.csv$/i.test(baseName)) {
+    return true;
+  }
+
+  // 依頼データ（kensa_irai_*）はスキップ
+  if (baseName.startsWith('kensa_irai_')) {
+    return false;
+  }
+
+  // それ以外のCSVファイルは一応処理対象とする
+  if (baseName.toLowerCase().endsWith('.csv')) {
+    // ただしログファイルなどは除外
+    if (baseName.toLowerCase().includes('log') ||
+        baseName.toLowerCase().includes('info') ||
+        baseName.toLowerCase().includes('report')) {
+      return false;
+    }
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * CSVデータをスプレッドシートに保存
+ * BML患者IDで受診者を検索し、見つかれば検査結果を紐付け
+ * @param {Object} patientData - 患者データ
+ * @returns {Object} 保存結果 {success, patientId, visitId, error}
+ */
+function savePatientData(patientData) {
+  const patientInfo = patientData.patientInfo;
+  const testResults = patientData.testResults;
+
+  // BML患者ID（requestId）で既存受診者を検索
+  const bmlPatientId = patientInfo.requestId;
+  let patient = null;
+
+  // portalFindPatientByBmlIdが存在すれば使用（ポータルAPI）
+  if (typeof portalFindPatientByBmlId === 'function') {
+    patient = portalFindPatientByBmlId(bmlPatientId);
+  }
+  // patientManager.jsのfindPatientByBmlIdも試行
+  if (!patient && typeof findPatientByBmlId === 'function') {
+    patient = findPatientByBmlId(bmlPatientId);
+  }
+
+  if (!patient) {
+    logInfo(`BML患者ID ${bmlPatientId} に対応する受診者が見つかりません（事前登録が必要）`);
+    return {
+      success: false,
+      error: `BML患者ID ${bmlPatientId} に対応する受診者が見つかりません。受診者登録時にBML患者IDを設定してください。`,
+      bmlPatientId: bmlPatientId
+    };
+  }
+
+  const patientId = patient.patientId;
+  logInfo(`BML患者ID ${bmlPatientId} → 受診者ID ${patientId} (${patient.name})`);
+
+  // 受診日
+  const examDate = parseExamDate(patientInfo.examDate);
+
+  // 性別変換
+  const genderCode = patientInfo.gender;
+  const gender = GENDER_CODE_TO_INTERNAL[genderCode] || 'M';
+  const genderDisplay = GENDER_TRANSFORMS[genderCode] || '男';
+
+  // 企業情報の登録・取得（CSVに企業名がある場合）
+  let companyInfo = { companyId: '', companyName: '' };
+  if (patientInfo.organization) {
+    companyInfo = registerOrGetCompany(patientInfo.organization);
+  }
+
+  // 受診者マスタのCSV取込日時を更新
+  updatePatientCsvImportDate(patientId);
+
+  // 血液検査に保存
+  saveToBloodTest(patientId, testResults, gender);
+
+  return {
+    success: true,
+    patientId: patientId,
+    patientName: patient.name,
+    bmlPatientId: bmlPatientId,
+    examDate: examDate,
+    testCount: testResults.length
+  };
+}
+
+/**
+ * 受診者のCSV取込日時を更新
+ * @param {string} patientId - 受診者ID
+ */
+function updatePatientCsvImportDate(patientId) {
+  try {
+    const sheet = getSheet(CONFIG.SHEETS.PATIENT);
+    if (!sheet) return;
+
+    const lastRow = sheet.getLastRow();
+    const row = findPatientRowForCsv(sheet, patientId, lastRow);
+
+    if (row > 0) {
+      // CSV取込日時（13列目）と最終更新日時（14列目）を更新
+      sheet.getRange(row, 13).setValue(new Date());
+      sheet.getRange(row, 14).setValue(new Date());
+    }
+  } catch (e) {
+    logError('updatePatientCsvImportDate', e);
+  }
+}
+
+/**
+ * 受診日を解析
+ * @param {string} dateStr - 日付文字列（YYYYMMDD）
+ * @returns {Date}
+ */
+function parseExamDate(dateStr) {
+  if (!dateStr || dateStr.length !== 8) {
+    return new Date();
+  }
+
+  const year = parseInt(dateStr.slice(0, 4));
+  const month = parseInt(dateStr.slice(4, 6)) - 1;
+  const day = parseInt(dateStr.slice(6, 8));
+
+  return new Date(year, month, day);
+}
+
+/**
+ * 患者行を検索（CSV用）
+ * @param {Sheet} sheet - シート
+ * @param {string} patientId - 受診ID
+ * @param {number} lastRow - 最終行
+ * @returns {number} 行番号（見つからない場合は0）
+ */
+function findPatientRowForCsv(sheet, patientId, lastRow) {
+  if (lastRow < 2) return 0;
+
+  const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  const searchId = String(patientId).trim();  // 文字列に変換して比較
+
+  for (let i = 0; i < ids.length; i++) {
+    const cellId = String(ids[i][0]).trim();  // セル値も文字列に変換
+    if (cellId === searchId) {
+      return i + 2;
+    }
+  }
+  return 0;
+}
+
+/**
+ * 血液検査に保存
+ * @param {string} patientId - 受診ID
+ * @param {Array<Object>} testResults - 検査結果
+ * @param {string} gender - 性別（M/F）
+ */
+function saveToBloodTest(patientId, testResults, gender) {
+  const sheet = getSheet(CONFIG.SHEETS.BLOOD_TEST);
+
+  // 既存レコードチェック
+  const lastRow = sheet.getLastRow();
+  let row = findPatientRowForCsv(sheet, patientId, lastRow);
+
+  if (row === 0) {
+    // 新規行追加
+    row = lastRow + 1;
+    sheet.getRange(row, 1).setValue(patientId);
+  }
+
+  // コード→列マッピング
+  const codeToColumn = {
+    '0000301': 2,   // WBC
+    '0000302': 3,   // RBC
+    '0000303': 4,   // Hb
+    '0000304': 5,   // Ht
+    '0000308': 6,   // PLT
+    '0000305': 7,   // MCV
+    '0000306': 8,   // MCH
+    '0000307': 9,   // MCHC
+    '0000401': 10,  // TP
+    '0000402': 11,  // ALB
+    '0000472': 12,  // T-Bil
+    '0000481': 13,  // AST
+    '0000482': 14,  // ALT
+    '0000484': 15,  // γ-GTP
+    '0000405': 18,  // BUN
+    '0000413': 19,  // Cr
+    '0002696': 20,  // eGFR
+    '0000407': 21,  // UA
+    '0000450': 22,  // TC
+    '0000460': 23,  // HDL-C
+    '0000410': 24,  // LDL-C
+    '0000454': 25,  // TG
+    '0000503': 26,  // FBS
+    '0003317': 27,  // HbA1c
+    '0000658': 28   // CRP
+  };
+
+  // 検査結果を書き込み
+  for (const result of testResults) {
+    const col = codeToColumn[result.code];
+    if (col) {
+      // 数値変換を試みる
+      const numValue = toNumber(result.value);
+      sheet.getRange(row, col).setValue(numValue !== null ? numValue : result.value);
+    }
+  }
+}
+
+/**
+ * CSVファイルを処理
+ * @param {File} file - CSVファイル
+ * @returns {Object} 処理結果
+ */
+function processCsvFile(file) {
+  const results = {
+    success: false,
+    patientIds: [],
+    errors: []
+  };
+
+  try {
+    logInfo('CSV処理開始: ' + file.getName());
+
+    const patientDataList = parseCSV(file.getId());
+
+    for (const patientData of patientDataList) {
+      try {
+        const patientId = savePatientData(patientData);
+        results.patientIds.push(patientId);
+
+        // 判定処理を実行
+        processJudgments(patientId, patientData);
+
+        // 所見生成
+        generatePatientFindings(patientId);
+
+      } catch (e) {
+        results.errors.push(`患者処理エラー: ${e.message}`);
+        logError('processCsvFile', e);
+      }
+    }
+
+    // 処理済みマーク
+    markFileAsProcessed(file);
+
+    results.success = true;
+    logInfo('CSV処理完了: ' + results.patientIds.length + '名');
+
+  } catch (e) {
+    results.errors.push(`CSV解析エラー: ${e.message}`);
+    logError('processCsvFile', e);
+  }
+
+  return results;
 }

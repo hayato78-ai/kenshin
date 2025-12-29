@@ -308,16 +308,7 @@ function formatDateString(dateStr) {
   return `${dateStr.slice(0, 4)}/${dateStr.slice(4, 6)}/${dateStr.slice(6, 8)}`;
 }
 
-/**
- * 受診IDを生成
- * @param {Date} examDate - 受診日
- * @returns {string}
- */
-function generatePatientId(examDate) {
-  const dateStr = formatDate(examDate, 'YYYYMMDD');
-  const timestamp = Date.now().toString().slice(-4);
-  return `${dateStr}-${timestamp}`;
-}
+// generatePatientId() は CRUD.js に統合済み（重複削除）
 
 /**
  * 通知を送信

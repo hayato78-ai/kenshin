@@ -15,11 +15,13 @@ const DB_CONFIG = {
   SPREADSHEET_ID: '16KtctyT2gd7oJZdcu84kUtuP-D9jB9KtLxxzxXx_wdk',
 
   // シート名定義（設計書4章準拠 + マスタ拡張）
+  // ✅ 検査結果シートは「横持ち形式」（1患者1行、101列）を正式採用
+  //    列定義は portalApi.js の LAB_RESULT_COLUMNS を参照
   SHEETS: {
     PATIENT_MASTER: '受診者マスタ',
     VISIT_RECORD: '受診記録',
-    TEST_RESULT: '検査結果',
-    ITEM_MASTER: '項目マスタ',
+    TEST_RESULT: '検査結果',  // 横持ち形式: 1患者1行、基本5列 + 検査項目96列 = 101列
+    // ITEM_MASTER: 削除済み → EXAM_ITEM_MASTER に統一
     EXAM_TYPE_MASTER: '検診種別マスタ',
     COURSE_MASTER: 'コースマスタ',
     GUIDANCE_RECORD: '保健指導記録',
@@ -144,6 +146,9 @@ const COLUMN_DEFINITIONS = {
   },
 
   // 検査結果（設計書4.3 - 縦持ち形式）
+  // ⚠️ 注意: この定義は設計書の縦持ち形式用。
+  //    実際の運用では portalApi.js の LAB_RESULT_COLUMNS（横持ち形式）を使用。
+  //    縦持ち形式は CRUD.js で一部使用されるが、メインの検査結果管理は横持ち。
   TEST_RESULT: {
     headers: [
       '結果ID', '受診ID', '項目ID', '値', '数値変換',
@@ -165,39 +170,9 @@ const COLUMN_DEFINITIONS = {
     }
   },
 
-  // 項目マスタ（設計書4.4）
-  ITEM_MASTER: {
-    headers: [
-      '項目ID', '項目名', 'カテゴリ', '単位', 'データ型',
-      '性別差', '判定方法', 'A下限', 'A上限', 'B下限', 'B上限',
-      'C下限', 'C上限', 'D条件', 'A下限_F', 'A上限_F', '表示順', '有効'
-    ],
-    columns: {
-      ITEM_ID: 0,        // A: 項目ID
-      ITEM_NAME: 1,      // B: 項目名
-      CATEGORY: 2,       // C: カテゴリ
-      UNIT: 3,           // D: 単位
-      DATA_TYPE: 4,      // E: データ型
-      GENDER_DIFF: 5,    // F: 性別差
-      JUDGMENT_METHOD: 6, // G: 判定方法
-      A_MIN: 7,          // H: A下限
-      A_MAX: 8,          // I: A上限
-      B_MIN: 9,          // J: B下限
-      B_MAX: 10,         // K: B上限
-      C_MIN: 11,         // L: C下限
-      C_MAX: 12,         // M: C上限
-      D_CONDITION: 13,   // N: D条件
-      A_MIN_F: 14,       // O: A下限_F
-      A_MAX_F: 15,       // P: A上限_F
-      DISPLAY_ORDER: 16, // Q: 表示順
-      IS_ACTIVE: 17      // R: 有効
-    },
-    columnWidths: {
-      A: 80, B: 120, C: 100, D: 60, E: 60,
-      F: 60, G: 80, H: 60, I: 60, J: 60, K: 60,
-      L: 60, M: 60, N: 100, O: 60, P: 60, Q: 60, R: 50
-    }
-  },
+  // 項目マスタ（旧版）は削除済み
+  // → EXAM_ITEM_MASTER（検査項目マスタ）+ JUDGMENT_CRITERIA（判定基準マスタ）に統一
+  // 定義は下部の EXAM_ITEM_MASTER_DEF, JUDGMENT_CRITERIA_DEF を参照
 
   // 検診種別マスタ（設計書4.5）
   EXAM_TYPE_MASTER: {
@@ -611,35 +586,30 @@ const JUDGMENT_RESULT_DEF = {
   }
 };
 
-// T_所見（所見記録）
+// T_所見（所見記録）- 縦持ち・検査項目別
 const FINDINGS_DEF = {
   headers: [
-    '受診ID', '既往歴', '自覚症状', '他覚症状',
-    '身体計測所見', '血圧所見', '眼科所見', '聴力所見',
-    '尿検査所見', '血液検査所見', '画像診断所見', '総合所見',
-    '作成日時', '更新日時'
+    '所見ID', '受診者ID', 'カルテNo', '項目ID',
+    '所見テキスト', '判定', 'テンプレートID',
+    '検査日', '入力者', '作成日時', '更新日時'
   ],
   columns: {
-    VISIT_ID: 0,           // A: 受診ID（FK）
-    MEDICAL_HISTORY: 1,    // B: 既往歴
-    SUBJECTIVE: 2,         // C: 自覚症状
-    OBJECTIVE: 3,          // D: 他覚症状
-    BODY_FINDING: 4,       // E: 身体計測所見
-    BP_FINDING: 5,         // F: 血圧所見
-    EYE_FINDING: 6,        // G: 眼科所見
-    HEARING_FINDING: 7,    // H: 聴力所見
-    URINE_FINDING: 8,      // I: 尿検査所見
-    BLOOD_FINDING: 9,      // J: 血液検査所見
-    IMAGING_FINDING: 10,   // K: 画像診断所見
-    OVERALL_FINDING: 11,   // L: 総合所見
-    CREATED_AT: 12,        // M: 作成日時
-    UPDATED_AT: 13         // N: 更新日時
+    FINDING_ID: 0,     // A: F00001形式
+    PATIENT_ID: 1,     // B: P00001形式
+    KARTE_NO: 2,       // C: 6桁カルテNo（クエリ用）
+    ITEM_ID: 3,        // D: H02xxxx形式
+    FINDING_TEXT: 4,   // E: 所見テキスト
+    JUDGMENT: 5,       // F: A/B/C/D/E/F
+    TEMPLATE_ID: 6,    // G: 使用テンプレートID
+    EXAM_DATE: 7,      // H: 検査実施日
+    INPUT_BY: 8,       // I: 入力者名
+    CREATED_AT: 9,     // J: 作成日時
+    UPDATED_AT: 10     // K: 更新日時
   },
   columnWidths: {
-    A: 130, B: 300, C: 300, D: 300,
-    E: 250, F: 250, G: 250, H: 250,
-    I: 250, J: 250, K: 300, L: 400,
-    M: 150, N: 150
+    A: 100, B: 100, C: 80, D: 100,
+    E: 400, F: 60, G: 100,
+    H: 100, I: 100, J: 150, K: 150
   }
 };
 

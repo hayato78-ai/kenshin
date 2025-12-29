@@ -1,0 +1,191 @@
+<!--
+  健診結果DB 統合システム - 受診者検索画面 (SCR-003)
+
+  @description UI設計書: 健診結果DB_UI設計書_v1.md 2.3章
+  @version 1.0.0
+  @date 2025-12-14
+-->
+
+<div id="screen-search" class="screen hidden">
+  <div class="main-content">
+    <!-- ページタイトル -->
+    <div class="flex-between mb-lg">
+      <h1 style="font-size: var(--font-size-xl);">受診者検索</h1>
+    </div>
+
+    <!-- 検索フォーム -->
+    <div class="search-form">
+      <div class="search-form-title">検索条件</div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="search-name">氏名/カナ</label>
+          <input type="text" id="search-name" class="form-control" placeholder="部分一致で検索">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="search-patient-id">受診者ID</label>
+          <input type="text" id="search-patient-id" class="form-control" placeholder="P00001">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="search-date-from">受診日（開始）</label>
+          <input type="date" id="search-date-from" class="form-control">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="search-date-to">受診日（終了）</label>
+          <input type="date" id="search-date-to" class="form-control">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="search-exam-type">検診種別</label>
+          <select id="search-exam-type" class="form-control">
+            <option value="">全て</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="search-status">ステータス</label>
+          <select id="search-status" class="form-control">
+            <option value="">全て</option>
+            <option value="INPUTTING">入力中</option>
+            <option value="CONFIRMED">確定</option>
+            <option value="REPORTED">報告済</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="search-form-actions">
+        <button type="button" class="btn btn-outline" onclick="Search.clear()">クリア</button>
+        <button type="button" class="btn btn-primary" onclick="Search.execute()">検索</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/**
+ * 検索画面の処理
+ */
+const Search = {
+  /**
+   * 初期化
+   */
+  init: function() {
+    try {
+      console.log('Search.init started');
+      this.loadExamTypes();
+      this.setupEnterKey();
+      console.log('Search.init completed');
+    } catch (e) {
+      console.error('Search.init error:', e);
+    }
+  },
+
+  /**
+   * 検診種別を読み込み
+   */
+  loadExamTypes: function() {
+    const select = document.getElementById('search-exam-type');
+    if (!select) {
+      console.warn('search-exam-type select not found');
+      return;
+    }
+
+    console.log('loadExamTypes: calling getExamTypeMaster');
+
+    google.script.run
+      .withSuccessHandler(function(types) {
+        try {
+          console.log('loadExamTypes: received', types ? types.length : 0, 'types');
+          // 既存のオプション（「全て」）を保持
+          const firstOption = select.options[0];
+          select.innerHTML = '';
+          select.appendChild(firstOption);
+
+          if (types && types.length > 0) {
+            types.forEach(function(type) {
+              const option = document.createElement('option');
+              option.value = type.examTypeId;
+              option.textContent = type.name;
+              select.appendChild(option);
+            });
+          }
+          console.log('loadExamTypes: completed successfully');
+        } catch (e) {
+          console.error('loadExamTypes callback error:', e);
+        }
+      })
+      .withFailureHandler(function(error) {
+        console.error('Failed to load exam types:', error);
+      })
+      .getExamTypeMaster();
+  },
+
+  /**
+   * Enterキーで検索実行
+   */
+  setupEnterKey: function() {
+    const self = this;
+    const inputs = document.querySelectorAll('#screen-search input');
+
+    inputs.forEach(function(input) {
+      input.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          self.execute();
+        }
+      });
+    });
+  },
+
+  /**
+   * 検索条件をクリア
+   */
+  clear: function() {
+    document.getElementById('search-name').value = '';
+    document.getElementById('search-patient-id').value = '';
+    document.getElementById('search-date-from').value = '';
+    document.getElementById('search-date-to').value = '';
+    document.getElementById('search-exam-type').value = '';
+    document.getElementById('search-status').value = '';
+  },
+
+  /**
+   * 検索実行
+   */
+  execute: function() {
+    const criteria = {
+      name: document.getElementById('search-name').value.trim(),
+      patientId: document.getElementById('search-patient-id').value.trim(),
+      dateFrom: document.getElementById('search-date-from').value,
+      dateTo: document.getElementById('search-date-to').value,
+      examType: document.getElementById('search-exam-type').value,
+      status: document.getElementById('search-status').value
+    };
+
+    // 検索条件を保存
+    App.state.searchCriteria = criteria;
+
+    // 検索を実行して一覧画面へ
+    App.showLoading();
+
+    google.script.run
+      .withSuccessHandler(function(results) {
+        App.hideLoading();
+        App.state.searchResults = results || [];
+        App.navigate('list');
+      })
+      .withFailureHandler(function(error) {
+        App.hideLoading();
+        console.error('Search failed:', error);
+        App.showMessage('エラー', '検索に失敗しました: ' + error.message, 'error');
+      })
+      .searchPatientsWithVisits(criteria);
+  }
+};
+</script>

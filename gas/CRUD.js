@@ -679,50 +679,44 @@ function deleteTestResultsByVisitId(visitId) {
 // ============================================
 
 /**
- * 項目マスタを取得
+ * @deprecated 項目マスタは EXAM_ITEM_MASTER + JUDGMENT_CRITERIA に統一済み
+ * MasterData.js の EXAM_ITEM_MASTER_DATA を使用してください。
+ * または getExamItemById() / getJudgmentCriteria() を使用してください。
+ *
  * @param {string} itemId - 項目ID（省略で全件）
  * @returns {Object|Array<Object>} 項目データ
  */
 function getItemMaster(itemId) {
-  const sheet = getSheet(DB_CONFIG.SHEETS.ITEM_MASTER);
-  const lastRow = sheet.getLastRow();
-
-  if (lastRow <= 1) return itemId ? null : [];
-
-  const data = sheet.getRange(2, 1, lastRow - 1, COLUMN_DEFINITIONS.ITEM_MASTER.headers.length).getValues();
-  const cols = COLUMN_DEFINITIONS.ITEM_MASTER.columns;
-
-  const mapRow = (row) => ({
-    itemId: row[cols.ITEM_ID],
-    itemName: row[cols.ITEM_NAME],
-    category: row[cols.CATEGORY],
-    unit: row[cols.UNIT],
-    dataType: row[cols.DATA_TYPE],
-    genderDiff: row[cols.GENDER_DIFF],
-    judgmentMethod: row[cols.JUDGMENT_METHOD],
-    aMin: row[cols.A_MIN],
-    aMax: row[cols.A_MAX],
-    bMin: row[cols.B_MIN],
-    bMax: row[cols.B_MAX],
-    cMin: row[cols.C_MIN],
-    cMax: row[cols.C_MAX],
-    dCondition: row[cols.D_CONDITION],
-    aMinF: row[cols.A_MIN_F],
-    aMaxF: row[cols.A_MAX_F],
-    displayOrder: row[cols.DISPLAY_ORDER],
-    isActive: row[cols.IS_ACTIVE]
-  });
-
-  if (itemId) {
-    for (const row of data) {
-      if (row[cols.ITEM_ID] === itemId && row[cols.IS_ACTIVE]) {
-        return mapRow(row);
-      }
-    }
-    return null;
+  // EXAM_ITEM_MASTER_DATA から取得（後方互換性）
+  if (typeof EXAM_ITEM_MASTER_DATA === 'undefined') {
+    logError('getItemMaster', new Error('EXAM_ITEM_MASTER_DATA is not defined'));
+    return itemId ? null : [];
   }
 
-  return data.filter(row => row[cols.IS_ACTIVE]).map(mapRow);
+  if (itemId) {
+    const item = EXAM_ITEM_MASTER_DATA.find(i => i.item_id === itemId);
+    if (!item) return null;
+    // 旧フォーマットに変換（後方互換性）
+    return {
+      itemId: item.item_id,
+      itemName: item.item_name,
+      category: item.category,
+      unit: item.unit || '',
+      dataType: item.data_type || '数値',
+      displayOrder: item.display_order || 0,
+      isActive: true
+    };
+  }
+
+  return EXAM_ITEM_MASTER_DATA.map(item => ({
+    itemId: item.item_id,
+    itemName: item.item_name,
+    category: item.category,
+    unit: item.unit || '',
+    dataType: item.data_type || '数値',
+    displayOrder: item.display_order || 0,
+    isActive: true
+  }));
 }
 
 /**
@@ -863,4 +857,348 @@ function testRegistration() {
   }
 
   console.log('=== 登録テスト完了 ===');
+}
+
+// ============================================
+// 所見CRUD関数（縦持ち・検査項目別構造）
+// ============================================
+
+/**
+ * 所見ID（F00001形式）を生成
+ * @returns {string} 新しい所見ID
+ */
+function generateFindingId() {
+  const sheet = getSheet(DB_CONFIG.SHEETS.FINDINGS);
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow <= 1) {
+    return 'F00001';
+  }
+
+  // 最後のIDを取得
+  const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  let maxNum = 0;
+
+  for (const row of ids) {
+    const id = row[0];
+    if (id && id.startsWith('F')) {
+      const num = parseInt(id.substring(1), 10);
+      if (num > maxNum) {
+        maxNum = num;
+      }
+    }
+  }
+
+  return 'F' + String(maxNum + 1).padStart(5, '0');
+}
+
+/**
+ * 所見を作成
+ * @param {Object} data - 所見データ
+ * @param {string} data.patientId - 受診者ID（P00001形式）
+ * @param {string} data.karteNo - カルテNo（6桁）
+ * @param {string} data.itemId - 項目ID（H02xxxx形式）
+ * @param {string} data.findingText - 所見テキスト
+ * @param {string} data.judgment - 判定（A/B/C/D/E/F）
+ * @param {string} [data.templateId] - テンプレートID
+ * @param {Date|string} [data.examDate] - 検査日
+ * @param {string} [data.inputBy] - 入力者
+ * @returns {string} 作成された所見ID
+ */
+function createFinding(data) {
+  if (!data.patientId || !data.karteNo || !data.itemId) {
+    throw new Error('必須フィールドが不足しています: patientId, karteNo, itemId');
+  }
+
+  const sheet = getSheet(DB_CONFIG.SHEETS.FINDINGS);
+  const findingId = generateFindingId();
+  const now = new Date();
+  const cols = FINDINGS_DEF.columns;
+
+  const rowData = new Array(FINDINGS_DEF.headers.length).fill('');
+  rowData[cols.FINDING_ID] = findingId;
+  rowData[cols.PATIENT_ID] = data.patientId;
+  rowData[cols.KARTE_NO] = String(data.karteNo).padStart(6, '0');
+  rowData[cols.ITEM_ID] = data.itemId;
+  rowData[cols.FINDING_TEXT] = data.findingText || '';
+  rowData[cols.JUDGMENT] = data.judgment || '';
+  rowData[cols.TEMPLATE_ID] = data.templateId || '';
+  rowData[cols.EXAM_DATE] = data.examDate || now;
+  rowData[cols.INPUT_BY] = data.inputBy || '';
+  rowData[cols.CREATED_AT] = now;
+  rowData[cols.UPDATED_AT] = now;
+
+  sheet.appendRow(rowData);
+  logInfo(`所見作成: ${findingId} (患者: ${data.patientId}, 項目: ${data.itemId})`);
+
+  return findingId;
+}
+
+/**
+ * カルテNoで所見を取得
+ * @param {string} karteNo - カルテNo（6桁）
+ * @returns {Array<Object>} 所見データの配列
+ */
+function getFindingsByKarteNo(karteNo) {
+  const normalizedKarteNo = String(karteNo).padStart(6, '0');
+  const sheet = getSheet(DB_CONFIG.SHEETS.FINDINGS);
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow <= 1) {
+    return [];
+  }
+
+  const data = sheet.getRange(2, 1, lastRow - 1, FINDINGS_DEF.headers.length).getValues();
+  const cols = FINDINGS_DEF.columns;
+  const results = [];
+
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    const rowKarteNo = String(row[cols.KARTE_NO]).padStart(6, '0');
+
+    if (rowKarteNo === normalizedKarteNo) {
+      results.push({
+        findingId: row[cols.FINDING_ID],
+        patientId: row[cols.PATIENT_ID],
+        karteNo: rowKarteNo,
+        itemId: row[cols.ITEM_ID],
+        findingText: row[cols.FINDING_TEXT],
+        judgment: row[cols.JUDGMENT],
+        templateId: row[cols.TEMPLATE_ID],
+        examDate: row[cols.EXAM_DATE],
+        inputBy: row[cols.INPUT_BY],
+        createdAt: row[cols.CREATED_AT],
+        updatedAt: row[cols.UPDATED_AT],
+        rowIndex: i + 2
+      });
+    }
+  }
+
+  return results;
+}
+
+/**
+ * 受診者IDで所見を取得
+ * @param {string} patientId - 受診者ID（P00001形式）
+ * @returns {Array<Object>} 所見データの配列
+ */
+function getFindingsByPatientId(patientId) {
+  const sheet = getSheet(DB_CONFIG.SHEETS.FINDINGS);
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow <= 1) {
+    return [];
+  }
+
+  const data = sheet.getRange(2, 1, lastRow - 1, FINDINGS_DEF.headers.length).getValues();
+  const cols = FINDINGS_DEF.columns;
+  const results = [];
+
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+
+    if (row[cols.PATIENT_ID] === patientId) {
+      results.push({
+        findingId: row[cols.FINDING_ID],
+        patientId: row[cols.PATIENT_ID],
+        karteNo: String(row[cols.KARTE_NO]).padStart(6, '0'),
+        itemId: row[cols.ITEM_ID],
+        findingText: row[cols.FINDING_TEXT],
+        judgment: row[cols.JUDGMENT],
+        templateId: row[cols.TEMPLATE_ID],
+        examDate: row[cols.EXAM_DATE],
+        inputBy: row[cols.INPUT_BY],
+        createdAt: row[cols.CREATED_AT],
+        updatedAt: row[cols.UPDATED_AT],
+        rowIndex: i + 2
+      });
+    }
+  }
+
+  return results;
+}
+
+/**
+ * 所見IDで所見を取得
+ * @param {string} findingId - 所見ID（F00001形式）
+ * @returns {Object|null} 所見データ
+ */
+function getFindingById(findingId) {
+  const sheet = getSheet(DB_CONFIG.SHEETS.FINDINGS);
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow <= 1) {
+    return null;
+  }
+
+  const data = sheet.getRange(2, 1, lastRow - 1, FINDINGS_DEF.headers.length).getValues();
+  const cols = FINDINGS_DEF.columns;
+
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+
+    if (row[cols.FINDING_ID] === findingId) {
+      return {
+        findingId: row[cols.FINDING_ID],
+        patientId: row[cols.PATIENT_ID],
+        karteNo: String(row[cols.KARTE_NO]).padStart(6, '0'),
+        itemId: row[cols.ITEM_ID],
+        findingText: row[cols.FINDING_TEXT],
+        judgment: row[cols.JUDGMENT],
+        templateId: row[cols.TEMPLATE_ID],
+        examDate: row[cols.EXAM_DATE],
+        inputBy: row[cols.INPUT_BY],
+        createdAt: row[cols.CREATED_AT],
+        updatedAt: row[cols.UPDATED_AT],
+        rowIndex: i + 2
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * 所見を更新
+ * @param {string} findingId - 所見ID（F00001形式）
+ * @param {Object} data - 更新データ
+ * @returns {boolean} 更新成功
+ */
+function updateFinding(findingId, data) {
+  const existing = getFindingById(findingId);
+  if (!existing) {
+    throw new Error(`所見が見つかりません: ${findingId}`);
+  }
+
+  const sheet = getSheet(DB_CONFIG.SHEETS.FINDINGS);
+  const cols = FINDINGS_DEF.columns;
+  const rowIndex = existing.rowIndex;
+
+  // 更新可能なフィールド
+  if (data.findingText !== undefined) {
+    sheet.getRange(rowIndex, cols.FINDING_TEXT + 1).setValue(data.findingText);
+  }
+  if (data.judgment !== undefined) {
+    sheet.getRange(rowIndex, cols.JUDGMENT + 1).setValue(data.judgment);
+  }
+  if (data.templateId !== undefined) {
+    sheet.getRange(rowIndex, cols.TEMPLATE_ID + 1).setValue(data.templateId);
+  }
+  if (data.examDate !== undefined) {
+    sheet.getRange(rowIndex, cols.EXAM_DATE + 1).setValue(data.examDate);
+  }
+  if (data.inputBy !== undefined) {
+    sheet.getRange(rowIndex, cols.INPUT_BY + 1).setValue(data.inputBy);
+  }
+
+  // 更新日時を更新
+  sheet.getRange(rowIndex, cols.UPDATED_AT + 1).setValue(new Date());
+
+  logInfo(`所見更新: ${findingId}`);
+  return true;
+}
+
+/**
+ * 所見を削除
+ * @param {string} findingId - 所見ID（F00001形式）
+ * @returns {boolean} 削除成功
+ */
+function deleteFinding(findingId) {
+  const existing = getFindingById(findingId);
+  if (!existing) {
+    throw new Error(`所見が見つかりません: ${findingId}`);
+  }
+
+  const sheet = getSheet(DB_CONFIG.SHEETS.FINDINGS);
+  sheet.deleteRow(existing.rowIndex);
+
+  logInfo(`所見削除: ${findingId}`);
+  return true;
+}
+
+/**
+ * 所見テンプレートを取得
+ * @param {string} [itemId] - 項目ID（指定しない場合は全件）
+ * @param {string} [judgment] - 判定（A/B/C/D/E/F）
+ * @returns {Array<Object>} テンプレート配列
+ */
+function getFindingTemplates(itemId, judgment) {
+  const sheet = getSheet(DB_CONFIG.SHEETS.FINDING_TEMPLATE);
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow <= 1) {
+    return [];
+  }
+
+  const data = sheet.getRange(2, 1, lastRow - 1, FINDING_TEMPLATE_DEF.headers.length).getValues();
+  const cols = FINDING_TEMPLATE_DEF.columns;
+  const results = [];
+
+  for (const row of data) {
+    // 有効フラグチェック
+    if (row[cols.IS_ACTIVE] !== true && row[cols.IS_ACTIVE] !== 'TRUE') {
+      continue;
+    }
+
+    // 項目IDフィルタ
+    if (itemId && row[cols.ITEM_ID] !== itemId) {
+      continue;
+    }
+
+    // 判定フィルタ
+    if (judgment && row[cols.JUDGMENT] !== judgment) {
+      continue;
+    }
+
+    results.push({
+      templateId: row[cols.TEMPLATE_ID],
+      itemId: row[cols.ITEM_ID],
+      category: row[cols.CATEGORY],
+      judgment: row[cols.JUDGMENT],
+      templateText: row[cols.TEMPLATE_TEXT],
+      priority: row[cols.PRIORITY],
+      isActive: row[cols.IS_ACTIVE]
+    });
+  }
+
+  // 優先順位でソート
+  results.sort((a, b) => (a.priority || 999) - (b.priority || 999));
+
+  return results;
+}
+
+/**
+ * 所見を一括作成/更新（upsert）
+ * @param {string} karteNo - カルテNo
+ * @param {Array<Object>} findingsData - 所見データの配列
+ * @returns {Object} 処理結果 { created: number, updated: number }
+ */
+function upsertFindings(karteNo, findingsData) {
+  const existingFindings = getFindingsByKarteNo(karteNo);
+  const existingByItemId = {};
+
+  for (const f of existingFindings) {
+    existingByItemId[f.itemId] = f;
+  }
+
+  let created = 0;
+  let updated = 0;
+
+  for (const data of findingsData) {
+    const existing = existingByItemId[data.itemId];
+
+    if (existing) {
+      // 更新
+      updateFinding(existing.findingId, data);
+      updated++;
+    } else {
+      // 新規作成
+      data.karteNo = karteNo;
+      createFinding(data);
+      created++;
+    }
+  }
+
+  logInfo(`所見一括処理: カルテNo=${karteNo}, 作成=${created}, 更新=${updated}`);
+  return { created, updated };
 }

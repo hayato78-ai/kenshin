@@ -60,11 +60,11 @@ function createAllSheets(ss) {
   logInfo('シート作成開始...');
 
   // シート定義と対応するカラム定義
+  // ※ ITEM_MASTER は EXAM_ITEM_MASTER + JUDGMENT_CRITERIA に統一のため削除
   const sheetConfigs = [
     { name: DB_CONFIG.SHEETS.PATIENT_MASTER, def: COLUMN_DEFINITIONS.PATIENT_MASTER },
     { name: DB_CONFIG.SHEETS.VISIT_RECORD, def: COLUMN_DEFINITIONS.VISIT_RECORD },
     { name: DB_CONFIG.SHEETS.TEST_RESULT, def: COLUMN_DEFINITIONS.TEST_RESULT },
-    { name: DB_CONFIG.SHEETS.ITEM_MASTER, def: COLUMN_DEFINITIONS.ITEM_MASTER },
     { name: DB_CONFIG.SHEETS.EXAM_TYPE_MASTER, def: COLUMN_DEFINITIONS.EXAM_TYPE_MASTER },
     { name: DB_CONFIG.SHEETS.COURSE_MASTER, def: COLUMN_DEFINITIONS.COURSE_MASTER },
     { name: DB_CONFIG.SHEETS.GUIDANCE_RECORD, def: COLUMN_DEFINITIONS.GUIDANCE_RECORD }
@@ -256,7 +256,7 @@ function insertCourseMasterData(ss) {
     return;
   }
 
-  // 人間ドックコース（参考: SYSTEM_DESIGN.md）
+  // 人間ドックコース（参考: 1220_new/SYSTEM_DESIGN_SPECIFICATION.md）
   const data = [
     ['DOCK_LIFE', '生活習慣病ドック', 40000, 'HEIGHT,WEIGHT,BMI,BP_SYS,BP_DIA,FBS,HBA1C,TCHO,HDL,LDL,TG,AST,ALT,GGT', 1, true],
     ['DOCK_GI', '消化器ドック', 60000, 'HEIGHT,WEIGHT,BMI,BP_SYS,BP_DIA,FBS,HBA1C,TCHO,HDL,LDL,TG,AST,ALT,GGT,CEA,CA19-9', 2, true],
@@ -269,64 +269,13 @@ function insertCourseMasterData(ss) {
 }
 
 /**
- * 項目マスタデータを投入
- * 設計書5章に基づく判定基準
- * @param {Spreadsheet} ss - スプレッドシート
+ * @deprecated 項目マスタは EXAM_ITEM_MASTER + JUDGMENT_CRITERIA に統一済み
+ * この関数は後方互換性のため残していますが、使用しないでください。
+ * MasterData.js の EXAM_ITEM_MASTER_DATA, JUDGMENT_CRITERIA_DATA を使用してください。
  */
 function insertItemMasterData(ss) {
-  const sheet = ss.getSheetByName(DB_CONFIG.SHEETS.ITEM_MASTER);
-  if (!sheet || sheet.getLastRow() > 1) {
-    logInfo('  項目マスタ: スキップ（既存データあり）');
-    return;
-  }
-
-  // 設計書5章準拠の項目マスタ初期データ
-  // [項目ID, 項目名, カテゴリ, 単位, データ型, 性別差, 判定方法, A下限, A上限, B下限, B上限, C下限, C上限, D条件, A下限_F, A上限_F, 表示順, 有効]
-  const data = [
-    // 5.1 身体測定
-    ['HEIGHT', '身長', '身体測定', 'cm', '数値', false, 'なし', '', '', '', '', '', '', '', '', '', 1, true],
-    ['WEIGHT', '体重', '身体測定', 'kg', '数値', false, 'なし', '', '', '', '', '', '', '', '', '', 2, true],
-    ['BMI', 'BMI', '身体測定', '', '数値', false, 'ABCD', 18.5, 24.9, 25.0, 27.9, 28.0, 34.9, '>=35,<18.5', '', '', 3, true],
-    ['WAIST_M', '腹囲(男)', '身体測定', 'cm', '数値', true, 'ABCD', 0, 84.9, 85.0, 89.9, 90.0, 99.9, '>=100', '', '', 4, true],
-    ['WAIST_F', '腹囲(女)', '身体測定', 'cm', '数値', true, 'ABCD', 0, 89.9, 90.0, 94.9, 95.0, 99.9, '>=100', '', '', 5, true],
-    ['BP_SYS', '収縮期血圧', '身体測定', 'mmHg', '数値', false, 'ABCD', 90, 129, 130, 139, 140, 159, '>=160,<90', '', '', 6, true],
-    ['BP_DIA', '拡張期血圧', '身体測定', 'mmHg', '数値', false, 'ABCD', 50, 84, 85, 89, 90, 99, '>=100,<50', '', '', 7, true],
-
-    // 5.2 血液検査（糖代謝）
-    ['FBS', '空腹時血糖', '糖代謝', 'mg/dL', '数値', false, '特殊', 0, 99, 100, 109, 110, 125, '>=126', '', '', 10, true],
-    ['HBA1C', 'HbA1c', '糖代謝', '%', '数値', false, '特殊', 0, 5.5, 5.6, 5.9, 6.0, 6.4, '>=6.5', '', '', 11, true],
-
-    // 5.3 血液検査（脂質）
-    ['TCHO', '総コレステロール', '脂質', 'mg/dL', '数値', false, 'ABCD', 140, 199, 200, 219, 220, 259, '>=260,<140', '', '', 20, true],
-    ['HDL', 'HDLコレステロール', '脂質', 'mg/dL', '数値', false, 'ABCD', 40, 119, 35, 39, 30, 34, '<30', '', '', 21, true],
-    ['LDL', 'LDLコレステロール', '脂質', 'mg/dL', '数値', false, 'ABCD', 60, 119, 120, 139, 140, 179, '>=180', '', '', 22, true],
-    ['TG', '中性脂肪', '脂質', 'mg/dL', '数値', false, 'ABCD', 30, 149, 150, 299, 300, 499, '>=500', '', '', 23, true],
-
-    // 5.4 血液検査（肝機能）
-    ['AST', 'GOT(AST)', '肝機能', 'U/L', '数値', false, 'ABCD', 0, 30, 31, 50, 51, 100, '>100', '', '', 30, true],
-    ['ALT', 'GPT(ALT)', '肝機能', 'U/L', '数値', false, 'ABCD', 0, 30, 31, 50, 51, 100, '>100', '', '', 31, true],
-    ['GGT', 'γ-GTP', '肝機能', 'U/L', '数値', false, 'ABCD', 0, 50, 51, 100, 101, 200, '>200', '', '', 32, true],
-
-    // 5.5 血液検査（腎機能）
-    ['UA', '尿酸', '腎機能', 'mg/dL', '数値', false, 'ABCD', 2.0, 7.0, 7.1, 8.0, 8.1, 9.0, '>9.0', '', '', 40, true],
-    ['CR_M', 'クレアチニン(男)', '腎機能', 'mg/dL', '数値', true, 'ABCD', 0.6, 1.1, 1.2, 1.3, 1.4, 1.5, '>1.5', '', '', 41, true],
-    ['CR_F', 'クレアチニン(女)', '腎機能', 'mg/dL', '数値', true, 'ABCD', 0.4, 0.8, 0.9, 1.0, 1.1, 1.2, '>1.2', '', '', 42, true],
-
-    // 5.6 尿検査
-    ['U_PRO', '尿蛋白', '尿検査', '', '定性', false, '正常値', '', '', '', '', '', '', '(+)以上', '', '', 50, true],
-    ['U_GLU', '尿糖', '尿検査', '', '定性', false, '正常値', '', '', '', '', '', '', '(+)以上', '', '', 51, true],
-    ['U_OB', '尿潜血', '尿検査', '', '定性', false, '正常値', '', '', '', '', '', '', '(+)以上', '', '', 52, true],
-
-    // 追加の血液検査項目
-    ['WBC', '白血球数', '血液一般', '×10³/μL', '数値', false, 'ABCD', 3.2, 8.5, 2.5, 3.1, 2.0, 2.4, '<2.0,>15', '', '', 60, true],
-    ['RBC', '赤血球数', '血液一般', '×10⁴/μL', '数値', true, 'ABCD', 400, 539, 380, 399, 350, 379, '<350', 360, 489, 61, true],
-    ['HB', 'ヘモグロビン', '血液一般', 'g/dL', '数値', true, 'ABCD', 13.1, 16.6, 12.1, 13.0, 11.0, 12.0, '<11.0', 12.1, 14.5, 62, true],
-    ['HT', 'ヘマトクリット', '血液一般', '%', '数値', true, 'ABCD', 38.5, 48.9, 35.0, 38.4, 30.0, 34.9, '<30.0', 34.0, 43.9, 63, true],
-    ['PLT', '血小板数', '血液一般', '×10⁴/μL', '数値', false, 'ABCD', 13.0, 34.9, 10.0, 12.9, 8.0, 9.9, '<8.0,>40', '', '', 64, true]
-  ];
-
-  sheet.getRange(2, 1, data.length, data[0].length).setValues(data);
-  logInfo(`  項目マスタ: ${data.length}件投入`);
+  logInfo('  項目マスタ: 廃止済み（EXAM_ITEM_MASTER + JUDGMENT_CRITERIA を使用）');
+  // 旧コードは削除済み
 }
 
 // ============================================
@@ -351,9 +300,10 @@ function validateDatabase() {
   }
 
   // マスタデータの存在確認
-  const itemMasterSheet = ss.getSheetByName(DB_CONFIG.SHEETS.ITEM_MASTER);
-  if (itemMasterSheet && itemMasterSheet.getLastRow() <= 1) {
-    issues.push('項目マスタ: データなし');
+  // ※ ITEM_MASTER は廃止 → EXAM_ITEM_MASTER を確認
+  const examItemMasterSheet = ss.getSheetByName(DB_CONFIG.SHEETS.EXAM_ITEM_MASTER);
+  if (examItemMasterSheet && examItemMasterSheet.getLastRow() <= 1) {
+    issues.push('検査項目マスタ: データなし（MasterData.jsのEXAM_ITEM_MASTER_DATAを確認）');
   }
 
   const examTypeSheet = ss.getSheetByName(DB_CONFIG.SHEETS.EXAM_TYPE_MASTER);
@@ -392,8 +342,8 @@ function resetMasterData() {
   const ss = getSpreadsheet();
 
   // マスタシートのデータをクリア（ヘッダー以外）
+  // ※ ITEM_MASTER は廃止 → EXAM_ITEM_MASTER, JUDGMENT_CRITERIA はMasterData.js管理
   const masterSheets = [
-    DB_CONFIG.SHEETS.ITEM_MASTER,
     DB_CONFIG.SHEETS.EXAM_TYPE_MASTER,
     DB_CONFIG.SHEETS.COURSE_MASTER
   ];
@@ -950,7 +900,7 @@ function createJudgmentResultSheet(ss) {
 }
 
 /**
- * T_所見シートを作成
+ * T_所見シートを作成（縦持ち・検査項目別構造）
  * @param {Spreadsheet} ss - スプレッドシート
  */
 function createFindingsSheet(ss) {
@@ -961,7 +911,7 @@ function createFindingsSheet(ss) {
     sheet = ss.insertSheet(sheetName);
     logInfo(`  シート作成: ${sheetName}`);
   } else {
-    logInfo(`  シート既存: ${sheetName}`);
+    logInfo(`  シート既存: ${sheetName}（再作成が必要な場合は削除してから実行）`);
     return sheet;
   }
 
@@ -983,8 +933,26 @@ function createFindingsSheet(ss) {
   // 1行目を固定
   sheet.setFrozenRows(1);
 
+  // 判定列（F列）にデータバリデーション設定
+  const judgmentCol = FINDINGS_DEF.columns.JUDGMENT + 1;
+  const judgmentRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['A', 'B', 'C', 'D', 'E', 'F', ''], true)
+    .setAllowInvalid(false)
+    .build();
+  sheet.getRange(2, judgmentCol, 1000, 1).setDataValidation(judgmentRule);
+
+  // 検査日列（H列）に日付フォーマット設定
+  const examDateCol = FINDINGS_DEF.columns.EXAM_DATE + 1;
+  sheet.getRange(2, examDateCol, 1000, 1).setNumberFormat('yyyy/mm/dd');
+
+  // 作成日時・更新日時列（J,K列）に日時フォーマット設定
+  const createdAtCol = FINDINGS_DEF.columns.CREATED_AT + 1;
+  const updatedAtCol = FINDINGS_DEF.columns.UPDATED_AT + 1;
+  sheet.getRange(2, createdAtCol, 1000, 1).setNumberFormat('yyyy/mm/dd hh:mm:ss');
+  sheet.getRange(2, updatedAtCol, 1000, 1).setNumberFormat('yyyy/mm/dd hh:mm:ss');
+
   // トランザクションシートなのでサンプルデータは投入しない
-  logInfo(`    トランザクションシート作成完了`);
+  logInfo(`    T_所見シート作成完了（縦持ち・検査項目別構造）`);
 
   return sheet;
 }

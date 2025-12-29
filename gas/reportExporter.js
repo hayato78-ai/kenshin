@@ -1352,34 +1352,41 @@ function exportIndividualReport(patientId, options) {
     // 1. 受診者情報を取得
     const patientInfo = getPatientInfoForReport(patientId);
     if (!patientInfo) {
-      return { success: false, error: '受診者情報が見つかりません: ' + patientId };
+      return { success: false, patientId: patientId, error: '受診者情報が見つかりません' };
     }
 
     // 2. 検査結果を取得
     const testResults = getTestResultsForReport(patientId);
     logInfo(`検査結果取得: ${Object.keys(testResults).length}件`);
 
-    // 3. マッピング定義を取得
-    const mapping = getIndividualReportMapping(options.templateId);
+    // 3. Python処理用にJSONリクエストを作成してpendingフォルダに出力
+    const requestId = `REQ_${patientId}_${Date.now()}`;
+    const requestData = {
+      request_id: requestId,
+      exam_type: 'HUMAN_DOCK',
+      patient_id: patientId,
+      patient_info: patientInfo,
+      test_results: testResults,
+      options: options,
+      created_at: new Date().toISOString()
+    };
 
-    // 4. テンプレートをコピー
-    const outputSpreadsheet = copyIndividualTemplate(patientInfo, options);
-    if (!outputSpreadsheet) {
-      return { success: false, error: 'テンプレートのコピーに失敗しました' };
+    // pendingフォルダにJSONを出力（Python監視で処理）
+    const pendingFolder = getPythonPendingFolder();
+    if (!pendingFolder) {
+      return { success: false, patientId: patientId, error: 'Python連携フォルダの作成に失敗しました。Drive権限を確認してください。' };
     }
 
-    // 5. データを転記
-    fillIndividualReportData(outputSpreadsheet, patientInfo, testResults, mapping, options);
+    const fileName = `${requestId}.json`;
+    const file = pendingFolder.createFile(fileName, JSON.stringify(requestData, null, 2), 'application/json');
 
-    // 6. Excelファイルとして出力
-    const file = convertIndividualReportToExcel(outputSpreadsheet, patientInfo, options);
-
-    logInfo(`個人レポート出力完了: ${file.getName()}`);
+    logInfo(`Python処理リクエスト作成: ${fileName}`);
 
     return {
       success: true,
-      fileUrl: file.getUrl(),
-      fileName: file.getName(),
+      pending: true,  // Python処理待ちフラグ
+      requestId: requestId,
+      message: 'Python処理をリクエストしました。「状態確認」ボタンで完了を確認してください。',
       patientId: patientId,
       patientName: patientInfo.name
     };
@@ -1388,8 +1395,62 @@ function exportIndividualReport(patientId, options) {
     logError('exportIndividualReport', e);
     return {
       success: false,
+      patientId: patientId,
       error: e.message
     };
+  }
+}
+
+/**
+ * Python連携用pendingフォルダを取得（なければ自動作成）
+ * @returns {Folder|null} pendingフォルダ
+ */
+function getPythonPendingFolder() {
+  try {
+    // 設定シートからフォルダIDを取得
+    const ss = getPortalSpreadsheet();
+    const settingsSheet = ss.getSheetByName('設定');
+    if (settingsSheet) {
+      const data = settingsSheet.getDataRange().getValues();
+      for (let i = 0; i < data.length; i++) {
+        if (data[i][0] === 'PYTHON_PENDING_FOLDER_ID') {
+          const folderId = data[i][1];
+          if (folderId) {
+            try {
+              return DriveApp.getFolderById(folderId);
+            } catch (folderError) {
+              logError('getPythonPendingFolder', 'フォルダID無効: ' + folderId);
+              // フォルダが見つからない場合は後続の処理へ
+            }
+          }
+        }
+      }
+    }
+
+    // フォールバック: スプレッドシートと同じフォルダ内のpendingフォルダを探す
+    const parentFolder = DriveApp.getFileById(ss.getId()).getParents().next();
+    const pendingFolders = parentFolder.getFoldersByName('pending');
+    if (pendingFolders.hasNext()) {
+      return pendingFolders.next();
+    }
+
+    // pendingフォルダがなければ自動作成
+    logInfo('pendingフォルダを自動作成します');
+    const newPendingFolder = parentFolder.createFolder('pending');
+
+    // 設定シートにフォルダIDを記録（次回以降高速化）
+    if (settingsSheet) {
+      const lastRow = settingsSheet.getLastRow();
+      settingsSheet.getRange(lastRow + 1, 1, 1, 2).setValues([
+        ['PYTHON_PENDING_FOLDER_ID', newPendingFolder.getId()]
+      ]);
+      logInfo('設定シートにPYTHON_PENDING_FOLDER_IDを追加: ' + newPendingFolder.getId());
+    }
+
+    return newPendingFolder;
+  } catch (e) {
+    logError('getPythonPendingFolder', e);
+    return null;
   }
 }
 
@@ -1402,18 +1463,23 @@ function getPatientInfoForReport(patientId) {
   // まずportalApiを試す
   if (typeof portalGetPatient === 'function') {
     const result = portalGetPatient(patientId);
-    if (result) {
+    // portalGetPatientは {success: true, data: {...}} を返す
+    if (result && result.success && result.data) {
+      const d = result.data;
+      logInfo(`getPatientInfoForReport: portalGetPatientから取得成功 - ${d['氏名'] || d['受診者ID']}`);
       return {
-        patientId: result.patientId,
-        name: result.name || result.氏名,
-        nameKana: result.kana || result.カナ,
-        gender: result.gender || result.性別,
-        birthDate: result.birthDate || result.生年月日,
-        examDate: result.examDate || result.受診日,
-        course: result.course || result.受診コース,
-        company: result.company || result.事業所名,
-        bmlPatientId: result.bmlPatientId || result.BML患者ID
+        patientId: d['受診者ID'] || patientId,
+        name: d['氏名'] || '',
+        nameKana: d['カナ'] || '',
+        gender: d['性別'] || '',
+        birthDate: d['生年月日'] || '',
+        examDate: d['受診日'] || '',
+        course: d['受診コース'] || '',
+        company: d['所属企業'] || '',
+        bmlPatientId: d['BML患者ID'] || ''
       };
+    } else {
+      logInfo(`getPatientInfoForReport: portalGetPatient失敗 - ${result ? result.error : '結果なし'}`);
     }
   }
 
@@ -1467,72 +1533,113 @@ function getPatientInfoForReport(patientId) {
 function getTestResultsForReport(patientId) {
   const results = {};
 
-  // T_検査結果シートから取得を試す
-  const resultSheet = getSheet('T_検査結果');
-  if (resultSheet) {
-    const data = resultSheet.getDataRange().getValues();
-    const headers = data[0];
-    // 結果ID, 受診者ID, BMLコード, 項目名, 値, 単位, フラグ, 判定, ...
-    const colIndex = {
-      patientId: headers.indexOf('受診者ID'),
-      bmlCode: headers.indexOf('BMLコード'),
-      value: headers.indexOf('値'),
-      flag: headers.indexOf('フラグ'),
-      judgment: headers.indexOf('判定')
-    };
+  // BMLコードマッピング（項目名→BMLコード）- 検査結果シートのヘッダー名に対応
+  const itemToBmlCode = {
+    // 血液一般
+    'WBC': '0000301', '白血球数': '0000301',
+    'RBC': '0000302', '赤血球数': '0000302',
+    'Hb': '0000303', 'ヘモグロビン': '0000303',
+    'Ht': '0000304', 'ヘマトクリット': '0000304',
+    'PLT': '0000308', '血小板数': '0000308',
+    'MCV': '0000305', 'MCH': '0000306', 'MCHC': '0000307',
+    // 生化学
+    'TP': '0000401', '総蛋白': '0000401',
+    'ALB': '0000417', 'アルブミン': '0000417',
+    'AST': '0000481', 'GOT': '0000481',
+    'ALT': '0000482', 'GPT': '0000482',
+    'γ-GTP': '0000484', 'γGTP': '0000484', 'γ-GT': '0000484',
+    'ALP': '0013067',
+    'LDH': '0000497',
+    'T-Bil': '0000472', '総ビリルビン': '0000472',
+    'TC': '0000453', '総コレステロール': '0000453',
+    'TG': '0000454', '中性脂肪': '0000454',
+    'HDL': '0000460', 'HDL-C': '0000460', 'HDLコレステロール': '0000460',
+    'LDL': '0000410', 'LDL-C': '0000410', 'LDLコレステロール': '0000410',
+    'FBS': '0000503', '空腹時血糖': '0000503', '血糖': '0000503',
+    'HbA1c': '0003317', 'ヘモグロビンA1c': '0003317',
+    'Cre': '0000413', 'クレアチニン': '0000413', 'Cr': '0000413',
+    'BUN': '0000491', '尿素窒素': '0000491',
+    'eGFR': '0002696',
+    'UA': '0000407', '尿酸': '0000407',
+    'CK': '0003845', 'CPK': '0003845',
+    'Na': '0003550', 'ナトリウム': '0003550',
+    'K': '0000421', 'カリウム': '0000421',
+    'Cl': '0000425', 'クロール': '0000425',
+    'CRP': '0000658'
+  };
 
-    for (let i = 1; i < data.length; i++) {
-      if (data[i][colIndex.patientId] === patientId) {
-        const bmlCode = String(data[i][colIndex.bmlCode] || '').trim();
-        if (bmlCode) {
-          results[bmlCode] = {
-            value: data[i][colIndex.value],
-            flag: data[i][colIndex.flag] || '',
-            judgment: data[i][colIndex.judgment] || ''
-          };
-        }
-      }
-    }
-
-    if (Object.keys(results).length > 0) {
-      return results;
+  // まず患者情報を取得してカルテNoを得る
+  let karteNo = null;
+  if (typeof portalGetPatient === 'function') {
+    const patientResult = portalGetPatient(patientId);
+    if (patientResult && patientResult.success && patientResult.data) {
+      karteNo = patientResult.data['カルテNo'];
+      logInfo(`getTestResultsForReport: カルテNo=${karteNo}`);
     }
   }
 
-  // T_血液検査シートから取得を試す（従来形式）
-  const bloodSheet = getSheet(CONFIG.SHEETS.BLOOD_TEST);
-  if (bloodSheet) {
-    const data = bloodSheet.getDataRange().getValues();
+  // 検査結果シートから取得（横持ち形式 - 各列が検査項目）
+  const ss = getPortalSpreadsheet();
+  const resultSheet = ss.getSheetByName('検査結果');
+
+  if (resultSheet) {
+    const data = resultSheet.getDataRange().getValues();
     const headers = data[0];
+    const karteNoColIdx = headers.indexOf('カルテNo');
+    const patientIdColIdx = headers.indexOf('受診者ID') >= 0 ? headers.indexOf('受診者ID') : headers.indexOf('患者ID');
 
-    // BMLコードマッピング（項目名→BMLコード）
-    const itemToBmlCode = {
-      'WBC': '0000301', 'RBC': '0000302', 'Hb': '0000303', 'Ht': '0000304',
-      'PLT': '0000308', 'MCV': '0000305', 'MCH': '0000306', 'MCHC': '0000307',
-      'TP': '0000401', 'ALB': '0000417', 'AST': '0000481', 'ALT': '0000482',
-      'γ-GTP': '0000484', 'ALP': '0013067', 'LDH': '0000497', 'T-Bil': '0000472',
-      'TC': '0000453', 'TG': '0000454', 'HDL': '0000460', 'LDL': '0000410',
-      'FBS': '0000503', 'HbA1c': '0003317', 'Cre': '0000413', 'BUN': '0000491',
-      'eGFR': '0002696', 'UA': '0000407', 'CK': '0003845', 'Na': '0003550',
-      'K': '0000421', 'Cl': '0000425', 'CRP': '0000658'
-    };
+    logInfo(`getTestResultsForReport: headers=${headers.slice(0, 10).join(',')}`);
+    logInfo(`getTestResultsForReport: karteNoColIdx=${karteNoColIdx}, patientIdColIdx=${patientIdColIdx}`);
 
+    // カルテNoまたは受診者IDで行を検索
     for (let i = 1; i < data.length; i++) {
-      if (data[i][0] === patientId) {
-        for (let j = 1; j < headers.length; j++) {
-          const itemName = headers[j];
-          const bmlCode = itemToBmlCode[itemName];
-          if (bmlCode && data[i][j] !== '' && data[i][j] !== null) {
-            results[bmlCode] = {
-              value: data[i][j],
-              flag: '',
-              judgment: ''
-            };
+      const row = data[i];
+      let isMatch = false;
+
+      // カルテNoで検索
+      if (karteNo && karteNoColIdx >= 0 && String(row[karteNoColIdx]).trim() === String(karteNo).trim()) {
+        isMatch = true;
+      }
+      // 受診者IDでも検索
+      if (!isMatch && patientIdColIdx >= 0 && String(row[patientIdColIdx]).trim() === String(patientId).trim()) {
+        isMatch = true;
+      }
+
+      if (isMatch) {
+        logInfo(`getTestResultsForReport: 検査結果行を発見 (row ${i + 1})`);
+
+        // 各カラムをBMLコードにマッピング
+        for (let j = 0; j < headers.length; j++) {
+          const header = String(headers[j]).trim();
+          const value = row[j];
+
+          // 値がある場合のみ処理
+          if (value !== '' && value !== null && value !== undefined) {
+            // ヘッダーがBMLコードそのものの場合
+            if (/^\d{7}$/.test(header)) {
+              results[header] = {
+                value: value,
+                flag: '',
+                judgment: ''
+              };
+            }
+            // 項目名からBMLコードに変換
+            else if (itemToBmlCode[header]) {
+              results[itemToBmlCode[header]] = {
+                value: value,
+                flag: '',
+                judgment: ''
+              };
+            }
           }
         }
+
+        logInfo(`getTestResultsForReport: ${Object.keys(results).length}件の検査結果を取得`);
         break;
       }
     }
+  } else {
+    logInfo('getTestResultsForReport: 検査結果シートが見つかりません');
   }
 
   return results;
@@ -1632,50 +1739,7 @@ function fillIndividualReportData(ss, patientInfo, testResults, mapping, options
   logInfo(`データ転記完了: 検査項目${Object.keys(testResults).length}件`);
 }
 
-/**
- * 個人レポートをExcelに変換
- * @param {Spreadsheet} ss - スプレッドシート
- * @param {Object} patientInfo - 受診者情報
- * @param {Object} options - オプション
- * @returns {File} Excelファイル
- */
-function convertIndividualReportToExcel(ss, patientInfo, options) {
-  try {
-    const examDate = patientInfo.examDate ? formatDate(patientInfo.examDate, 'YYYYMMDD') : formatDate(new Date(), 'YYYYMMDD');
-    const fileName = options.fileName ||
-      `健診結果_${patientInfo.name}_${examDate}.xlsx`;
-
-    // Excelとしてエクスポート
-    const url = `https://docs.google.com/spreadsheets/d/${ss.getId()}/export?format=xlsx`;
-    const token = ScriptApp.getOAuthToken();
-
-    const response = UrlFetchApp.fetch(url, {
-      headers: { 'Authorization': 'Bearer ' + token },
-      muteHttpExceptions: true
-    });
-
-    if (response.getResponseCode() !== 200) {
-      throw new Error('Excelエクスポートに失敗: ' + response.getContentText());
-    }
-
-    const blob = response.getBlob().setName(fileName);
-
-    // 出力フォルダに保存
-    const outputFolder = getOutputFolder();
-    const file = outputFolder.createFile(blob);
-
-    // 一時スプレッドシートを削除
-    DriveApp.getFileById(ss.getId()).setTrashed(true);
-
-    return file;
-
-  } catch (e) {
-    try {
-      DriveApp.getFileById(ss.getId()).setTrashed(true);
-    } catch (deleteError) { }
-    throw e;
-  }
-}
+// convertIndividualReportToExcel は削除済み（Python方式に移行）
 
 /**
  * 複数受診者の個人レポートを一括出力
@@ -1721,4 +1785,115 @@ function portalExportIndividualReport(patientId) {
     templateId: 'TPL_INDIVIDUAL_1221',
     includeJudgment: true
   });
+}
+
+/**
+ * ポータルから出力ステータスを確認（UI用）
+ * フォルダIDを設定シートから直接取得して確実に参照
+ * @param {string} requestId - リクエストID
+ * @returns {Object} ステータス {status, fileUrl, error}
+ */
+function portalCheckExportStatus(requestId) {
+  try {
+    logInfo(`ステータス確認: ${requestId}`);
+
+    // 設定シートからフォルダIDを直接取得（親フォルダ経由の検索をやめる）
+    const processedFolderId = getSettingValue('PYTHON_PROCESSED_FOLDER_ID');
+    const outputFolderId = getSettingValue('PYTHON_OUTPUT_FOLDER_ID');
+    const pendingFolderId = getSettingValue('PYTHON_PENDING_FOLDER_ID');
+
+    // 1. processedフォルダを確認（Pythonが結果を保存する場所）
+    if (processedFolderId) {
+      try {
+        const processedFolder = DriveApp.getFolderById(processedFolderId);
+        const resultFiles = processedFolder.getFilesByName(`${requestId}_result.json`);
+
+        if (resultFiles.hasNext()) {
+          const file = resultFiles.next();
+          const content = file.getBlob().getDataAsString();
+          const resultData = JSON.parse(content);
+
+          logInfo(`ステータス結果: ${JSON.stringify(resultData).substring(0, 200)}`);
+
+          if (resultData.status === 'completed' && resultData.result) {
+            const outputPath = resultData.result.output_path;
+            if (outputPath) {
+              const fileName = outputPath.split('/').pop();
+              logInfo(`出力ファイル: ${fileName}`);
+
+              // outputフォルダを確認
+              if (outputFolderId) {
+                try {
+                  const outputFolder = DriveApp.getFolderById(outputFolderId);
+                  const excelFiles = outputFolder.getFilesByName(fileName);
+                  if (excelFiles.hasNext()) {
+                    const excelFile = excelFiles.next();
+                    return {
+                      status: 'completed',
+                      fileUrl: excelFile.getUrl(),
+                      fileName: excelFile.getName()
+                    };
+                  }
+                  logInfo(`outputフォルダにファイル未発見: ${fileName}（同期待ちの可能性）`);
+                } catch (outputError) {
+                  logInfo(`outputフォルダアクセスエラー: ${outputError.message}`);
+                }
+              }
+
+              // フォールバック: ファイル名で全体検索
+              try {
+                const searchResults = DriveApp.searchFiles(`title = "${fileName}"`);
+                if (searchResults.hasNext()) {
+                  const foundFile = searchResults.next();
+                  return {
+                    status: 'completed',
+                    fileUrl: foundFile.getUrl(),
+                    fileName: foundFile.getName()
+                  };
+                }
+              } catch (searchError) {
+                logInfo(`全体検索エラー: ${searchError.message}`);
+              }
+
+              // ファイルが見つからない場合（同期待ち）
+              return {
+                status: 'completed',
+                fileUrl: null,
+                filePath: outputPath,
+                fileName: fileName,
+                message: 'ファイル出力完了。Google Drive同期後にダウンロード可能になります。'
+              };
+            }
+          } else if (resultData.status === 'error') {
+            return {
+              status: 'error',
+              error: resultData.error || '処理中にエラーが発生しました'
+            };
+          }
+        }
+      } catch (processedError) {
+        logInfo(`processedフォルダアクセスエラー: ${processedError.message}`);
+      }
+    }
+
+    // 2. pendingフォルダにまだある場合は処理待ち
+    if (pendingFolderId) {
+      try {
+        const pendingFolder = DriveApp.getFolderById(pendingFolderId);
+        const pendingFiles = pendingFolder.getFilesByName(`${requestId}.json`);
+        if (pendingFiles.hasNext()) {
+          return { status: 'pending', message: 'Python処理待ち' };
+        }
+      } catch (pendingError) {
+        logInfo(`pendingフォルダアクセスエラー: ${pendingError.message}`);
+      }
+    }
+
+    // 3. どこにもない場合
+    return { status: 'unknown', message: 'リクエストが見つかりません。処理完了済みか、フォルダID設定を確認してください。' };
+
+  } catch (e) {
+    logError('portalCheckExportStatus', e);
+    return { status: 'error', error: e.message };
+  }
 }

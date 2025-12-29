@@ -1072,20 +1072,27 @@ function searchPatientForResults() {
 
   showLoading('検索中...');
 
+  // カルテNoで検索
   google.script.run
     .withSuccessHandler(function(result) {
       hideLoading();
-      if (result.success && result.data.length > 0) {
-        selectPatientForInput(result.data[0]['患者ID']);
+      if (result.success && result.data) {
+        // 受診者IDを取得して選択
+        const patientId = result.data['受診者ID'];
+        if (patientId) {
+          selectPatientForInput(patientId);
+        } else {
+          showNotification('該当する受診者が見つかりません', 'error');
+        }
       } else {
-        showNotification('該当する患者が見つかりません', 'error');
+        showNotification('該当するカルテNoが見つかりません: ' + searchText, 'error');
       }
     })
     .withFailureHandler(function(error) {
       hideLoading();
       showNotification('検索エラー: ' + error.message, 'error');
     })
-    .portalSearchPatients({ patientId: searchText, name: searchText });
+    .portalSearchByKarteNo(searchText);
 }
 
 function loadPatientForResults(patientId) {
@@ -1416,8 +1423,11 @@ function populateMeasurementForm(data) {
   if (data['身長']) document.getElementById('mHeight').value = data['身長'];
   if (data['体重']) document.getElementById('mWeight').value = data['体重'];
   if (data['BMI']) document.getElementById('mBMI').value = data['BMI'];
-  if (data['収縮期血圧']) document.getElementById('mSystolicBP').value = data['収縮期血圧'];
-  if (data['拡張期血圧']) document.getElementById('mDiastolicBP').value = data['拡張期血圧'];
+  // ★ 血圧2回目対応: 新ID使用 + 2回目読込追加
+  if (data['収縮期血圧']) document.getElementById('mSbp1').value = data['収縮期血圧'];
+  if (data['拡張期血圧']) document.getElementById('mDbp1').value = data['拡張期血圧'];
+  if (data['収縮期血圧_2回目']) document.getElementById('mSbp2').value = data['収縮期血圧_2回目'];
+  if (data['拡張期血圧_2回目']) document.getElementById('mDbp2').value = data['拡張期血圧_2回目'];
   if (data['脈拍']) document.getElementById('mPulse').value = data['脈拍'];
   if (data['視力_右']) document.getElementById('mVisionRight').value = data['視力_右'];
   if (data['視力_左']) document.getElementById('mVisionLeft').value = data['視力_左'];
@@ -1598,8 +1608,11 @@ function saveBodyMeasurements() {
     height: document.getElementById('mHeight').value,
     weight: document.getElementById('mWeight').value,
     bmi: document.getElementById('mBMI').value,
-    systolicBP: document.getElementById('mSystolicBP').value,
-    diastolicBP: document.getElementById('mDiastolicBP').value,
+    // ★ 血圧2回目対応: 新ID使用（mSbp1, mDbp1, mSbp2, mDbp2）
+    systolicBP: document.getElementById('mSbp1').value,
+    diastolicBP: document.getElementById('mDbp1').value,
+    systolicBP2: document.getElementById('mSbp2').value,
+    diastolicBP2: document.getElementById('mDbp2').value,
     pulse: document.getElementById('mPulse').value,
     visionRight: document.getElementById('mVisionRight').value,
     visionLeft: document.getElementById('mVisionLeft').value,
@@ -1694,6 +1707,115 @@ function navigatePatient(direction) {
 // ============================================================
 // 帳票出力
 // ============================================================
+
+/**
+ * 帳票出力用: 受診者を検索してリスト表示
+ * 検索条件: カルテNo OR 氏名 OR カナ
+ */
+function searchPatientsForReport() {
+  const searchText = document.getElementById('reportSearchInput').value.trim();
+  if (!searchText) {
+    showNotification('検索条件を入力してください', 'warning');
+    return;
+  }
+
+  showLoading('検索中...');
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        displayReportPatientList(result.data);
+      } else {
+        showNotification('検索エラー: ' + (result.error || ''), 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      showNotification('検索エラー: ' + error.message, 'error');
+    })
+    .portalSearchPatientsForReport(searchText);
+}
+
+/**
+ * 帳票出力用: 検索結果をチェックボックス付きリストで表示
+ */
+function displayReportPatientList(patients) {
+  const container = document.getElementById('reportPatientList');
+
+  if (!patients || patients.length === 0) {
+    container.innerHTML = '<p style="color: #999;">検索結果がありません</p>';
+    return;
+  }
+
+  let html = '<table class="data-table" style="width: 100%;">';
+  html += '<thead><tr>';
+  html += '<th style="width: 40px;"><input type="checkbox" id="reportSelectAll" onchange="toggleReportSelectAll()"></th>';
+  html += '<th>カルテNo</th>';
+  html += '<th>氏名</th>';
+  html += '<th>カナ</th>';
+  html += '<th>受診日</th>';
+  html += '<th>ステータス</th>';
+  html += '</tr></thead><tbody>';
+
+  patients.forEach(function(p) {
+    const patientId = p['受診者ID'] || p.patientId || '';
+    const karteNo = p['カルテNo'] || p.karteNo || '';
+    const name = p['氏名'] || p.name || '';
+    const kana = p['カナ'] || p.kana || '';
+    const visitDate = p['受診日'] || p.visitDate || '';
+    const status = p['ステータス'] || p.status || '';
+
+    html += '<tr>';
+    html += '<td><input type="checkbox" class="report-patient-checkbox" value="' + patientId + '" data-karte="' + karteNo + '" data-name="' + name + '" onchange="updateReportSelectedCount()"></td>';
+    html += '<td>' + karteNo + '</td>';
+    html += '<td>' + name + '</td>';
+    html += '<td>' + kana + '</td>';
+    html += '<td>' + visitDate + '</td>';
+    html += '<td>' + status + '</td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  container.innerHTML = html;
+
+  updateReportSelectedCount();
+}
+
+/**
+ * 全選択/全解除トグル
+ */
+function toggleReportSelectAll() {
+  const selectAll = document.getElementById('reportSelectAll');
+  const checkboxes = document.querySelectorAll('.report-patient-checkbox');
+  checkboxes.forEach(function(cb) {
+    cb.checked = selectAll.checked;
+  });
+  updateReportSelectedCount();
+}
+
+/**
+ * 選択件数を更新
+ */
+function updateReportSelectedCount() {
+  const checkboxes = document.querySelectorAll('.report-patient-checkbox:checked');
+  document.getElementById('reportSelectedCount').textContent = checkboxes.length;
+}
+
+/**
+ * 選択をクリア
+ */
+function clearReportSelection() {
+  const checkboxes = document.querySelectorAll('.report-patient-checkbox');
+  checkboxes.forEach(function(cb) {
+    cb.checked = false;
+  });
+  const selectAll = document.getElementById('reportSelectAll');
+  if (selectAll) selectAll.checked = false;
+  updateReportSelectedCount();
+  document.getElementById('reportSearchInput').value = '';
+}
+
 function generateReport() {
   const reportType = document.getElementById('reportType').value;
   const reportTarget = document.getElementById('reportTarget').value;
@@ -1779,16 +1901,29 @@ function exportIndividualReports(patientIds) {
 }
 
 /**
- * 単一レポート結果を表示
+ * 単一レポート結果を表示（自動ポーリング対応版）
  */
 function handleReportResult(results, container) {
   let html = '<h4>出力結果</h4><ul class="report-result-list">';
 
   results.forEach(result => {
     if (result.success) {
-      html += '<li class="success">';
+      html += '<li class="success" id="result-item-' + (result.requestId || result.patientId) + '">';
       html += '<span>✅ ' + (result.patientName || result.patientId) + '</span>';
-      html += '<a href="' + result.fileUrl + '" target="_blank" class="btn btn-sm btn-primary">ダウンロード</a>';
+
+      // Python処理待ちの場合 → 自動ポーリング開始
+      if (result.pending && result.requestId) {
+        html += '<span id="polling-status-' + result.requestId + '" style="margin-left:8px;">';
+        html += '<span class="badge badge-warning">⏳ 処理中...</span>';
+        html += '<span class="polling-progress" style="margin-left:5px;color:#666;font-size:12px;"></span>';
+        html += '</span>';
+        html += '<span id="status-' + result.requestId + '" style="margin-left:8px;"></span>';
+        // フォールバック用の手動確認ボタン（非表示、タイムアウト時に表示）
+        html += '<button class="btn btn-sm btn-secondary" id="manual-check-' + result.requestId + '" style="display:none;margin-left:8px;" onclick="checkExportStatus(\'' + result.requestId + '\', this)">手動確認</button>';
+      } else if (result.fileUrl) {
+        // 即座にダウンロード可能
+        html += '<a href="' + result.fileUrl + '" target="_blank" class="btn btn-sm btn-primary">ダウンロード</a>';
+      }
       html += '</li>';
     } else {
       html += '<li class="error">';
@@ -1799,7 +1934,181 @@ function handleReportResult(results, container) {
 
   html += '</ul>';
   container.innerHTML = html;
-  showNotification('出力完了', 'success');
+
+  // 自動ポーリング開始
+  results.forEach(result => {
+    if (result.success && result.pending && result.requestId) {
+      startAutoPolling(result.requestId, result.patientName || result.patientId);
+    }
+  });
+
+  showNotification('出力リクエスト送信 - 自動確認中...', 'info');
+}
+
+/**
+ * 自動ダウンロードを実行
+ * @param {string} fileUrl - Google DriveのファイルURL
+ * @param {string} fileName - ファイル名
+ */
+function triggerAutoDownload(fileUrl, fileName) {
+  // Google DriveのURLをダウンロード用に変換
+  let downloadUrl = fileUrl;
+  if (fileUrl.includes('drive.google.com')) {
+    // ファイルIDを抽出してダウンロードURLに変換
+    const match = fileUrl.match(/\/d\/([^\/]+)/);
+    if (match) {
+      downloadUrl = 'https://drive.google.com/uc?export=download&id=' + match[1];
+    }
+  }
+
+  // 隠しリンクでダウンロード実行
+  const a = document.createElement('a');
+  a.href = downloadUrl;
+  a.download = fileName || 'report.xlsx';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+/**
+ * 自動ポーリングを開始
+ * @param {string} requestId - リクエストID
+ * @param {string} patientName - 患者名（表示用）
+ */
+function startAutoPolling(requestId, patientName) {
+  const POLL_INTERVAL = 3000;  // 3秒間隔
+  const MAX_ATTEMPTS = 20;     // 最大20回（60秒）
+  let attempts = 0;
+
+  const pollingStatusEl = document.getElementById('polling-status-' + requestId);
+  const statusEl = document.getElementById('status-' + requestId);
+  const manualBtn = document.getElementById('manual-check-' + requestId);
+
+  function updateProgress() {
+    const progressEl = pollingStatusEl ? pollingStatusEl.querySelector('.polling-progress') : null;
+    if (progressEl) {
+      progressEl.textContent = '(' + attempts + '/' + MAX_ATTEMPTS + ')';
+    }
+  }
+
+  function poll() {
+    attempts++;
+    updateProgress();
+
+    google.script.run
+      .withSuccessHandler(function(result) {
+        if (result.status === 'completed') {
+          // 完了！
+          clearInterval(pollTimer);
+          if (pollingStatusEl) pollingStatusEl.style.display = 'none';
+
+          if (result.fileUrl) {
+            // 自動ダウンロード実行
+            triggerAutoDownload(result.fileUrl, result.fileName);
+
+            // 完了メッセージ（フォールバック用に再ダウンロードリンクも表示）
+            statusEl.innerHTML = '<span class="text-success">✅ ダウンロード開始しました</span>' +
+              '<a href="' + result.fileUrl + '" target="_blank" class="btn btn-sm btn-link" style="margin-left:8px;">再ダウンロード</a>';
+            showNotification('✅ ' + patientName + ' ダウンロード開始', 'success');
+          } else if (result.fileName) {
+            // fileUrlがない場合（Google Driveで確認が必要）
+            statusEl.innerHTML = '<span class="text-success">✅ ' + result.fileName + ' 出力完了</span><br>' +
+              '<small class="text-muted">Google Driveで確認できます</small>';
+            showNotification('✅ ファイル出力完了', 'success');
+          } else {
+            statusEl.innerHTML = '<span class="text-success">✅ 出力完了</span>';
+          }
+        } else if (result.status === 'error') {
+          // エラー
+          clearInterval(pollTimer);
+          if (pollingStatusEl) pollingStatusEl.innerHTML = '<span class="badge badge-danger">エラー</span>';
+          statusEl.innerHTML = '<span class="text-danger">❌ ' + result.error + '</span>';
+          if (manualBtn) manualBtn.style.display = 'inline-block';
+          showNotification('❌ エラー: ' + result.error, 'error');
+        } else {
+          // まだ処理中
+          if (attempts >= MAX_ATTEMPTS) {
+            // タイムアウト
+            clearInterval(pollTimer);
+            if (pollingStatusEl) pollingStatusEl.innerHTML = '<span class="badge badge-secondary">タイムアウト</span>';
+            statusEl.innerHTML = '<span class="text-warning">⏳ 処理に時間がかかっています</span>';
+            if (manualBtn) manualBtn.style.display = 'inline-block';
+            showNotification('⏳ タイムアウト - 手動確認してください', 'warning');
+          }
+        }
+      })
+      .withFailureHandler(function(error) {
+        // エラー時もポーリング継続（ネットワーク一時障害など）
+        console.log('Polling error:', error);
+        if (attempts >= MAX_ATTEMPTS) {
+          clearInterval(pollTimer);
+          if (pollingStatusEl) pollingStatusEl.innerHTML = '<span class="badge badge-secondary">確認失敗</span>';
+          if (manualBtn) manualBtn.style.display = 'inline-block';
+        }
+      })
+      .portalCheckExportStatus(requestId);
+  }
+
+  // 最初のポーリングは2秒後（Python処理開始を待つ）
+  setTimeout(function() {
+    poll();
+  }, 2000);
+
+  // その後は3秒間隔
+  const pollTimer = setInterval(function() {
+    if (attempts >= MAX_ATTEMPTS) {
+      clearInterval(pollTimer);
+      return;
+    }
+    poll();
+  }, POLL_INTERVAL);
+}
+
+/**
+ * 出力ステータスを確認
+ */
+function checkExportStatus(requestId, button) {
+  button.disabled = true;
+  button.textContent = '確認中...';
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      const statusSpan = document.getElementById('status-' + requestId);
+      button.disabled = false;
+      button.textContent = '状態確認';
+
+      if (result.status === 'completed') {
+        if (result.fileUrl) {
+          // 完了 - ダウンロードリンクを表示
+          statusSpan.innerHTML = '<a href="' + result.fileUrl + '" target="_blank" class="btn btn-sm btn-success">📥 ダウンロード</a>';
+          button.style.display = 'none';
+          showNotification('Excel出力完了！', 'success');
+        } else if (result.fileName) {
+          // ファイル出力完了だがDrive同期待ち
+          statusSpan.innerHTML = '<span class="text-info">✅ ' + result.fileName + ' 出力完了</span><br>' +
+            '<small class="text-muted">' + (result.message || 'Google Driveでファイルを確認してください') + '</small>';
+          button.textContent = '再確認';
+          showNotification('ファイル出力完了。Driveで確認できます。', 'success');
+        } else {
+          statusSpan.innerHTML = '<span class="text-success">✅ 出力完了</span>';
+          button.style.display = 'none';
+        }
+      } else if (result.status === 'error') {
+        statusSpan.innerHTML = '<span class="text-danger">❌ エラー: ' + result.error + '</span>';
+        showNotification('エラー: ' + result.error, 'error');
+      } else if (result.status === 'pending') {
+        statusSpan.innerHTML = '<span class="text-warning">⏳ ' + (result.message || 'Python処理待ち') + '</span>';
+      } else {
+        statusSpan.innerHTML = '<span class="text-warning">⏳ 処理中...しばらくお待ちください</span>';
+      }
+    })
+    .withFailureHandler(function(error) {
+      button.disabled = false;
+      button.textContent = '状態確認';
+      showNotification('確認エラー: ' + error.message, 'error');
+    })
+    .portalCheckExportStatus(requestId);
 }
 
 /**

@@ -8,6 +8,7 @@
 | 日付 | セッション | 変更内容 |
 |------|------------|----------|
 | 2024-12-26 | - | 初版作成（テンプレート） |
+| 2024-12-28 | - | DP-001 クロスプラットフォーム対応方針を追加 |
 
 ---
 
@@ -23,23 +24,76 @@
 
 ## 🏗️ 設計方針
 
-### [方針ID: DP-001] BMLコード標準化方針
-**登録日**: YYYY-MM-DD
-**関連機能**: csv_import, excel_output, assessment, master_management
-**参照セッション**: （該当するai-guideのセッション番号を記載）
+### [方針ID: DP-001] クロスプラットフォーム対応方針
+**登録日**: 2024-12-28
+**関連機能**: python/main.py, python/unified_transcriber.py, python/drive_watcher.py, excel_output
+**参照セッション**: -
 
 **方針**:
-（内容を記載）
+開発環境（macOS）と使用環境（Windows）の両方で動作するよう、パス設定をプレースホルダー方式で管理する。
 
 **背景・理由**:
-（なぜこの方針を採用したか）
+- 開発は macOS で行い、実運用は Windows で行うケースがある
+- Google Drive for Desktop のパスは OS によって異なる
+  - macOS: `/Users/{user}/Library/CloudStorage/GoogleDrive-{email}/マイドライブ/...`
+  - Windows: `G:\マイドライブ\...` または `C:\Users\{user}\Google Drive\マイドライブ\...`
+- ハードコードされたパスは他の環境で動作しない
 
 **適用ルール**:
-- （具体的なルール1）
-- （具体的なルール2）
+1. **パスのハードコード禁止**: Python コード内に絶対パスを直接記述しない
+2. **プレースホルダー使用**: `settings_template.yaml` で `${GOOGLE_DRIVE_BASE}` を使用
+3. **セットアップスクリプトで置換**: 各環境で `setup.sh` (macOS) / `setup.ps1` (Windows) を実行
+4. **設定ファイル参照**: コードは `settings.yaml` からパスを読み込む
+
+**仕組み**:
+```
+settings_template.yaml          設定テンプレート（プレースホルダー使用）
+    │
+    ├─ setup.sh (macOS)    ──→  settings.yaml (macOS用パス)
+    │
+    └─ setup.ps1 (Windows) ──→  settings.yaml (Windows用パス)
+```
+
+**プレースホルダー例**:
+```yaml
+# settings_template.yaml
+HUMAN_DOCK:
+  template_path: ${GOOGLE_DRIVE_BASE}/50_健診結果入力/05_development/templates/...
+```
+
+**生成結果 (macOS)**:
+```yaml
+# settings.yaml
+HUMAN_DOCK:
+  template_path: /Users/hytenhd_mac/Library/CloudStorage/GoogleDrive-.../マイドライブ/50_健診結果入力/...
+```
+
+**生成結果 (Windows)**:
+```yaml
+# settings.yaml
+HUMAN_DOCK:
+  template_path: G:\マイドライブ\50_健診結果入力\...
+```
+
+**コードでの読み込み**:
+```python
+# unified_transcriber.py
+config = self.settings.get('exam_types', {}).get('HUMAN_DOCK', {})
+self.template_path = Path(config.get('template_path', ''))
+```
 
 **例外**:
-- （例外がある場合は記載）
+- `RosaiTranscriber` は現在ハードコードが残存（スコープ外のため未対応）
+- 将来的に同じ方式に統一予定
+
+**対応状況**:
+| コンポーネント | 対応状況 |
+|----------------|----------|
+| `HumanDockTranscriber` | ✅ 対応済み |
+| `RosaiTranscriber` | ❌ 未対応（スコープ外） |
+| `settings_template.yaml` | ✅ プレースホルダー設定済み |
+| `setup.sh` (macOS) | ✅ 作成済み |
+| `setup.ps1` (Windows) | ✅ 作成済み |
 
 ---
 
@@ -108,7 +162,7 @@
 
 | ID | タイトル | 関連機能数 | 登録日 |
 |----|----------|------------|--------|
-| DP-001 | BMLコード標準化方針 | 4 | YYYY-MM-DD |
+| DP-001 | クロスプラットフォーム対応方針 | 4 | 2024-12-28 |
 | （追加時に更新） | | | |
 
 ---

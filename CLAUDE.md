@@ -59,8 +59,11 @@ clasp deploy --description "変更内容の説明"
 ```
 05_development/
 ├── CLAUDE.md            # このファイル（プロジェクトルール）
-├── docs/                # 横断的ドキュメント
-│   └── cross-cutting-concerns.md  # 横断的ナレッジ
+├── docs/                # ドキュメント
+│   ├── ARCHITECTURE.md       # ★ アーキテクチャ設計書（統合版）
+│   ├── FUNCTION_INVENTORY.md # ★ 機能棚卸し表（移植判定）
+│   ├── cross-cutting-concerns.md  # 横断的ナレッジ
+│   └── archive/              # 旧設計書（参照のみ）
 ├── gas/                 # ★ GASソースコード（この中だけ編集）
 │   ├── .clasp.json      # clasp設定（Script ID）
 │   ├── appsscript.json  # GAS設定
@@ -75,7 +78,7 @@ clasp deploy --description "変更内容の説明"
 │   └── ...
 ├── python/              # Python補助スクリプト
 └── 設計書_設定ファイル/  # 設計書・設定ファイル
-    ├── 1220_new/        # 最新設計書v2
+    ├── 1220_new/        # ★ 最新設計書v2（DATA_STRUCTURE_DESIGN_v2.md）
     ├── id-heart/        # iD-Heart参考資料
     ├── session/         # 機能別ナレッジ格納
     │   ├── excel_output/
@@ -86,6 +89,26 @@ clasp deploy --description "変更内容の説明"
     │       └── ai-guide.md
     └── *.json           # マッピング設定
 ```
+
+---
+
+## 📚 ドキュメント参照ルール
+
+### 正式ドキュメント（必ず参照）
+
+| ファイル | 役割 | 参照タイミング |
+|----------|------|----------------|
+| CLAUDE.md | プロジェクトルール | セッション開始時 |
+| docs/ARCHITECTURE.md | アーキテクチャ全体像 | 設計判断時 |
+| docs/FUNCTION_INVENTORY.md | 機能一覧・移植判定 | 機能実装時 |
+| 設計書_設定ファイル/1220_new/DATA_STRUCTURE_DESIGN_v2.md | データ構造定義 | DB操作時 |
+
+### アーカイブ（参照のみ・編集禁止）
+
+`docs/archive/` 配下のファイルは旧設計書です。
+- 新規実装の参考として参照可能
+- 編集・更新は禁止
+- 正式版との矛盾がある場合は正式版を優先
 
 ---
 
